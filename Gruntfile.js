@@ -4,7 +4,7 @@ module.exports = function(grunt) {
 
   grunt.initConfig({
 
-    srcFiles: ["src/**/*.purs"],
+    srcFiles: ["src/**/*.purs", "bower_components/**/src/**/*.purs"],
 
     psc: {
       options: {
