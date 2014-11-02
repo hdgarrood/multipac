@@ -2,6 +2,8 @@ module LevelMap where
 
 import Types
 import Math (floor)
+import Data.Array (map, reverse)
+import Utils
 
 -- A fixed size two-dimensional array of blocks.
 type Tile = [[Block]]
@@ -47,9 +49,11 @@ teeJunctionUp =
         [centralRow] <>
         replicate halfTile lowerRow
 
-teeJunctionRight, teeJunctionDown, teeJunctionLeft :: Tile
+teeJunctionRight :: Tile
 teeJunctionRight = rotateCW teeJunctionUp
+teeJunctionDown :: Tile
 teeJunctionDown  = rotateCW teeJunctionRight
+teeJunctionLeft :: Tile
 teeJunctionLeft  = rotateCW teeJunctionDown
 
 uprightCorner :: Tile
@@ -58,10 +62,12 @@ uprightCorner =
         centralRow = replicate halfTile Wall <> replicate (halfTile + 1) Empty
     in mirror normalRow centralRow
 
-downrightCorner, downleftCorner, upleftCorner :: Tile
+downrightCorner :: Tile
 downrightCorner = rotateCW uprightCorner
-downleftCorner  = rotateCW downrightCorner
-upleftCorner    = rotateCW downleftCorner
+downleftCorner :: Tile
+downleftCorner = rotateCW downrightCorner
+upleftCorner :: Tile
+upleftCorner = rotateCW downleftCorner
 
 basicMap :: [[Tile]]
 basicMap =

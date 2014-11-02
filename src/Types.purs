@@ -11,7 +11,7 @@ data Direction = Up | Down | Left | Right
 data Colour = Red | Pink | Cyan | Orange
 data GhostState = Normal | Vulnerable | Recovering
 
-type Position = Tuple Int Int
+type Position = Tuple Number Number
 data Item = Item ItemType Position 
 data Ghost = Ghost GhostState Colour Position Direction
 data Player = Player Position Direction
