@@ -15,6 +15,7 @@
   ],
   "dependencies": {
     "purescript-arrays": "~0.2.1",
-    "purescript-math": "~0.1.0"
+    "purescript-math": "~0.1.0",
+    "purescript-tuples": "~0.2.1"
   }
 }
