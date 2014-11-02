@@ -1,8 +1,6 @@
-module Multipac where
+module Types where
 
 import Data.Tuple
-import Data.Array
-import Math (round, floor)
 
 data Game = Game LevelMap [Item] [Ghost] Player 
 data LevelMap = LevelMap [[Block]]
@@ -17,4 +15,3 @@ type Position = Tuple Int Int
 data Item = Item ItemType Position 
 data Ghost = Ghost GhostState Colour Position Direction
 data Player = Player Position Direction
-

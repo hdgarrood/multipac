@@ -8,8 +8,8 @@ module.exports = function(grunt) {
 
     psc: {
       options: {
-        main: "Chapter2",
-        modules: ["Chapter2"]
+        main: "Multipac",
+        modules: ["Multipac", "LevelMap"]
       },
       all: {
         src: ["<%=srcFiles%>"],

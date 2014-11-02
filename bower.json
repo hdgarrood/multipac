@@ -5,5 +5,16 @@
     "Harry Garrood <harry@garrood.me>"
   ],
   "license": "MIT",
-  "private": true
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "purescript-arrays": "~0.2.1",
+    "purescript-math": "~0.1.0"
+  }
 }
