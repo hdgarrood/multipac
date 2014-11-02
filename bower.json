@@ -1,0 +1,9 @@
+{
+  "name": "multipac",
+  "version": "0.0.0",
+  "authors": [
+    "Harry Garrood <harry@garrood.me>"
+  ],
+  "license": "MIT",
+  "private": true
+}
