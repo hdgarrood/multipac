@@ -9,10 +9,10 @@ import Utils
 type Tile = [[Block]]
 
 rotateCW :: Tile -> Tile
-rotateCW = map reverse . transpose
+rotateCW = transpose >>> map reverse
 
 concatTiles :: [[Tile]] -> [[Block]]
-concatTiles = 
+concatTiles _ = []
 
 -- The number of blocks along one side of a tile in the level map. This allows
 -- a simpler model, since any given object may exist in only one block.
@@ -31,8 +31,10 @@ tilesAlongSide = 20
 mapSize :: Number
 mapSize = tileSize * tilesAlongSide
 
-mirror :: a -> a -> [[a]]
-mirror x y = replicate halfTile x <> [y] <> replicate halfTile x
+mirror :: forall a. a -> a -> [a]
+mirror x y =
+    let xs = replicate halfTile x
+    in xs <> [y] <> xs
 
 intersection :: Tile
 intersection =

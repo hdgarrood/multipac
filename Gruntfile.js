@@ -5,6 +5,7 @@ module.exports = function(grunt) {
   grunt.initConfig({
 
     srcFiles: ["src/**/*.purs", "bower_components/**/src/**/*.purs"],
+    dotPsci: ["<%=srcFiles>"],
 
     psc: {
       options: {
@@ -20,5 +21,5 @@ module.exports = function(grunt) {
 
   grunt.loadNpmTasks("grunt-purescript");
   
-  grunt.registerTask("default", ["psc:all"]);
+  grunt.registerTask("default", ["psc:all", "dotPsci"]);
 };
