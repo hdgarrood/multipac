@@ -19,7 +19,6 @@
     "purescript-tuples": "~0.2.1",
     "purescript-foldable-traversable": "~0.1.4",
     "purescript-express": "~0.1.4",
-    "purescript-easy-ffi": "~1.0.1",
-    "purescript-foreign": "~0.2.0"
+    "purescript-easy-ffi": "~1.0.1"
   }
 }
