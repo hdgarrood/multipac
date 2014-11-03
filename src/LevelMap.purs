@@ -2,7 +2,10 @@ module LevelMap where
 
 import Types
 import Math (floor)
-import Data.Array (map, reverse)
+import Data.Array (map, reverse, (!!), (..), concatMap, concat)
+import Data.Maybe
+import Data.Traversable (sequence)
+import Data.Foldable (mconcat)
 import Utils
 
 -- A fixed size two-dimensional array of blocks.
@@ -11,8 +14,18 @@ type Tile = [[Block]]
 rotateCW :: Tile -> Tile
 rotateCW = transpose >>> map reverse
 
-concatTiles :: [[Tile]] -> [[Block]]
-concatTiles _ = []
+getRow :: Number -> Tile -> Maybe [Block]
+getRow n t = t !! n
+
+concatTiles :: [[Tile]] -> Maybe [[Block]]
+concatTiles = map concatTileRow >>> sequence >>> fmap concat
+
+concatTileRow :: [Tile] -> Maybe [[Block]]
+concatTileRow ts =
+    let range = 0 .. tileSize - 1
+        getRowComponents n = map (getRow n) ts
+        maybes = map (getRowComponents >>> mconcat) range
+    in  sequence maybes
 
 -- The number of blocks along one side of a tile in the level map. This allows
 -- a simpler model, since any given object may exist in only one block.
