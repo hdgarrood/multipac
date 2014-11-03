@@ -9,8 +9,9 @@ import Node.Express.App
 import Node.Express.Handler
 
 app :: App
-app =
+app = do
     get "/" (sendFile "html/index.html")
+    get "/js/client.js" (sendFile "js/client.js")
 
 main = do
     port <- unsafeForeignFunction [""] "process.env.PORT || 8080"
