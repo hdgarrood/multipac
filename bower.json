@@ -17,6 +17,7 @@
     "purescript-arrays": "~0.2.1",
     "purescript-math": "~0.1.0",
     "purescript-tuples": "~0.2.1",
-    "purescript-foldable-traversable": "~0.1.4"
+    "purescript-foldable-traversable": "~0.1.4",
+    "purescript-express": "~0.1.4"
   }
 }
