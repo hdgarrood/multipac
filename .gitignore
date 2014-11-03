@@ -3,3 +3,5 @@ bower_components/
 .psci_modules/
 .psci
 dist/
+bin
+js

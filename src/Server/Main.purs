@@ -12,7 +12,6 @@ app :: App
 app =
     get "/" (sendFile "html/index.html")
 
-
 main = do
     port <- unsafeForeignFunction [""] "process.env.PORT || 8080"
     listen app port \_ ->
