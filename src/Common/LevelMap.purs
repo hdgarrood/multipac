@@ -87,8 +87,8 @@ downleftCorner = rotateCW downrightCorner
 upleftCorner :: Tile
 upleftCorner = rotateCW downleftCorner
 
-basicMap :: [[Tile]]
-basicMap =
+basicTileMap :: [[Tile]]
+basicTileMap =
     let n = tilesAlongSide - 2
         topRow =
             [downrightCorner] <>
@@ -103,3 +103,8 @@ basicMap =
                 replicate n teeJunctionUp <>
                 [upleftCorner]
     in [topRow] <> replicate n centralRow <> [bottomRow]
+
+basicMap :: LevelMap
+basicMap = case concatTiles basicTileMap of
+    Just x  -> LevelMap x
+    Nothing -> LevelMap [[]]

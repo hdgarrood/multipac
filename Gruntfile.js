@@ -3,7 +3,8 @@ module.exports = function(grunt) {
 
   var commonFiles = [
     "src/Common/**/*.purs",
-    "bower_components/**/src/**/*.purs"
+    "bower_components/**/src/**/*.purs",
+    "vendor/**/src/**/*.purs"
   ];
   var serverFiles = commonFiles.concat("src/Server/*.purs");
   var clientFiles = commonFiles.concat("src/Client/*.purs");
