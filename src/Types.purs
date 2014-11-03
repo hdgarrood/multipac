@@ -15,3 +15,7 @@ type Position = Tuple Number Number
 data Item = Item ItemType Position 
 data Ghost = Ghost GhostState Colour Position Direction
 data Player = Player Position Direction
+
+instance showBlock :: Show Block where
+    show Wall = "#"
+    show Empty = " "

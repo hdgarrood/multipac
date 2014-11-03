@@ -31,14 +31,14 @@ concatTileRow ts =
 -- a simpler model, since any given object may exist in only one block.
 -- Should be an odd number, since any tile should have one central block.
 tileSize :: Number
-tileSize = 15
+tileSize = 5
 
 halfTile :: Number
 halfTile = floor (tileSize / 2)
 
 -- the number of tiles along one side of a level map.
 tilesAlongSide :: Number
-tilesAlongSide = 20
+tilesAlongSide = 5
 
 -- the height or width in a level, in blocks.
 mapSize :: Number
@@ -73,9 +73,12 @@ teeJunctionLeft  = rotateCW teeJunctionDown
 
 uprightCorner :: Tile
 uprightCorner =
-    let normalRow = mirror Wall Empty
+    let upperRow = mirror Wall Empty
         centralRow = replicate halfTile Wall <> replicate (halfTile + 1) Empty
-    in mirror normalRow centralRow
+        lowerRow = replicate tileSize Wall
+    in  replicate halfTile upperRow <>
+            [centralRow] <>
+            replicate halfTile lowerRow
 
 downrightCorner :: Tile
 downrightCorner = rotateCW uprightCorner
