@@ -5,7 +5,8 @@
   "main": "Gruntfile.js",
   "dependencies": {
     "grunt": "~0.4.5",
-    "grunt-purescript": "~0.5.2"
+    "grunt-purescript": "~0.5.2",
+    "express": "4.x"
   },
   "devDependencies": {},
   "scripts": {
