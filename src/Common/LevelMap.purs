@@ -31,14 +31,14 @@ concatTileRow ts =
 -- a simpler model, since any given object may exist in only one block.
 -- Should be an odd number, since any tile should have one central block.
 tileSize :: Number
-tileSize = 5
+tileSize = 15
 
 halfTile :: Number
 halfTile = floor (tileSize / 2)
 
 -- the number of tiles along one side of a level map.
 tilesAlongSide :: Number
-tilesAlongSide = 5
+tilesAlongSide = 15 
 
 -- the height or width in a level, in blocks.
 mapSize :: Number

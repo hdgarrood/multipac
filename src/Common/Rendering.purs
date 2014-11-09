@@ -46,7 +46,7 @@ renderBlock b =
     Empty -> go "empty"
   where
   go extraClass = do
-    e <- createElement "span"
+    e <- createElement "div"
     classAdd "block" e
     classAdd extraClass e
     return e

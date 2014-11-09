@@ -1,7 +1,27 @@
 <!doctype html>
 <html>
 <head>
-<script src="/js/client.js"></script>
+<script src="/js/client.js" defer></script>
+<style type="text/css">
+  .row {
+    height: 3px;
+    clear: both;
+  }
+
+  .block {
+    width: 3px;
+    height: 3px;
+    float: left;
+  }
+
+  .block.wall {
+    background: #000;
+  }
+
+  .block.empty {
+    background: #ccc;
+  }
+</style>
 </head>
 <body>
 <div id="multipac">
