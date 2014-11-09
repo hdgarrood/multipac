@@ -12,7 +12,7 @@ import Types
 import Utils
 
 pxPerBlock :: Number
-pxPerBlock = 2
+pxPerBlock = 3
 
 -- the height and width of the canvas
 canvasSize :: Number
