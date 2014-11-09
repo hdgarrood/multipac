@@ -8,3 +8,4 @@ import Rendering
 main = do
   ctx <- setupRendering
   renderBackground ctx
+  renderMap ctx LevelMap.basicMap

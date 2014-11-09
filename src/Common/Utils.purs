@@ -3,6 +3,8 @@ module Utils where
 import Data.Maybe
 import Data.Array
 import Data.Traversable (sequence)
+import Data.Foldable (for_)
+import Prelude.Unsafe (unsafeIndex)
 
 replicate :: forall a. Number -> a -> [a]
 replicate n x =
@@ -24,3 +26,9 @@ collectMaybes = map sequence >>> sequence
 
 fmap :: forall f a b. (Functor f) => (a -> b) -> f a -> f b
 fmap = (<$>)
+
+eachWithIndex_ :: forall a b m. (Applicative m) =>
+  [a] -> (a -> Number -> m b) -> m Unit
+eachWithIndex_ as f =
+  for_ (0 .. length as - 1) $ \n ->
+    f (unsafeIndex as n) n

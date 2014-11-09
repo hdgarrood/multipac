@@ -1,13 +1,15 @@
 module Rendering where
 
-import Data.Traversable
+import Data.Array
+import Data.Maybe
+import Data.Foldable
 import Graphics.Canvas
 import Control.Monad.Eff
 
 import ExtraDom
 import LevelMap
 import Types
-
+import Utils
 
 pxPerBlock :: Number
 pxPerBlock = 2
@@ -23,21 +25,38 @@ setupRendering = do
         >>= setCanvasWidth canvasSize
   getContext2D c
 
--- -- render a row at the given y-coordinate on the canvas
--- renderRow :: forall e.
---   Context2D
---   -> [Block]
---   -> Number
---   -> Eff (canvas :: Canvas | e) Unit
--- renderRow ctx row x =
-
-
 renderBackground :: forall e.
   Context2D -> Eff (canvas :: Canvas | e) Context2D
 renderBackground ctx =
   let r = {x: 0, y: 0, h: canvasSize, w: canvasSize}
   in fillRect ctx r
 
+-- render a row at the given y-coordinate on the canvas
+renderRow :: forall e.
+  Context2D
+  -> [Block]
+  -> Number
+  -> Eff (canvas :: Canvas | e) Unit
+renderRow ctx blocks y =
+  eachWithIndex_ blocks $ \block n ->
+    case block of
+      Empty -> void $ fillRect ctx $ getRect n
+      Wall -> return unit
+  where
+  getRect n = {x: n * pxPerBlock, y: y, h: pxPerBlock, w: pxPerBlock}
+
+renderMap :: forall e.
+  Context2D
+  -> LevelMap
+  -> Eff (canvas :: Canvas | e) Unit
+renderMap ctx map =
+  withContext ctx go
+  where
+  go = do
+    setFillStyle "gray" ctx
+    eachWithIndex_ (getBlocks map) $ \row n -> do
+      renderRow ctx row (n * pxPerBlock)
+      return unit
 
 ---
 

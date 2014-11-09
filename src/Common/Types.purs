@@ -5,6 +5,9 @@ import Data.Tuple
 data Game = Game LevelMap [Item] [Ghost] Player
 data LevelMap = LevelMap [[Block]]
 
+getBlocks :: LevelMap -> [[Block]]
+getBlocks (LevelMap bs) = bs
+
 data Block = Wall | Empty
 data ItemType = LittleDot | BigDot | Cherry
 data Direction = Up | Down | Left | Right
