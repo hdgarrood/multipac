@@ -32,3 +32,6 @@ eachWithIndex_ :: forall a b m. (Applicative m) =>
 eachWithIndex_ as f =
   for_ (0 .. length as - 1) $ \n ->
     f (unsafeIndex as n) n
+
+whenJust :: forall a f. (Applicative f) => Maybe a -> (a -> f Unit) -> f Unit
+whenJust mx f = maybe (pure unit) f mx

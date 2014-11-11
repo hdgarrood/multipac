@@ -106,5 +106,11 @@ basicTileMap =
 
 basicMap :: LevelMap
 basicMap = case concatTiles basicTileMap of
-    Just x  -> LevelMap x
-    Nothing -> LevelMap [[]]
+    Just x  -> {blocks: x}
+    Nothing -> {blocks: [[]]}
+
+getBlockAt :: Position -> LevelMap -> Maybe Block
+getBlockAt pos levelmap =
+  case levelmap.blocks !! pos.y of
+    Just row -> row !! pos.x
+    Nothing -> Nothing

@@ -20,6 +20,7 @@
     "purescript-foldable-traversable": "~0.1.4",
     "purescript-express": "~0.1.4",
     "purescript-easy-ffi": "~1.0.1",
-    "purescript-canvas": "~0.1.6"
+    "purescript-canvas": "~0.1.6",
+    "purescript-free": "~0.1.3"
   }
 }

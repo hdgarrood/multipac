@@ -54,7 +54,7 @@ renderMap ctx map =
   where
   go = do
     setFillStyle "gray" ctx
-    eachWithIndex_ (getBlocks map) $ \row n -> do
+    eachWithIndex_ map.blocks $ \row n -> do
       renderRow ctx row (n * pxPerBlock)
       return unit
 

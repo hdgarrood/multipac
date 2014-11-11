@@ -11,3 +11,6 @@
 * :i should only expand to module names, not value names
 * dotPsci in the leanpub book didn't work; no errors reported, but empty .psci
   file. Fixed by having srcFiles as an actual JS variable.
+* Ability to use PSCI if compilation fails, like GHCi + cabal does. External
+  libraries may be used, but not code in your own project that failed to
+  compile.

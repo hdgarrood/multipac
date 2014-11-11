@@ -1,24 +1,58 @@
 module Types where
 
-import Data.Tuple
+import Control.Monad.Free
+import Data.Maybe
 
-data Game = Game LevelMap [Item] [Ghost] Player
-data LevelMap = LevelMap [[Block]]
+type Game = {map :: LevelMap, objects :: [GameObject]}
 
-getBlocks :: LevelMap -> [[Block]]
-getBlocks (LevelMap bs) = bs
-
+type LevelMap = {blocks :: [[Block]]}
 data Block = Wall | Empty
-data ItemType = LittleDot | BigDot | Cherry
+
+type Position = {x :: Number, y :: Number}
+data GameObject = GOPlayer Player | GOItem Item
+
+type Player
+  = { position :: Position
+    , currentDirection :: Maybe Direction
+    , intendedDirection :: Maybe Direction
+    }
+
+type Item
+  = { position :: Position
+    , itemType :: ItemType
+    }
+
 data Direction = Up | Down | Left | Right
-data Colour = Red | Pink | Cyan | Orange
-data GhostState = Normal | Vulnerable | Recovering
+data ItemType = LittleDot | BigDot | Cherry
 
-type Position = Tuple Number Number
-data Item = Item ItemType Position
-data Ghost = Ghost GhostState Colour Position Direction
-data Player = Player Position Direction
+dirToPos :: Direction -> Position
+dirToPos Up    = {x:  0, y: -1}
+dirToPos Left  = {x: -1, y:  0}
+dirToPos Right = {x:  1, y:  0}
+dirToPos Down  = {x:  0, y:  1}
 
-instance showBlock :: Show Block where
-    show Wall = "#"
-    show Empty = " "
+add :: Position -> Position -> Position
+add p q = {x: p.x + q.x, y: p.y + q.y}
+
+data Input = Input (Maybe Direction)
+
+data GameUpdateF next
+  = ChangedDirection (Maybe Direction) next
+  | ChangedIntendedDirection (Maybe Direction) next
+  | ChangedPosition Position next
+
+instance functorGameUpdateF :: Functor GameUpdateF where
+  (<$>) f (ChangedDirection d n) = ChangedDirection d (f n)
+  (<$>) f (ChangedIntendedDirection d n) = ChangedIntendedDirection d (f n)
+  (<$>) f (ChangedPosition p n)  = ChangedPosition p (f n)
+
+type GameUpdate = Free GameUpdateF
+
+changedDirection :: Maybe Direction -> GameUpdate Unit
+changedDirection d = Free (ChangedDirection d (Pure unit))
+
+changedIntendedDirection :: Maybe Direction -> GameUpdate Unit
+changedIntendedDirection d = Free (ChangedIntendedDirection d (Pure unit))
+
+changedPosition :: Position -> GameUpdate Unit
+changedPosition p = Free (ChangedPosition p (Pure unit))
