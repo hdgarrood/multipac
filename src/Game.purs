@@ -19,6 +19,24 @@ handleInput (Input i) =
         tell $ ChangedIntendedDirection (Just newDirection)
       _ -> return unit
 
+doLogic :: GameUpdateM Unit
+doLogic = do
+  game <- askGame
+  case game.objects !! 0 of
+    Just (GOPlayer p) ->
+      do updateDirection p
+         movePlayer p
+    _ -> return unit
+
+updateDirection :: Player -> GameUpdateM Unit
+updateDirection p =
+  whenJust p.intendedDirection $ tryChangeDirection p
+
+movePlayer :: Player -> GameUpdateM Unit
+movePlayer p =
+  whenJust p.direction $ \dir ->
+    tell $ ChangedPosition (moveInDirection dir p.position)
+
 tryChangeDirection :: Player -> Direction -> GameUpdateM Unit
 tryChangeDirection p d = do
   ok <- canMoveInDirection p d

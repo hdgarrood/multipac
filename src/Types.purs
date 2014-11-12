@@ -27,7 +27,7 @@ data GameObject = GOPlayer Player | GOItem Item
 
 type Player
   = { position :: Position
-    , currentDirection :: Maybe Direction
+    , direction :: Maybe Direction
     , intendedDirection :: Maybe Direction
     }
 
