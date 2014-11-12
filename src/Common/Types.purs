@@ -12,11 +12,12 @@ import Control.Monad.State.Class
 
 import Utils
 
-type UGame = {map :: LevelMap, objects :: [GameObject]}
-newtype Game = Game UGame
+-- newtype wrapper is just so that the ReaderT instance works
+type Game = {map :: LevelMap, objects :: [GameObject]}
+newtype WrappedGame = WrappedGame Game
 
-unGame :: Game -> UGame
-unGame (Game g) = g
+unwrapGame :: WrappedGame -> Game
+unwrapGame (WrappedGame g) = g
 
 type LevelMap = {blocks :: [[Block]]}
 data Block = Wall | Empty
@@ -54,13 +55,13 @@ data GameUpdate
   | ChangedIntendedDirection (Maybe Direction)
   | ChangedPosition Position
 
-type GameUpdateM a = ReaderT Game (State [GameUpdate]) a
+type GameUpdateM a = ReaderT WrappedGame (State [GameUpdate]) a
 
 tell :: GameUpdate -> GameUpdateM Unit
 tell gu = modify (unshift gu)
 
-askGame :: GameUpdateM UGame
-askGame = reader unGame
+askGame :: GameUpdateM Game
+askGame = reader unwrapGame
 
 -- runGameUpdateM :: forall a. Game -> GameUpdateM a -> Tuple [GameUpdate] a
 -- runGameUpdateM game action =

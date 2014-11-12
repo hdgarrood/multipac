@@ -15,14 +15,14 @@ module.exports = function(grunt) {
       src: allFiles
     },
 
-    psc: {
+    pscMake: {
       server: {
         options: {
           main: "Server",
           modules: ["Server"]
         },
         src: serverFiles,
-        dest: "bin/server.js",
+        //dest: "bin/server.js",
       },
       client: {
         options: {
@@ -30,7 +30,7 @@ module.exports = function(grunt) {
           modules: ["Client"]
         },
         src: clientFiles,
-        dest: "js/client.js",
+        //dest: "js/client.js",
       }
     },
 
@@ -42,7 +42,7 @@ module.exports = function(grunt) {
   });
 
   grunt.loadNpmTasks("grunt-purescript");
-  grunt.registerTask("make", ["psc:client", "psc:server", "dotPsci"]);
+  grunt.registerTask("make", ["pscMake:client", "pscMake:server", "dotPsci"]);
   grunt.registerTask("run", ["make", "execute:server"]);
   grunt.registerTask("default", ["make"]);
 };

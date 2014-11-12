@@ -5,3 +5,4 @@ bower_components/
 dist/
 bin
 js
+output/

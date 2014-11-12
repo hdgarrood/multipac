@@ -12,20 +12,12 @@ import Utils
 
 handleInput :: Input -> GameUpdateM Unit
 handleInput (Input i) =
-  whenJust i go
-
-
-go :: Direction -> GameUpdateM Unit
-go newDirection = do
-  game <- askGame
-  case game.objects !! 0 of
-    Just (GOPlayer p) ->
-      tell $ ChangedIntendedDirection (Just newDirection)
-    _ -> return unit
-
-stepPlayer :: Player -> GameUpdateM Unit
-stepPlayer p =
-  whenJust p.intendedDirection (tryChangeDirection p)
+  whenJust i $ \newDirection -> do
+    game <- askGame
+    case game.objects !! 0 of
+      Just (GOPlayer p) ->
+        tell $ ChangedIntendedDirection (Just newDirection)
+      _ -> return unit
 
 tryChangeDirection :: Player -> Direction -> GameUpdateM Unit
 tryChangeDirection p d = do
