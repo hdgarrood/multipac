@@ -39,10 +39,6 @@ module.exports = function(grunt) {
       {
         src: ["tmp/client.js"],
         dest: "static/js/game.js"
-      },
-      {
-        src: ["tmp/server.js"],
-        dest: "bin/server.js"
       }
     ]
   });
