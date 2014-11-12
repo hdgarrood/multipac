@@ -63,6 +63,6 @@ tell gu = modify (unshift gu)
 askGame :: GameUpdateM Game
 askGame = reader unwrapGame
 
--- runGameUpdateM :: forall a. Game -> GameUpdateM a -> Tuple [GameUpdate] a
--- runGameUpdateM game action =
---   runState (runReaderT game action) []
+runGameUpdateM :: forall a. Game -> GameUpdateM a -> Tuple a [GameUpdate]
+runGameUpdateM game action =
+  runState (runReaderT action (WrappedGame game)) []
