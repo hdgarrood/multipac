@@ -2,6 +2,7 @@ module Game where
 
 import Data.Maybe
 import Data.Array
+import Data.Foldable
 import Control.Alt
 import Control.Monad
 import Control.Monad.Reader.Class
@@ -10,22 +11,29 @@ import Types
 import LevelMap
 import Utils
 
+stepGame :: Input -> Game -> Game
+stepGame input game =
+  let action = do handleInput input
+                  doLogic
+      updates = execGameUpdateM game action
+  in  applyUpdates game updates
+
 handleInput :: Input -> GameUpdateM Unit
 handleInput (Input i) =
   whenJust i $ \newDirection -> do
-    game <- askGame
-    case game.objects !! 0 of
-      Just (GOPlayer p) ->
-        tell $ ChangedIntendedDirection (Just newDirection)
-      _ -> return unit
+    tell $ ChangedIntendedDirection (Just newDirection)
 
 doLogic :: GameUpdateM Unit
-doLogic = do
+doLogic =
+  withPlayer $ \p -> do
+    updateDirection p
+    movePlayer p
+
+withPlayer :: (Player -> GameUpdateM Unit) -> GameUpdateM Unit
+withPlayer action = do
   game <- askGame
   case game.objects !! 0 of
-    Just (GOPlayer p) ->
-      do updateDirection p
-         movePlayer p
+    Just (GOPlayer p) -> action p
     _ -> return unit
 
 updateDirection :: Player -> GameUpdateM Unit
@@ -61,3 +69,17 @@ isFree levelmap pos =
 isWall :: Block -> Boolean
 isWall Wall = true
 isWall _ = false
+
+applyUpdates :: Game -> [GameUpdate] -> Game
+applyUpdates g us = foldl applyUpdate g us
+
+applyUpdate :: Game -> GameUpdate -> Game
+applyUpdate game update =
+  game { objects = go <$> game.objects }
+  where
+  go (GOPlayer p) =
+    GOPlayer $ case update of
+      ChangedDirection newDir         -> p { direction = newDir }
+      ChangedPosition newPos          -> p { position = newPos }
+      ChangedIntendedDirection newDir -> p { intendedDirection = newDir }
+  go x = x

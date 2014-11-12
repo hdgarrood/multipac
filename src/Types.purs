@@ -66,3 +66,6 @@ askGame = reader unwrapGame
 runGameUpdateM :: forall a. Game -> GameUpdateM a -> Tuple a [GameUpdate]
 runGameUpdateM game action =
   runState (runReaderT action (WrappedGame game)) []
+
+execGameUpdateM :: forall a. Game -> GameUpdateM a -> [GameUpdate]
+execGameUpdateM game action = snd $ runGameUpdateM game action
