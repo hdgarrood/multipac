@@ -35,12 +35,16 @@ module.exports = function(grunt) {
       }
     ],
 
-    browserify: {
-      all: {
+    browserify: [
+      {
         src: ["tmp/client.js"],
-        dest: "app/js/game.js"
+        dest: "static/js/game.js"
+      },
+      {
+        src: ["tmp/server.js"],
+        dest: "bin/server.js"
       }
-    },
+    ]
   });
 
   grunt.loadNpmTasks("grunt-purescript");

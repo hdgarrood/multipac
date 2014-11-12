@@ -2,8 +2,7 @@ node_modules/
 bower_components/
 .psci_modules/
 .psci
-dist/
-bin
-js
+bin/
 output/
-tmp
+tmp/
+static/js/
