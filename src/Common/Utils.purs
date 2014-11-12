@@ -35,3 +35,12 @@ eachWithIndex_ as f =
 
 whenJust :: forall a f. (Applicative f) => Maybe a -> (a -> f Unit) -> f Unit
 whenJust mx f = maybe (pure unit) f mx
+
+foreign import unshift
+  "function unshift(x) { \
+  \  return function(xs) { \
+  \    var ys = xs.slice(); \
+  \    ys.unshift(x); \
+  \    return ys; \
+  \  } \
+  \}" :: forall a. a -> [a] -> [a]

@@ -1,9 +1,22 @@
 module Types where
 
-import Control.Monad.Free
 import Data.Maybe
+import Data.Tuple
+import Data.Array
+import Control.Monad.Free
+import Control.Monad.Reader.Trans
+import Control.Monad.Reader.Class
+import Control.Monad.State
+--import Control.Monad.Trans
+import Control.Monad.State.Class
 
-type Game = {map :: LevelMap, objects :: [GameObject]}
+import Utils
+
+type UGame = {map :: LevelMap, objects :: [GameObject]}
+newtype Game = Game UGame
+
+unGame :: Game -> UGame
+unGame (Game g) = g
 
 type LevelMap = {blocks :: [[Block]]}
 data Block = Wall | Empty
@@ -36,23 +49,19 @@ add p q = {x: p.x + q.x, y: p.y + q.y}
 
 data Input = Input (Maybe Direction)
 
-data GameUpdateF next
-  = ChangedDirection (Maybe Direction) next
-  | ChangedIntendedDirection (Maybe Direction) next
-  | ChangedPosition Position next
+data GameUpdate
+  = ChangedDirection (Maybe Direction)
+  | ChangedIntendedDirection (Maybe Direction)
+  | ChangedPosition Position
 
-instance functorGameUpdateF :: Functor GameUpdateF where
-  (<$>) f (ChangedDirection d n) = ChangedDirection d (f n)
-  (<$>) f (ChangedIntendedDirection d n) = ChangedIntendedDirection d (f n)
-  (<$>) f (ChangedPosition p n)  = ChangedPosition p (f n)
+type GameUpdateM a = ReaderT Game (State [GameUpdate]) a
 
-type GameUpdate = Free GameUpdateF
+tell :: GameUpdate -> GameUpdateM Unit
+tell gu = modify (unshift gu)
 
-changedDirection :: Maybe Direction -> GameUpdate Unit
-changedDirection d = Free (ChangedDirection d (Pure unit))
+askGame :: GameUpdateM UGame
+askGame = reader unGame
 
-changedIntendedDirection :: Maybe Direction -> GameUpdate Unit
-changedIntendedDirection d = Free (ChangedIntendedDirection d (Pure unit))
-
-changedPosition :: Position -> GameUpdate Unit
-changedPosition p = Free (ChangedPosition p (Pure unit))
+-- runGameUpdateM :: forall a. Game -> GameUpdateM a -> Tuple [GameUpdate] a
+-- runGameUpdateM game action =
+--   runState (runReaderT game action) []
