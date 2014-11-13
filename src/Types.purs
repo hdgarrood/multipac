@@ -4,7 +4,6 @@ import Data.Maybe
 import Data.Tuple
 import Data.String
 import Data.Array (map)
-import Control.Monad.Free
 import Control.Monad.Reader.Trans
 import Control.Monad.Reader.Class
 import Control.Monad.State
