@@ -11,6 +11,18 @@ import Types
 import LevelMap
 import Utils
 
+initialGame :: Game
+initialGame =
+  { map: basicMap
+  , objects:
+    [ GOPlayer $ Player
+      { position: Position {x: 7, y: 7}
+      , direction: Nothing
+      , intendedDirection: Nothing
+      }
+    ]
+  }
+
 stepGame :: Input -> Game -> Game
 stepGame input game =
   let action = do handleInput input
@@ -37,11 +49,11 @@ withPlayer action = do
     _ -> return unit
 
 updateDirection :: Player -> GameUpdateM Unit
-updateDirection p =
-  whenJust p.intendedDirection $ tryChangeDirection p
+updateDirection (Player p) =
+  whenJust p.intendedDirection $ tryChangeDirection (Player p)
 
 movePlayer :: Player -> GameUpdateM Unit
-movePlayer p =
+movePlayer (Player p) =
   whenJust p.direction $ \dir ->
     tell $ ChangedPosition (moveInDirection dir p.position)
 
@@ -53,7 +65,7 @@ tryChangeDirection p d = do
     tell $ ChangedIntendedDirection Nothing
 
 canMoveInDirection :: Player -> Direction -> GameUpdateM Boolean
-canMoveInDirection p d =
+canMoveInDirection (Player p) d =
   let newPosition = moveInDirection d p.position
       canMove game = isFree game.map newPosition
   in  canMove <$> askGame
@@ -77,8 +89,8 @@ applyUpdate :: Game -> GameUpdate -> Game
 applyUpdate game update =
   game { objects = go <$> game.objects }
   where
-  go (GOPlayer p) =
-    GOPlayer $ case update of
+  go (GOPlayer (Player p)) =
+    GOPlayer $ Player $ case update of
       ChangedDirection newDir         -> p { direction = newDir }
       ChangedPosition newPos          -> p { position = newPos }
       ChangedIntendedDirection newDir -> p { intendedDirection = newDir }

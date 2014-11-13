@@ -38,7 +38,7 @@ halfTile = floor (tileSize / 2)
 
 -- the number of tiles along one side of a level map.
 tilesAlongSide :: Number
-tilesAlongSide = 15 
+tilesAlongSide = 15
 
 -- the height or width in a level, in blocks.
 mapSize :: Number
@@ -110,7 +110,7 @@ basicMap = case concatTiles basicTileMap of
     Nothing -> {blocks: [[]]}
 
 getBlockAt :: Position -> LevelMap -> Maybe Block
-getBlockAt pos levelmap =
+getBlockAt (Position pos) levelmap =
   case levelmap.blocks !! pos.y of
     Just row -> row !! pos.x
     Nothing -> Nothing
