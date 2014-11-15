@@ -83,6 +83,9 @@ add (Position p) (Position q) = Position {x: p.x + q.x, y: p.y + q.y}
 
 data Input = Input (Maybe Direction)
 
+instance showInput :: Show Input where
+  show (Input x) = "Input (" <> show x <> ")"
+
 data GameUpdate
   = ChangedDirection (Maybe Direction)
   | ChangedIntendedDirection (Maybe Direction)
