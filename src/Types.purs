@@ -49,7 +49,7 @@ newtype Player
 
 instance showPlayer :: Show Player where
   show (Player p) =
-    "(Player {" <> joinWith ", " props <> "})"
+    "Player {" <> joinWith ", " props <> "}"
     where
     props = showPair <$>
               [ Tuple "position" $ show p.position
@@ -87,6 +87,14 @@ data GameUpdate
   = ChangedDirection (Maybe Direction)
   | ChangedIntendedDirection (Maybe Direction)
   | ChangedPosition Position
+
+instance showGameUpdate :: Show GameUpdate where
+  show (ChangedDirection x) =
+    "ChangedDirection (" <> show x <> ")"
+  show (ChangedIntendedDirection x) =
+    "ChangedIntendedDirection (" <> show x <> ")"
+  show (ChangedPosition x) =
+    "ChangedPosition (" <> show x <> ")"
 
 type GameUpdateM a = ReaderT WrappedGame (State [GameUpdate]) a
 

@@ -25,10 +25,9 @@ initialGame =
 
 stepGame :: Input -> Game -> Game
 stepGame input game =
-  let action = do handleInput input
-                  doLogic
-      updates = execGameUpdateM game action
-  in  applyUpdates game updates
+  let actions = [handleInput input, doLogic]
+      go game action = applyUpdates game $ execGameUpdateM game action
+  in foldl go game actions
 
 handleInput :: Input -> GameUpdateM Unit
 handleInput (Input i) =
@@ -44,9 +43,15 @@ doLogic =
 withPlayer :: (Player -> GameUpdateM Unit) -> GameUpdateM Unit
 withPlayer action = do
   game <- askGame
-  case game.objects !! 0 of
-    Just (GOPlayer p) -> action p
+  case getPlayer game of
+    Just p -> action p
     _ -> return unit
+
+getPlayer :: Game -> Maybe Player
+getPlayer g =
+  case g.objects !! 0 of
+    Just (GOPlayer p) -> Just p
+    _ -> Nothing
 
 updateDirection :: Player -> GameUpdateM Unit
 updateDirection (Player p) =

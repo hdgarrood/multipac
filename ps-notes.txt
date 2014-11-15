@@ -14,3 +14,4 @@
 * Ability to use PSCI if compilation fails, like GHCi + cabal does. External
   libraries may be used, but not code in your own project that failed to
   compile.
+* psci doesn't seem to autocomplete data contructors
