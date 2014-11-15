@@ -21,6 +21,10 @@ unwrapGame (WrappedGame g) = g
 type LevelMap = {blocks :: [[Block]]}
 data Block = Wall | Empty
 
+instance showBlock :: Show Block where
+  show Wall = "Wall"
+  show Empty = "Empty"
+
 newtype Position = Position {x :: Number, y :: Number}
 
 showRecord :: String -> [String] -> String

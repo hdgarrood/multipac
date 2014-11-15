@@ -8,6 +8,8 @@ import Data.Traversable (sequence)
 import Data.Foldable (mconcat)
 import Utils
 
+-- TODO: would it be sensible to represent Tiles with a sum type?
+
 -- A fixed size two-dimensional array of blocks.
 type Tile = [[Block]]
 
