@@ -73,10 +73,9 @@ handleInput (Input i) =
     changeIntendedDirection (Just newDirection)
 
 doLogic :: GameUpdateM Unit
-doLogic =
-  withPlayer $ \p -> do
-    updateDirection p
-    movePlayer p
+doLogic = do
+  withPlayer updateDirection
+  withPlayer movePlayer
 
 withPlayer :: (Player -> GameUpdateM Unit) -> GameUpdateM Unit
 withPlayer action = do
