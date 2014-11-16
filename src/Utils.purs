@@ -36,6 +36,9 @@ eachWithIndex_ as f =
 whenJust :: forall a f. (Applicative f) => Maybe a -> (a -> f Unit) -> f Unit
 whenJust mx f = maybe (pure unit) f mx
 
+(>>) :: forall a b m. (Monad m) => m a -> m b -> m b
+(>>) a b = a >>= (\_ -> b)
+
 foreign import unshift
   "function unshift(x) { \
   \  return function(xs) { \
