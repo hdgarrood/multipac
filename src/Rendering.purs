@@ -5,6 +5,8 @@ import Data.Maybe
 import Data.Foldable
 import Graphics.Canvas
 import Control.Monad.Eff
+import Control.Monad (when)
+import Control.Lens ((^.))
 
 import ExtraDom
 import LevelMap
@@ -14,16 +16,22 @@ import Utils
 pxPerBlock :: Number
 pxPerBlock = 3
 
+getRectAt ::
+  Position -> { x :: Number, y :: Number, w :: Number, h :: Number }
+getRectAt (Position p) =
+  {x: p.x * pxPerBlock, y: p.y * pxPerBlock, h: pxPerBlock, w: pxPerBlock}
+
 -- the height and width of the canvas
 canvasSize :: Number
 canvasSize = pxPerBlock * LevelMap.mapSize
 
+-- set up the canvas and return a canvas context
 setupRendering :: forall e. Eff (canvas :: Canvas | e) Context2D
-setupRendering = do
-  c <- getCanvasElementById "canvas"
-        >>= setCanvasHeight canvasSize
-        >>= setCanvasWidth canvasSize
-  getContext2D c
+setupRendering =
+  getCanvasElementById "canvas"
+    >>= setCanvasHeight canvasSize
+    >>= setCanvasWidth canvasSize
+    >>= getContext2D
 
 renderBackground :: forall e.
   Context2D -> Eff (canvas :: Canvas | e) Context2D
@@ -39,11 +47,9 @@ renderRow :: forall e.
   -> Eff (canvas :: Canvas | e) Unit
 renderRow ctx blocks y =
   eachWithIndex_ blocks $ \block n ->
-    case block of
-      Empty -> void $ fillRect ctx $ getRect n
-      Wall -> return unit
+    when (not (isWall block)) $ void (fillRect ctx (getRect n))
   where
-  getRect n = {x: n * pxPerBlock, y: y, h: pxPerBlock, w: pxPerBlock}
+  getRect n = getRectAt (Position {x: n, y: y})
 
 renderMap :: forall e.
   Context2D
@@ -55,48 +61,21 @@ renderMap ctx map =
   go = do
     setFillStyle "gray" ctx
     eachWithIndex_ map.blocks $ \row n -> do
-      renderRow ctx row (n * pxPerBlock)
-      return unit
+      renderRow ctx row n
 
----
+renderPlayer :: forall e.
+  Context2D
+  -> Player
+  -> Eff (canvas :: Canvas | e) Unit
+renderPlayer ctx player =
+  void $ withContext ctx $ do
+    setFillStyle "yellow" ctx
+    fillRect ctx (getRectAt (player ^. position))
 
--- renderElems :: forall e a.
---   (a -> Eff (dom :: DOM | e) HTMLElement) -- rendering action
---   -> [a]                                  -- list of things to render
---   -> HTMLElement                          -- container
---   -> Eff (dom :: DOM | e) HTMLElement
--- renderElems f xs container = do
---   let acts = f <$> xs
---   renderedElems <- sequence acts
---   for_ renderedElems (appendChild container)
---   return container
-
--- renderInDiv :: forall e a.
---   String                                     -- class of container
---   -> (a -> Eff (dom :: DOM | e) HTMLElement) -- rendering action
---   -> [a]                                     -- list of things to render
---   -> Eff (dom :: DOM | e) HTMLElement
--- renderInDiv class_ f xs = do
---   c <- createElement "div"
---   classAdd class_ c
---   renderElems f xs c
-
--- renderMap :: forall e. LevelMap -> Eff (dom :: DOM | e) HTMLElement
--- renderMap (LevelMap blockRows) =
---   renderInDiv "levelmap" renderBlockRow blockRows
-
--- renderBlockRow :: forall e. [Block] -> Eff (dom :: DOM | e) HTMLElement
--- renderBlockRow blocks =
---   renderInDiv "row" renderBlock blocks
-
--- renderBlock :: forall e. Block -> Eff (dom :: DOM | e) HTMLElement
--- renderBlock b =
---   case b of
---     Wall -> go "wall"
---     Empty -> go "empty"
---   where
---   go extraClass = do
---     e <- createElement "div"
---     classAdd "block" e
---     classAdd extraClass e
---     return e
+renderGame :: forall e.
+  Context2D
+  -> Game
+  -> Eff (canvas :: Canvas | e) Unit
+renderGame ctx game = do
+  renderMap ctx game.map
+  renderPlayer ctx $ game ^. player

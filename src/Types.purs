@@ -26,6 +26,10 @@ instance showBlock :: Show Block where
   show Wall = "Wall"
   show Empty = "Empty"
 
+isWall :: Block -> Boolean
+isWall Wall = true
+isWall _ = false
+
 showRecord :: String -> [String] -> String
 showRecord name props =
     "(" <> name <> " {" <> joinWith ", " props <> "})"
@@ -62,6 +66,24 @@ instance showPlayer :: Show Player where
       , "direction" .: p.direction
       , "intendedDirection" .: p.intendedDirection
       ]
+
+player :: forall r a. LensP { player :: a | r } a
+player = lens (\o -> o.player) (\o p -> o { player = p })
+
+position :: LensP Player Position
+position = lens
+  (\(Player p) -> p.position)
+  (\(Player p) pos -> Player $ p { position = pos })
+
+direction :: LensP Player (Maybe Direction)
+direction = lens
+  (\(Player p) -> p.direction)
+  (\(Player p) dir -> Player $ p { direction = dir })
+
+intendedDirection :: LensP Player (Maybe Direction)
+intendedDirection = lens
+  (\(Player p) -> p.intendedDirection)
+  (\(Player p) dir -> Player $ p { intendedDirection = dir })
 
 newtype Item
   = Item

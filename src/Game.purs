@@ -14,26 +14,6 @@ import Types
 import LevelMap
 import Utils
 
--- lenses --
-
-player :: forall r a. LensP { player :: a | r } a
-player = lens (\o -> o.player) (\o p -> o { player = p })
-
-position :: LensP Player Position
-position = lens
-  (\(Player p) -> p.position)
-  (\(Player p) pos -> Player $ p { position = pos })
-
-direction :: LensP Player (Maybe Direction)
-direction = lens
-  (\(Player p) -> p.direction)
-  (\(Player p) dir -> Player $ p { direction = dir })
-
-intendedDirection :: LensP Player (Maybe Direction)
-intendedDirection = lens
-  (\(Player p) -> p.intendedDirection)
-  (\(Player p) dir -> Player $ p { intendedDirection = dir })
-
 -- update signalling
 
 changePosition :: Position -> GameUpdateM Unit
@@ -111,7 +91,3 @@ isFree :: LevelMap -> Position -> Boolean
 isFree levelmap pos =
   let block = getBlockAt pos levelmap
   in  maybe false (not <<< isWall) block
-
-isWall :: Block -> Boolean
-isWall Wall = true
-isWall _ = false

@@ -4,8 +4,9 @@ import Data.Maybe
 import Control.Monad.Eff
 
 import Rendering
+import Game
 
 main = do
   ctx <- setupRendering
   renderBackground ctx
-  renderMap ctx LevelMap.basicMap
+  renderGame ctx initialGame
