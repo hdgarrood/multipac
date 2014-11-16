@@ -33,7 +33,7 @@ concatTileRow ts =
 -- a simpler model, since any given object may exist in only one block.
 -- Should be an odd number, since any tile should have one central block.
 tileSize :: Number
-tileSize = 15
+tileSize = 13
 
 halfTile :: Number
 halfTile = floor (tileSize / 2)

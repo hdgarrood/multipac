@@ -9,6 +9,7 @@ import Control.Alt
 import Control.Monad
 import Control.Monad.Reader.Class
 import Control.Lens (Lens(), LensP(), lens, (.~), at, (..), (^.))
+import Math (ceil, floor)
 
 import Types
 import LevelMap
@@ -35,11 +36,13 @@ initialGame :: Game
 initialGame =
   { map: basicMap
   , player: Player
-              { position: Position {x: 7, y: 7}
+              { position: Position {x: z, y: z}
               , direction: Nothing
               , intendedDirection: Nothing
               }
   }
+  where
+  z = floor (tileSize / 2)
 
 stepGame :: Input -> Game -> Tuple Game [GameUpdate]
 stepGame input game =
