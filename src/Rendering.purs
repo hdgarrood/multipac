@@ -44,6 +44,7 @@ renderBackground ctx = do
   setFillStyle "black" ctx
   fillRect ctx r
 
+-- commented out because it was too slow
 {-- -- render a row at the given y-coordinate on the canvas --}
 {-- renderRow :: forall e. --}
 {--   Context2D --}

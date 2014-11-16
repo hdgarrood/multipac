@@ -66,13 +66,15 @@ withPlayer action = do
   action $ game ^. player
 
 updateDirection :: Player -> GameUpdateM Unit
-updateDirection (Player p) =
-  whenJust p.intendedDirection $ tryChangeDirection (Player p)
+updateDirection p =
+  whenJust (p ^.intendedDirection) $ tryChangeDirection p
 
 movePlayer :: Player -> GameUpdateM Unit
-movePlayer (Player p) =
-  whenJust p.direction $ \dir ->
-    changePosition (moveInDirection dir p.position)
+movePlayer p =
+  whenJust (p ^. direction) $ \dir -> do
+    ok <- canMoveInDirection p dir
+    when ok $
+      changePosition $ moveInDirection dir (p ^. position)
 
 tryChangeDirection :: Player -> Direction -> GameUpdateM Unit
 tryChangeDirection p d = do
