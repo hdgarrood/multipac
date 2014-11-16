@@ -1,6 +1,7 @@
 module Rendering where
 
 import Data.Array hiding (map, (..))
+import Data.Function
 import Data.Maybe
 import Data.Foldable
 import Graphics.Canvas
@@ -14,7 +15,7 @@ import Types
 import Utils
 
 pxPerBlock :: Number
-pxPerBlock = 3
+pxPerBlock = 5
 
 getRectAt ::
   Position -> Rectangle
@@ -89,37 +90,32 @@ renderGame ctx game = do
 
 foreign import renderMapFFI
   """
-  function renderMapFFI(isEmpty) {
-    return function(getRect) {
-      return function(ctx) {
-        return function(map) {
-          return function() {
-            ctx.fillStyle = 'grey'
-            var b = map.blocks
-            for (var i = 0; i < b.length; i++) {
-              for (var j = 0; j < b[i].length; j++) {
-                if (isEmpty(b[i][j])) {
-                  var r = getRect(i)(j)
-                  ctx.fillRect(r.x, r.y, r.w, r.h)
-                }
-              }
-            }
+  function renderMapFFI(isEmpty, getRect, ctx, map) {
+    return function() {
+      ctx.fillStyle = 'grey'
+      var b = map.blocks
+      for (var i = 0; i < b.length; i++) {
+        for (var j = 0; j < b[i].length; j++) {
+          if (isEmpty(b[i][j])) {
+            var r = getRect(i)(j)
+            ctx.fillRect(r.x, r.y, r.w, r.h)
           }
         }
       }
     }
   }
   """ :: forall e a.
-  (Block -> Boolean)
-  -> (Number -> Number -> Rectangle)
-  -> Context2D
-  -> LevelMap
-  -> Eff (canvas :: Canvas | e) a
+  Fn4
+    (Block -> Boolean)
+    (Number -> Number -> Rectangle)
+    Context2D
+    LevelMap
+    (Eff (canvas :: Canvas | e) a)
 
 renderMap :: forall e a.
   Context2D
   -> LevelMap
   -> Eff (canvas :: Canvas | e) a
-renderMap ctx map =
-  renderBackground ctx >>
-  renderMapFFI (not .. isWall) getRectAt' ctx map
+renderMap ctx map = do
+  renderBackground ctx
+  runFn4 renderMapFFI (not .. isWall) getRectAt' ctx map
