@@ -9,7 +9,6 @@ import Control.Monad.Eff
 import Control.Monad (when)
 import Control.Lens ((^.), (..))
 
-import ExtraDom
 import LevelMap
 import Types
 import Utils

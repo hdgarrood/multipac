@@ -12,7 +12,6 @@ import Control.Monad.Eff.Ref
 import Control.Reactive.Timer
 
 import qualified NodeWebSocket as WS
-import NodeHttp (Http)
 import qualified NodeHttp as Http
 import Types
 import Game
@@ -64,7 +63,7 @@ handleRequest req = do
   WS.onMessage conn (handleMessage inputRef)
   WS.onClose conn handleClose
 
-  interval 100 $ do
+  void $ interval 100 $ do
     input <- readRef inputRef
     game <- readRef gameRef
 
