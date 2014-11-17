@@ -1,5 +1,8 @@
 module NodeHttp where
 
+import Data.Array (length, (!!))
+import Data.Maybe
+import Data.String (split)
 import Data.Function
 import Control.Monad.Eff
 
@@ -43,7 +46,7 @@ listen server port = runFn2 listenImpl server port
 foreign import getUrl
   """
   function getUrl(req) {
-    return url.parse
+    return url.parse(req.url)
   }
   """ :: Request -> Url
 
@@ -60,10 +63,30 @@ foreign import sendFileImpl
       })
     }
   }
-  """ :: forall e. Fn2 String Response (Eff (http :: Http | e) Unit)
+  """ :: forall e.
+  Fn3 String Response (String -> String) (Eff (http :: Http | e) Unit)
 
-sendFile :: forall e. String -> Response -> Eff (http :: Http | e) Unit
-sendFile path res = runFn2 sendFileImpl path res
+sendFile :: forall e.
+  String -> Response -> Eff (http :: Http | e) Unit
+sendFile path res =
+  runFn3 sendFileImpl path res (fromMaybe "text/plain" <<< detectMime)
+
+-- detect the most likely mime type for a given filename
+detectMime :: String -> Maybe String
+detectMime str = do
+  ext <- extension str
+  case ext of
+    "txt"  -> Just "text/plain"
+    "html" -> Just "text/html"
+    "css"  -> Just "text/css"
+    "js"   -> Just "text/javascript"
+    _      -> Nothing
+
+extension :: String -> Maybe String
+extension str =
+  let arr = split "." str
+      len = length arr
+  in  arr !! (len - 1)
 
 foreign import send404
   """

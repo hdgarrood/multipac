@@ -22,13 +22,14 @@ main = do
   unsafeForeignFunction [""] "process.chdir('../static')"
   port <- unsafeForeignFunction [""] "process.env.PORT || 8080"
 
-  httpServer <- Http.createServer $ \req res ->
+  httpServer <- Http.createServer $ \req res -> do
+    let path = (Http.getUrl req).pathname
     let reply =
-      case (Http.getUrl req).pathname of
+      case path of
           "/"           -> Http.sendFile "index.html"
           "/js/game.js" -> Http.sendFile "js/game.js"
           _             -> Http.send404
-    in reply res
+    reply res
 
   wsServer <- mkWebSocketServer
   WS.mount wsServer httpServer
@@ -46,7 +47,7 @@ mkWebSocketServer = do
   server <- WS.mkServer
   WS.onRequest server handleRequest
   return server
-  
+
 handleRequest :: forall e.
   WS.Request
   -> Eff ( ws :: WS.WebSocket
