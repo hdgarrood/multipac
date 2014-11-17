@@ -2,6 +2,7 @@ module Utils where
 
 import Data.Maybe
 import Data.Array
+import Data.Either
 import Data.Traversable (sequence)
 import Data.Foldable (for_)
 import Prelude.Unsafe (unsafeIndex)
@@ -61,3 +62,8 @@ foreign import unshift
   \    return ys; \
   \  } \
   \}" :: forall a. a -> [a] -> [a]
+
+
+fromEither :: forall a b. Either a b -> Maybe b
+fromEither (Left _) = Nothing
+fromEither (Right x) = Just x

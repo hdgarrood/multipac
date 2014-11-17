@@ -17,20 +17,26 @@ import Utils
 
 -- update signalling
 
+applyGameUpdate :: GameUpdate -> Game -> Game
+applyGameUpdate u =
+  case u of
+    (ChangedPosition p) -> player .. position .~ p
+    (ChangedDirection d) -> player .. direction .~ d
+    (ChangedIntendedDirection d) -> player .. intendedDirection .~ d
+
+applyGameUpdateM :: GameUpdate -> GameUpdateM Unit
+applyGameUpdateM update = do
+  tellGameUpdate update
+  modifyGame (applyGameUpdate update)
+
 changePosition :: Position -> GameUpdateM Unit
-changePosition p = do
-  tellGameUpdate (ChangedPosition p)
-  modifyGame (player .. position .~ p)
+changePosition p = applyGameUpdateM (ChangedPosition p)
 
 changeDirection :: Maybe Direction -> GameUpdateM Unit
-changeDirection d = do
-  tellGameUpdate (ChangedDirection d)
-  modifyGame (player .. direction .~ d)
+changeDirection d = applyGameUpdateM (ChangedDirection d)
 
 changeIntendedDirection :: Maybe Direction -> GameUpdateM Unit
-changeIntendedDirection d = do
-  tellGameUpdate (ChangedIntendedDirection d)
-  modifyGame (player .. intendedDirection .~ d)
+changeIntendedDirection d = applyGameUpdateM (ChangedIntendedDirection d)
 
 initialGame :: Game
 initialGame =
