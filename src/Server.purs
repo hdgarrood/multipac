@@ -34,6 +34,7 @@ main = do
   WS.mount wsServer httpServer
 
   Http.listen httpServer port
+  trace $ "listening on " <> show port <> "..."
 
 mkWebSocketServer :: forall e.
   Eff ( ws :: WS.WebSocket

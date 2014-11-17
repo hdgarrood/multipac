@@ -70,6 +70,7 @@ foreign import send404
   function send404(res) {
     return function() {
       res.writeHead(404)
+      res.write('404 not found')
       res.end()
     }
   }
