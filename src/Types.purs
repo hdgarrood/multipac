@@ -47,18 +47,11 @@ instance showPosition :: Show Position where
     showRecord "Position" ["x" .:: p.x, "y" .:: p.y]
 
 instance fromJsonPosition :: FromJSON Position where
-  parseJSON (JObject obj) =
-    case M.toList obj of
-      [Tuple "x" x, Tuple "y" y] -> do
-        x' <- parseJSON x
-        y' <- parseJSON y
-        return $ Position { x: x', y: y' }
-      _ -> fail $ "failed to parse " <> show obj <> " as Position."
-
+  parseJSON (JArray [JNumber x, JNumber y]) = return $ Position { x: x, y: y}
   parseJSON v = fail $ "failed to parse " <> show v <> " as Position."
 
 instance toJsonPosition :: ToJSON Position where
-  toJSON (Position p) = object ["x" .= toJSON p.x, "y" .= toJSON p.y]
+  toJSON (Position p) = JArray [toJSON p.x, toJSON p.y]
 
 add :: Position -> Position -> Position
 add (Position p) (Position q) = Position {x: p.x + q.x, y: p.y + q.y}
@@ -172,37 +165,24 @@ instance showGameUpdate :: Show GameUpdate where
   show (ChangedPosition x) =
     "ChangedPosition (" <> show x <> ")"
 
-toMap :: GameUpdate -> M.Map String String
-toMap update =
-  M.fromList $ singleton $ case update of
-    (ChangedPosition p)          -> "changedPosition" ~ encode p
-    (ChangedDirection d)         -> "changedDirection" ~ encode d
-    (ChangedIntendedDirection d) -> "changedIntendedDirection" ~ encode d
-
-fromMap :: M.Map String String -> Maybe GameUpdate
-fromMap map =
-  case M.toList map of
-    [Tuple "changedPosition" p] ->
-      ChangedPosition <$> decode p
-    [Tuple "changedDirection" d] ->
-      ChangedDirection <$> decode d
-    [Tuple "changedIntendedDirection" d] ->
-      ChangedIntendedDirection <$> decode d
-    _ -> Nothing
-
 instance fromJSONGameUpdate :: FromJSON GameUpdate where
-  parseJSON val = do
-    valAsMap <- parseJSON val
-    case fromMap valAsMap of
-      Just v -> return v
-      Nothing -> fail $ "failed to parse " <> show val <> " as GameUpdate."
+  parseJSON (JObject obj) = do
+    case M.toList obj of
+      [Tuple "cp" p] ->
+        ChangedPosition <$> parseJSON p
+      [Tuple "cd" d] ->
+        ChangedDirection <$> parseJSON d
+      [Tuple "cid" d] ->
+        ChangedIntendedDirection <$> parseJSON d
+      _ -> fail $ "failed to parse " <> show obj <> " as GameUpdate."
+  parseJSON val = fail $ "failed to parse " <> show val <> " as GameUpdate."
 
 instance toJSONGameUpdate :: ToJSON GameUpdate where
   toJSON update =
     object $ singleton $ case update of
-      (ChangedPosition p)          -> "changedPosition" .= p
-      (ChangedDirection d)         -> "changedDirection" .= d
-      (ChangedIntendedDirection d) -> "changedIntendedDirection" .= d
+      (ChangedPosition p)          -> "cp" .= p
+      (ChangedDirection d)         -> "cd" .= d
+      (ChangedIntendedDirection d) -> "cid" .= d
 
 type GameUpdateM a = WriterT [GameUpdate] (State WrappedGame) a
 

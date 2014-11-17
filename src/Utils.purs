@@ -1,5 +1,7 @@
 module Utils where
 
+import Debug.Trace
+import Data.Function
 import Data.Maybe
 import Data.Array
 import Data.Either
@@ -63,6 +65,19 @@ foreign import unshift
   \  } \
   \}" :: forall a. a -> [a] -> [a]
 
+foreign import traceTimeImpl
+  """
+  function traceTimeImpl(trace, msg) {
+    return trace((new Date()) + ' ' + msg)
+  }
+  """ :: forall e.
+  Fn2
+    (String -> Eff (trace :: Trace | e) Unit)
+    String
+    (Eff (trace :: Trace | e) Unit)
+
+traceTime :: forall e.  String -> Eff (trace :: Trace | e) Unit
+traceTime msg = runFn2 traceTimeImpl trace msg
 
 fromEither :: forall a b. Either a b -> Maybe b
 fromEither (Left _) = Nothing

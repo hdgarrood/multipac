@@ -32,18 +32,20 @@ foreign import mkServer
 
 foreign import registerEventHandlerUnsafe
   """
-  function registerEventHandlerUnsafe(receiver, msgType, callback) {
+  function registerEventHandlerUnsafe(receiver, msgType, callback, transform) {
     return function() {
       receiver.on(msgType, function(param) {
-        callback(param)()
+        var param2 = transform ? transform(param) : param
+        callback(param2)()
       })
     }
   }
-  """ :: forall e a b c.
-    Fn3
+  """ :: forall e a b c d.
+    Fn4
       a
       String
       (b -> Eff (ws :: WebSocket | e) c)
+      (d -> b)
       (Eff (ws :: WebSocket | e) Unit)
 
 type RegisterHandler receiver param = forall e a.
@@ -53,15 +55,26 @@ type RegisterHandler receiver param = forall e a.
 
 onRequest :: RegisterHandler Server Request
 onRequest server callback =
-  runFn3 registerEventHandlerUnsafe server "request" callback
+  runFn4 registerEventHandlerUnsafe server "request" callback id
 
-onMessage :: RegisterHandler Connection Message
+onMessage :: RegisterHandler Connection String
 onMessage conn callback =
-  runFn3 registerEventHandlerUnsafe conn "message" callback
+  runFn4 registerEventHandlerUnsafe conn "message" callback getMessageData
+
+foreign import getMessageData
+  """
+  function getMessageData(msg) {
+    if (msg.type == 'utf8') {
+      return msg.utf8Data
+    } else if (msg.type == 'binary') {
+      throw new Error('unhandled websocket message type: binary')
+    }
+  }
+  """ :: Message -> String
 
 onClose :: RegisterHandler Connection Close
 onClose conn callback =
-  runFn3 registerEventHandlerUnsafe conn "close" callback
+  runFn4 registerEventHandlerUnsafe conn "close" callback id
 
 foreign import reject
   """

@@ -27,7 +27,7 @@ foreign import onMessageImpl
   function onMessageImpl(socket, callback) {
     return function() {
       socket.onmessage = function(msg) {
-        callback(msg)()
+        callback(msg.data)()
       }
     }
   }
@@ -43,3 +43,16 @@ onMessage :: forall e a.
   -> Eff (ws :: WebSocket | e) Unit
 onMessage socket callback =
   runFn2 onMessageImpl socket callback
+
+foreign import sendImpl
+  """
+  function sendImpl(socket, message) {
+    return function() {
+      socket.send(message)
+    }
+  } """ :: forall e.
+  Fn2 Socket Message (Eff (ws :: WebSocket | e) Unit)
+
+send :: forall e.
+  Socket -> Message -> Eff (ws :: WebSocket | e) Unit
+send sock msg = runFn2 sendImpl sock msg

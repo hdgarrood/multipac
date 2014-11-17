@@ -5,6 +5,7 @@ import Data.Tuple
 import Data.JSON
 import Data.Function
 import Data.Maybe
+import qualified Data.Either as E
 import Data.Foldable (for_)
 import Data.Foreign.EasyFFI
 import Control.Monad
@@ -67,7 +68,7 @@ handleRequest req = do
   WS.onMessage conn (handleMessage inputRef)
   WS.onClose conn handleClose
 
-  void $ interval 100 $ do
+  void $ interval 35 $ do
     input <- readRef inputRef
     game <- readRef gameRef
 
@@ -85,8 +86,9 @@ handleMessage :: forall e.
   -> Eff (trace :: Trace, ref :: Ref | e) Unit
 handleMessage inputRef msg = do
   trace $ "got message: " <> msg
-  whenJust (decode msg) $ \newDirection ->
-    writeRef inputRef (Input (Just newDirection))
+  case eitherDecode msg of
+    E.Right newDir -> writeRef inputRef (Input (Just newDir))
+    E.Left err     -> trace err
 
 handleClose :: forall a e.
   a -> Eff (ws :: WS.WebSocket, trace :: Trace | e) Unit
