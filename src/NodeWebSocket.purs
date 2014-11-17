@@ -34,7 +34,9 @@ foreign import registerEventHandlerUnsafe
   """
   function registerEventHandlerUnsafe(receiver, msgType, callback) {
     return function() {
-      receiver.on(msgType, callback)
+      receiver.on(msgType, function(param) {
+        callback(param)()
+      })
     }
   }
   """ :: forall e a b c.

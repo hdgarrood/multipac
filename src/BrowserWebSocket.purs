@@ -15,9 +15,9 @@ type Message = String
 
 foreign import mkWebSocket
   """
-  function mkWebSocket(path) {
+  function mkWebSocket(url) {
     return function() {
-      return new WebSocket(path)
+      return new WebSocket(url)
     }
   }
   """ :: forall e. String -> Eff (ws :: WebSocket | e) Socket

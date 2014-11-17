@@ -44,6 +44,7 @@ mkWebSocketServer :: forall e.
       ) WS.Server
 mkWebSocketServer = do
   server <- WS.mkServer
+  trace "created server"
   WS.onRequest server handleRequest
   return server
 
@@ -55,6 +56,7 @@ handleRequest :: forall e.
          , trace :: Trace | e
          ) Unit
 handleRequest req = do
+  trace "got a request"
   conn <- WS.accept req
   trace "opened connection"
   gameRef <- newRef initialGame
