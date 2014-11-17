@@ -3,7 +3,7 @@ module Types where
 import Data.Maybe
 import qualified Data.Map as M
 import qualified Data.Either as E
-import Data.JSON hiding ((.:))
+import Data.JSON
 import Data.Tuple
 import Data.String
 import Data.Array (map, singleton)
@@ -37,14 +37,14 @@ showRecord :: String -> [String] -> String
 showRecord name props =
     "(" <> name <> " {" <> joinWith ", " props <> "})"
 
-(.:) :: forall a. (Show a) => String -> a -> String
-(.:) name value = name <> ": " <> show value
+(.::) :: forall a. (Show a) => String -> a -> String
+(.::) name value = name <> ": " <> show value
 
 newtype Position = Position {x :: Number, y :: Number}
 
 instance showPosition :: Show Position where
   show (Position p) =
-    showRecord "Position" ["x" .: p.x, "y" .: p.y]
+    showRecord "Position" ["x" .:: p.x, "y" .:: p.y]
 
 instance fromJsonPosition :: FromJSON Position where
   parseJSON (JObject obj) =
@@ -79,9 +79,9 @@ newtype Player
 instance showPlayer :: Show Player where
   show (Player p) =
     showRecord "Player"
-      [ "position" .: p.position
-      , "direction" .: p.direction
-      , "intendedDirection" .: p.intendedDirection
+      [ "position" .:: p.position
+      , "direction" .:: p.direction
+      , "intendedDirection" .:: p.intendedDirection
       ]
 
 player :: forall r a. LensP { player :: a | r } a
@@ -111,8 +111,8 @@ newtype Item
 instance showItem :: Show Item where
   show (Item i) =
     showRecord "Item"
-      [ "position" .: i.position
-      , "itemType" .: i.itemType
+      [ "position" .:: i.position
+      , "itemType" .:: i.itemType
       ]
 
 data Direction = Up | Down | Left | Right

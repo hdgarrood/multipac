@@ -2,10 +2,12 @@ module Server where
 
 import Debug.Trace
 import Data.Tuple
+import Data.JSON
 import Data.Function
 import Data.Maybe
 import Data.Foldable (for_)
 import Data.Foreign.EasyFFI
+import Control.Monad
 import Control.Monad.Eff
 import Control.Monad.Eff.Class
 import Control.Monad.Eff.Ref
@@ -83,7 +85,7 @@ handleMessage :: forall e.
   -> Eff (trace :: Trace, ref :: Ref | e) Unit
 handleMessage inputRef msg = do
   trace $ "got message: " <> msg
-  whenJust (parseDirection msg) $ \newDirection ->
+  whenJust (decode msg) $ \newDirection ->
     writeRef inputRef (Input (Just newDirection))
 
 handleClose :: forall a e.
@@ -97,19 +99,10 @@ sendUpdates conn updates =
 
 sendUpdate :: forall e.
   WS.Connection -> GameUpdate -> Eff (ws :: WS.WebSocket | e) Unit
-sendUpdate conn (ChangedPosition p) = WS.send conn $ serializeChangedPosition p
-sendUpdate _ _ = return unit
+sendUpdate conn update =
+  when (shouldBroadcast update) $
+    WS.send conn $ encode update
 
-serializeChangedPosition :: Position -> String
-serializeChangedPosition (Position p) =
-  "{\"changedPosition\":{\"x\":" <> show p.x <> ",\"y\":" <> show p.y <> "}}"
-
-parseDirection :: String -> Maybe Direction
-parseDirection d =
-  case d of
-    "up"    -> Just Up
-    "down"  -> Just Down
-    "left"  -> Just Left
-    "right" -> Just Right
-    _       -> Nothing
-
+shouldBroadcast :: GameUpdate -> Boolean
+shouldBroadcast (ChangedPosition _) = true
+shouldBroadcast _ = false

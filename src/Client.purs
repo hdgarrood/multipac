@@ -12,7 +12,7 @@ import Control.Reactive.Timer
 import qualified BrowserWebSocket as WS
 import Rendering
 import Game
-import Types hiding ((.:))
+import Types
 import Utils
 
 main = do

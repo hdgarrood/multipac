@@ -14,7 +14,7 @@ import Types
 import Utils
 
 pxPerBlock :: Number
-pxPerBlock = 5
+pxPerBlock = 4
 
 getRectAt ::
   Position -> Rectangle
