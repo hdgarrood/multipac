@@ -62,6 +62,7 @@ handleRequest req = do
   inputRef <- newRef $ Input Nothing
 
   WS.onMessage conn (handleMessage inputRef)
+  WS.onClose conn handleClose
 
   interval 100 $ do
     input <- readRef inputRef
@@ -74,9 +75,6 @@ handleRequest req = do
     writeRef gameRef game'
     writeRef inputRef $ Input Nothing
     sendUpdates conn updates
-
-  return unit
-  WS.onClose conn handleClose
 
 handleMessage :: forall e.
   RefVal Input
