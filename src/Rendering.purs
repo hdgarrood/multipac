@@ -2,6 +2,8 @@ module Rendering where
 
 import Data.Array hiding (map, (..))
 import Data.Function
+import qualified Data.Map as M
+import Data.Tuple
 import Data.Maybe
 import Data.Foldable
 import Graphics.Canvas
@@ -71,12 +73,19 @@ renderBackground ctx = do
 
 renderPlayer :: forall e.
   Context2D
+  -> PlayerId
   -> Player
   -> Eff (canvas :: Canvas | e) Unit
-renderPlayer ctx player =
+renderPlayer ctx pId player =
   void $ withContext ctx $ do
-    setFillStyle "yellow" ctx
+    setFillStyle (fillStyleFor pId) ctx
     fillRect ctx (getRectAt (player ^. position))
+
+fillStyleFor :: PlayerId -> String
+fillStyleFor P1 = "yellow"
+fillStyleFor P2 = "red"
+fillStyleFor P3 = "green"
+fillStyleFor P4 = "blue"
 
 renderGame :: forall e.
   Context2D
@@ -85,7 +94,7 @@ renderGame :: forall e.
 renderGame ctx game = do
   renderBackground ctx
   renderMap ctx game.map
-  renderPlayer ctx $ game ^. player
+  eachPlayer' game $ renderPlayer ctx
 
 foreign import renderMapFFI
   """

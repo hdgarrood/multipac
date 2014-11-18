@@ -6,8 +6,8 @@ import qualified Data.Either as E
 import Data.JSON
 import Data.Tuple
 import Data.DOM.Simple.Events
-import Data.DOM.Simple.Types (DOM(), DOMEvent())
-import Data.DOM.Simple.Window (globalWindow)
+import Data.DOM.Simple.Types (DOM(), DOMEvent(), DOMLocation())
+import Data.DOM.Simple.Window (globalWindow, location)
 import Control.Monad.Eff
 import Control.Monad.Eff.Ref
 import Control.Reactive.Timer
@@ -18,11 +18,19 @@ import Game
 import Types
 import Utils
 
+foreign import host
+  """
+  function host(location) {
+    return location.host;
+  }
+  """ :: DOMLocation -> String
+
 main = do
   ctx <- setupRendering
   game <- newRef initialGame
 
-  socket <- WS.mkWebSocket "ws://localhost:8080/"
+  h <- host <$> location globalWindow
+  socket <- WS.mkWebSocket $ "ws://" <> h <> "/"
   WS.onMessage socket $ \msg -> do
     case eitherDecode msg of
       E.Left err -> trace $ "failed to parse message from server: " <> err

@@ -1,6 +1,9 @@
 module Types where
 
 import Data.Maybe
+import Data.Traversable
+import Data.Foldable
+import Data.Function
 import qualified Data.Map as M
 import qualified Data.Either as E
 import Data.JSON
@@ -14,13 +17,52 @@ import Control.Monad.State.Class
 import Control.Lens hiding ((.=))
 
 import Utils
+import qualified NodeWebSocket as WS
 
 -- newtype wrapper is just so that the ReaderT instance works
-type Game = {map :: LevelMap, player :: Player}
+type Game = {map :: LevelMap, players :: M.Map PlayerId Player}
 newtype WrappedGame = WrappedGame Game
 
 unwrapGame :: WrappedGame -> Game
 unwrapGame (WrappedGame g) = g
+
+data PlayerId = P1 | P2 | P3 | P4
+
+playerIdToInt :: PlayerId -> Number
+playerIdToInt p =
+  case p of
+    P1 -> 1
+    P2 -> 2
+    P3 -> 3
+    P4 -> 4
+
+intToPlayerId :: Number -> Maybe PlayerId
+intToPlayerId x =
+  case x of
+    1 -> Just P1
+    2 -> Just P2
+    3 -> Just P3
+    4 -> Just P4
+
+instance showPlayerId :: Show PlayerId where
+  show P1 = "P1"
+  show P2 = "P2"
+  show P3 = "P3"
+  show P4 = "P4"
+
+instance eqPlayerId :: Eq PlayerId where
+  (==) = (==) `on` playerIdToInt
+  (/=) = (/=) `on` playerIdToInt
+
+instance ordPlayerId :: Ord PlayerId where
+  compare = compare `on` playerIdToInt
+
+instance fromJSONPlayerId :: FromJSON PlayerId where
+  parseJSON (JNumber n) =
+    case intToPlayerId n of
+      Just x -> return x
+      Nothing -> failJsonParse n "PlayerId"
+  parseJSON val = failJsonParse val "PlayerId"
 
 type LevelMap = {blocks :: [[Block]]}
 data Block = Wall | Empty
@@ -40,6 +82,10 @@ showRecord name props =
 (.::) :: forall a. (Show a) => String -> a -> String
 (.::) name value = name <> ": " <> show value
 
+failJsonParse :: forall a b. (Show a) => a -> String -> JParser b
+failJsonParse value typ =
+  fail $ "failed to parse " <> show value <> " as " <> show typ <> "."
+
 newtype Position = Position {x :: Number, y :: Number}
 
 instance showPosition :: Show Position where
@@ -48,10 +94,10 @@ instance showPosition :: Show Position where
 
 instance fromJsonPosition :: FromJSON Position where
   parseJSON (JArray [JNumber x, JNumber y]) = return $ Position { x: x, y: y}
-  parseJSON v = fail $ "failed to parse " <> show v <> " as Position."
+  parseJSON v = failJsonParse v "Position"
 
 instance toJsonPosition :: ToJSON Position where
-  toJSON (Position p) = JArray [toJSON p.x, toJSON p.y]
+  toJSON (Position p) = JArray [JNumber p.x, JNumber p.y]
 
 add :: Position -> Position -> Position
 add (Position p) (Position q) = Position {x: p.x + q.x, y: p.y + q.y}
@@ -77,8 +123,8 @@ instance showPlayer :: Show Player where
       , "intendedDirection" .:: p.intendedDirection
       ]
 
-player :: forall r a. LensP { player :: a | r } a
-player = lens (\o -> o.player) (\o p -> o { player = p })
+players :: forall r a. LensP { players :: a | r } a
+players = lens (\o -> o.players) (\o p -> o { players = p })
 
 position :: LensP Player Position
 position = lens
@@ -94,6 +140,16 @@ intendedDirection :: LensP Player (Maybe Direction)
 intendedDirection = lens
   (\(Player p) -> p.intendedDirection)
   (\(Player p) dir -> Player $ p { intendedDirection = dir })
+
+eachPlayer' :: forall f. (Applicative f) =>
+  Game -> (PlayerId -> Player -> f Unit) -> f Unit
+eachPlayer' game action =
+  for_ (M.toList $ game ^. players) $ uncurry action
+
+eachPlayer :: (PlayerId -> Player -> GameUpdateM Unit) -> GameUpdateM Unit
+eachPlayer action = do
+  game <- getGame
+  eachPlayer' game action
 
 newtype Item
   = Item
@@ -118,15 +174,13 @@ instance showDirection :: Show Direction where
 
 instance fromJsonDirection :: FromJSON Direction where
   parseJSON (JString str) =
-    let mapping = M.fromList [ "up" ~ Up
-                             , "down" ~ Down
-                             , "left" ~ Left
-                             , "right" ~ Right
-                             ]
-    in  case M.lookup str mapping of
-          Just v -> E.Right v
-          Nothing -> fail $ "unable to parse " <> show str <> " as Direction."
-  parseJSON i = fail $ "unable to parse " <> show i <> " as Direction."
+    case str of
+      "up"    -> return Up
+      "down"  -> return Down
+      "left"  -> return Left
+      "right" -> return Right
+      _       -> failJsonParse str "Direction"
+  parseJSON i = failJsonParse i "Direction"
 
 instance toJsonDirection :: ToJSON Direction where
   toJSON Up = JString "up"
@@ -147,17 +201,20 @@ dirToPos Left  = Position {x: -1, y:  0}
 dirToPos Right = Position {x:  1, y:  0}
 dirToPos Down  = Position {x:  0, y:  1}
 
-data Input = Input (Maybe Direction)
+type Input = M.Map PlayerId (Maybe Direction)
 
-instance showInput :: Show Input where
-  show (Input x) = "Input (" <> show x <> ")"
+{-- instance showInput :: Show Input where --}
+{--   show (Input x) = "Input (" <> show x <> ")" --}
 
-data GameUpdate
+data PlayerUpdate
   = ChangedDirection (Maybe Direction)
   | ChangedIntendedDirection (Maybe Direction)
   | ChangedPosition Position
 
-instance showGameUpdate :: Show GameUpdate where
+data GameUpdate
+  = GUPU PlayerId PlayerUpdate
+
+instance showPlayerUpdate :: Show PlayerUpdate where
   show (ChangedDirection x) =
     "ChangedDirection (" <> show x <> ")"
   show (ChangedIntendedDirection x) =
@@ -165,7 +222,7 @@ instance showGameUpdate :: Show GameUpdate where
   show (ChangedPosition x) =
     "ChangedPosition (" <> show x <> ")"
 
-instance fromJSONGameUpdate :: FromJSON GameUpdate where
+instance fromJSONPlayerUpdate :: FromJSON PlayerUpdate where
   parseJSON (JObject obj) = do
     case M.toList obj of
       [Tuple "cp" p] ->
@@ -174,15 +231,30 @@ instance fromJSONGameUpdate :: FromJSON GameUpdate where
         ChangedDirection <$> parseJSON d
       [Tuple "cid" d] ->
         ChangedIntendedDirection <$> parseJSON d
-      _ -> fail $ "failed to parse " <> show obj <> " as GameUpdate."
-  parseJSON val = fail $ "failed to parse " <> show val <> " as GameUpdate."
+      _ -> failJsonParse obj "PlayerUpdate"
+  parseJSON val = failJsonParse val "PlayerUpdate"
 
-instance toJSONGameUpdate :: ToJSON GameUpdate where
+instance toJSONPlayerUpdate :: ToJSON PlayerUpdate where
   toJSON update =
     object $ singleton $ case update of
       (ChangedPosition p)          -> "cp" .= p
       (ChangedDirection d)         -> "cd" .= d
       (ChangedIntendedDirection d) -> "cid" .= d
+
+instance showGameUpdate :: Show GameUpdate where
+  show (GUPU pId u) = "GUPU (" <> show pId <> ") (" <> show u <> ")"
+
+instance fromJSONGameUpdate :: FromJSON GameUpdate where
+  parseJSON (JObject obj) =
+    case M.toList obj of
+      [Tuple "pId" pId, Tuple "u" val] ->
+        GUPU <$> parseJSON pId <*> parseJSON val
+      _ -> failJsonParse obj "GameUpdate"
+  parseJSON val = failJsonParse val "GameUpdate"
+
+instance toJSONGameUodate :: ToJSON GameUpdate where
+  toJSON (GUPU pId pUpd) =
+    object ["pId" .= playerIdToInt pId, "u" .= pUpd]
 
 type GameUpdateM a = WriterT [GameUpdate] (State WrappedGame) a
 
@@ -222,3 +294,10 @@ runGameUpdateM game action =
 execGameUpdateM :: forall a.
   Game -> GameUpdateM a -> Tuple Game [GameUpdate]
 execGameUpdateM game action = snd $ runGameUpdateM game action
+
+type ServerState =
+  { game :: Game
+  , input :: Input
+  , connections :: [Tuple WS.Connection PlayerId]
+  , lastUsedPlayerId :: Maybe PlayerId
+  }

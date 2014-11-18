@@ -6,6 +6,7 @@ import Data.JSON
 import Data.Function
 import Data.Maybe
 import qualified Data.Either as E
+import qualified Data.Map as M
 import Data.Foldable (for_)
 import Data.Foreign.EasyFFI
 import Control.Monad
@@ -20,11 +21,33 @@ import Types
 import Game
 import Utils
 
+initialState :: ServerState
+initialState =
+  { game: initialGame
+  , input: M.empty
+  , connections: []
+  , lastUsedPlayerId: Nothing
+  }
+
+
 main = do
+  refState <- newRef initialState
+
   unsafeForeignFunction [""] "process.chdir('../static')"
   port <- unsafeForeignFunction [""] "process.env.PORT || 8080"
 
-  httpServer <- Http.createServer $ \req res -> do
+  httpServer <- createHttpServer 
+  wsServer <- createWebSocketServer refState
+
+  WS.mount wsServer httpServer
+  Http.listen httpServer port
+  trace $ "listening on " <> show port <> "..."
+
+  startMainLoop refState
+
+
+createHttpServer = 
+  Http.createServer $ \req res -> do
     let path = (Http.getUrl req).pathname
     let reply =
       case path of
@@ -33,71 +56,90 @@ main = do
           _             -> Http.send404
     reply res
 
-  wsServer <- mkWebSocketServer
-  WS.mount wsServer httpServer
 
-  Http.listen httpServer port
-  trace $ "listening on " <> show port <> "..."
-
-mkWebSocketServer :: forall e.
-  Eff ( ws :: WS.WebSocket
-      , timer :: Timer
-      , ref :: Ref
-      , trace :: Trace | e
-      ) WS.Server
-mkWebSocketServer = do
+createWebSocketServer refState = do
   server <- WS.mkServer
-  trace "created server"
-  WS.onRequest server handleRequest
+  WS.onRequest server $ \req -> do
+    trace "got a request"
+    conn <- WS.accept req
+    trace "opened connection"
+
+    maybePId <- addPlayer conn refState
+
+    whenJust maybePId $ \pId -> do
+      WS.onMessage conn (handleMessage refState pId)
+
+    WS.onClose conn handleClose
+
   return server
 
-handleRequest :: forall e.
-  WS.Request
-  -> Eff ( ws :: WS.WebSocket
-         , timer :: Timer
-         , ref :: Ref
-         , trace :: Trace | e
-         ) Unit
-handleRequest req = do
-  trace "got a request"
-  conn <- WS.accept req
-  trace "opened connection"
-  gameRef <- newRef initialGame
-  inputRef <- newRef $ Input Nothing
 
-  WS.onMessage conn (handleMessage inputRef)
-  WS.onClose conn handleClose
-
+startMainLoop refState =
   void $ interval 35 $ do
-    input <- readRef inputRef
-    game <- readRef gameRef
+    s <- readRef refState
 
-    let result = stepGame input game
+    let result = stepGame s.input s.game
     let game' = fst result
     let updates = snd result
 
-    writeRef gameRef game'
-    writeRef inputRef $ Input Nothing
-    sendUpdates conn updates
+    let s' = s { game = game', input = M.empty }
+    writeRef refState s'
+
+    sendUpdates refState updates
+
+
+addPlayer conn refState = do
+  state <- readRef refState
+  case nextPlayerId state.lastUsedPlayerId of
+    Just pId -> do
+      let state' = state
+                    { connections = state.connections <> [Tuple conn pId]
+                    , lastUsedPlayerId = Just pId
+                    }
+      writeRef refState state'
+      return (Just pId)
+    Nothing ->
+      return Nothing
+
+
+nextPlayerId :: Maybe PlayerId -> Maybe PlayerId
+nextPlayerId Nothing = Just P1
+nextPlayerId (Just P1) = Just P2
+nextPlayerId (Just P2) = Just P3
+nextPlayerId (Just P3) = Just P4
+nextPlayerId (Just P4) = Nothing
+
 
 handleMessage :: forall e.
-  RefVal Input
+  RefVal ServerState
+  -> PlayerId
   -> WS.Message
-  -> Eff (trace :: Trace, ref :: Ref | e) Unit
-handleMessage inputRef msg = do
+  -> Eff (trace :: Trace, ws :: WS.WebSocket, ref :: Ref | e) Unit
+handleMessage refState pId msg = do
   trace $ "got message: " <> msg
   case eitherDecode msg of
-    E.Right newDir -> writeRef inputRef (Input (Just newDir))
-    E.Left err     -> trace err
+    E.Right newDir ->
+      modifyRef refState $ \s ->
+        let newInput = M.insert pId (Just newDir) s.input
+        in  s { input = newInput }
+    E.Left err ->
+      trace err
+
 
 handleClose :: forall a e.
   a -> Eff (ws :: WS.WebSocket, trace :: Trace | e) Unit
 handleClose = const (trace "closed connection")
 
+
 sendUpdates :: forall e.
-  WS.Connection -> [GameUpdate] -> Eff (ws :: WS.WebSocket | e) Unit
-sendUpdates conn updates =
-  for_ updates (sendUpdate conn)
+  RefVal ServerState
+  -> [GameUpdate]
+  -> Eff (ref :: Ref, ws :: WS.WebSocket | e) Unit
+sendUpdates refState updates = do
+  state <- readRef refState
+  for_ updates $ \update ->
+    for_ state.connections $ \(Tuple conn _) ->
+      sendUpdate conn update
 
 sendUpdate :: forall e.
   WS.Connection -> GameUpdate -> Eff (ws :: WS.WebSocket | e) Unit
@@ -106,5 +148,5 @@ sendUpdate conn update =
     WS.send conn $ encode update
 
 shouldBroadcast :: GameUpdate -> Boolean
-shouldBroadcast (ChangedPosition _) = true
+shouldBroadcast (GUPU _ (ChangedPosition _)) = true
 shouldBroadcast _ = false
