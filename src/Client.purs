@@ -8,6 +8,7 @@ import Data.Tuple
 import Data.DOM.Simple.Events
 import Data.DOM.Simple.Types (DOM(), DOMEvent(), DOMLocation())
 import Data.DOM.Simple.Window (globalWindow, location)
+import Control.Monad
 import Control.Monad.Eff
 import Control.Monad.Eff.Ref
 import Control.Reactive.Timer
@@ -25,23 +26,38 @@ foreign import host
   }
   """ :: DOMLocation -> String
 
+initialState :: ClientState
+initialState =
+  { game: initialGame
+  , prevGame: initialGame
+  , redrawMap: true
+  }
+
 main = do
   ctx <- setupRendering
-  game <- newRef initialGame
+  state <- newRef initialState
 
   h <- host <$> location globalWindow
   socket <- WS.mkWebSocket $ "ws://" <> h <> "/"
   WS.onMessage socket $ \msg -> do
     case eitherDecode msg of
-      E.Left err -> trace $ "failed to parse message from server: " <> err
-      E.Right update -> modifyRef game (applyGameUpdate update)
+      E.Left err ->
+        trace $ "failed to parse message from server: " <> err
+      E.Right update ->
+        modifyRef state $ \s -> s { game = applyGameUpdate update s.game
+                                  , prevGame = s.game
+                                  }
 
   addKeyboardEventListener
     KeydownEvent
     (handleKeydown socket)
     globalWindow
 
-  startAnimationLoop (readRef game >>= renderGame ctx)
+  startAnimationLoop $ do
+    s <- readRef state
+    render ctx s
+    when (s.redrawMap) $
+      writeRef state (s { redrawMap = false })
 
 handleKeydown :: forall e.
   WS.Socket -> DOMEvent -> Eff (ws :: WS.WebSocket, dom :: DOM | e) Unit

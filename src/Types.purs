@@ -10,6 +10,7 @@ import Data.JSON
 import Data.Tuple
 import Data.String
 import Data.Array (map, singleton)
+import Graphics.Canvas
 import Control.Monad.Writer.Trans
 import Control.Monad.Writer.Class
 import Control.Monad.State
@@ -300,4 +301,15 @@ type ServerState =
   , input :: Input
   , connections :: [Tuple WS.Connection PlayerId]
   , lastUsedPlayerId :: Maybe PlayerId
+  }
+
+type ClientState =
+  { game :: Game
+  , prevGame :: Game
+  , redrawMap :: Boolean
+  }
+
+type RenderingContext =
+  { foreground :: Context2D
+  , background :: Context2D
   }

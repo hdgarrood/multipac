@@ -3,11 +3,22 @@
 <head>
 <meta charset="utf-8">
 <script src="/js/game.js" defer></script>
+<style type="text/css">
+#background {
+  position: absolute;
+  z-index: 0;
+}
+
+#foreground {
+  position: absolute;
+  z-index: 1;
+}
+</style>
 </head>
 <body>
 <div id="multipac">
-<canvas id="canvas">
-</canvas>
+<canvas id="foreground"></canvas>
+<canvas id="background"></canvas>
 </div>
 </body>
 </html>

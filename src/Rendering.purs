@@ -31,70 +31,26 @@ getRectAt' x y = getRectAt (Position {x: x, y: y})
 canvasSize :: Number
 canvasSize = pxPerBlock * LevelMap.mapSize
 
--- set up the canvas and return a canvas context
-setupRendering :: forall e. Eff (canvas :: Canvas | e) Context2D
-setupRendering =
-  getCanvasElementById "canvas"
+setupRendering :: forall e. Eff (canvas :: Canvas | e) RenderingContext
+setupRendering = do
+  fg <- setupRenderingById "foreground"
+  bg <- setupRenderingById "background"
+  return { foreground: fg, background: bg }
+
+-- set up a canvas with the correct dimensions and return its context
+setupRenderingById :: forall e.
+  String -> Eff (canvas :: Canvas | e) Context2D
+setupRenderingById elId =
+  getCanvasElementById elId
     >>= setCanvasHeight canvasSize
     >>= setCanvasWidth canvasSize
     >>= getContext2D
 
-renderBackground :: forall e.
-  Context2D -> Eff (canvas :: Canvas | e) Context2D
-renderBackground ctx = do
-  let r = {x: 0, y: 0, h: canvasSize, w: canvasSize}
+clearBackground :: forall e.
+  Context2D -> Eff (canvas :: Canvas | e) Unit
+clearBackground ctx = do
   setFillStyle "black" ctx
-  fillRect ctx r
-
--- commented out because it was too slow
-{-- -- render a row at the given y-coordinate on the canvas --}
-{-- renderRow :: forall e. --}
-{--   Context2D --}
-{--   -> [Block] --}
-{--   -> Number --}
-{--   -> Eff (canvas :: Canvas | e) Unit --}
-{-- renderRow ctx blocks y = --}
-{--   eachWithIndex_ blocks $ \block n -> --}
-{--     when (not (isWall block)) $ void (fillRect ctx (getRect n)) --}
-{--   where --}
-{--   getRect n = getRectAt' n y --}
-
-{-- renderMap :: forall e. --}
-{--   Context2D --}
-{--   -> LevelMap --}
-{--   -> Eff (canvas :: Canvas | e) Unit --}
-{-- renderMap ctx map = --}
-{--   withContext ctx go --}
-{--   where --}
-{--   go = do --}
-{--     setFillStyle "gray" ctx --}
-{--     eachWithIndex_ map.blocks $ \row n -> do --}
-{--       renderRow ctx row n --}
-
-renderPlayer :: forall e.
-  Context2D
-  -> PlayerId
-  -> Player
-  -> Eff (canvas :: Canvas | e) Unit
-renderPlayer ctx pId player =
-  void $ withContext ctx $ do
-    setFillStyle (fillStyleFor pId) ctx
-    fillRect ctx (getRectAt (player ^. position))
-
-fillStyleFor :: PlayerId -> String
-fillStyleFor P1 = "yellow"
-fillStyleFor P2 = "red"
-fillStyleFor P3 = "green"
-fillStyleFor P4 = "blue"
-
-renderGame :: forall e.
-  Context2D
-  -> Game
-  -> Eff (canvas :: Canvas | e) Unit
-renderGame ctx game = do
-  renderBackground ctx
-  renderMap ctx game.map
-  eachPlayer' game $ renderPlayer ctx
+  void $ fillRect ctx {x: 0, y: 0, h: canvasSize, w: canvasSize}
 
 foreign import renderMapFFI
   """
@@ -112,18 +68,71 @@ foreign import renderMapFFI
       }
     }
   }
-  """ :: forall e a.
+  """ :: forall e.
   Fn4
     (Block -> Boolean)
     (Number -> Number -> Rectangle)
     Context2D
     LevelMap
-    (Eff (canvas :: Canvas | e) a)
+    (Eff (canvas :: Canvas | e) Unit)
 
-renderMap :: forall e a.
+renderMap :: forall e.
   Context2D
   -> LevelMap
-  -> Eff (canvas :: Canvas | e) a
+  -> Eff (canvas :: Canvas | e) Unit
 renderMap ctx map = do
-  renderBackground ctx
+  clearBackground ctx
   runFn4 renderMapFFI (not .. isWall) getRectAt' ctx map
+
+renderPlayer :: forall e.
+  Context2D
+  -> PlayerId
+  -> Player
+  -> Eff (canvas :: Canvas | e) Unit
+renderPlayer ctx pId player =
+  void $ do
+    setFillStyle (fillStyleFor pId) ctx
+    fillRect ctx (getRectAt (player ^. position))
+
+clearPlayer :: forall e.
+  Context2D
+  -> PlayerId
+  -> Player
+  -> Eff (canvas :: Canvas | e) Unit
+clearPlayer ctx pId player =
+  void $ clearRect ctx (expand $ getRectAt (player ^. position))
+  where
+  -- just to mop up any bits that accidentally don't get cleared
+  delta = 5
+  expand r = { x: r.x - delta, y: r.y - delta, w: r.w + delta, h: r.h + delta }
+
+
+fillStyleFor :: PlayerId -> String
+fillStyleFor P1 = "yellow"
+fillStyleFor P2 = "red"
+fillStyleFor P3 = "green"
+fillStyleFor P4 = "blue"
+
+renderPlayers :: forall e.
+  Context2D
+  -> Game
+  -> Eff (canvas :: Canvas | e) Unit
+renderPlayers ctx game = do
+  eachPlayer' game $ renderPlayer ctx
+
+clearPreviousPlayers :: forall e.
+  Context2D
+  -> Game
+  -> Eff (canvas :: Canvas | e) Unit
+clearPreviousPlayers ctx game = do
+  eachPlayer' game $ clearPlayer ctx
+
+render :: forall e.
+  RenderingContext
+  -> ClientState
+  -> Eff (canvas :: Canvas | e) Unit
+render ctx state = do
+  when (state.redrawMap) $
+    renderMap ctx.background state.game.map
+  clearPreviousPlayers ctx.foreground state.prevGame
+  renderPlayers ctx.foreground state.game
