@@ -55,22 +55,16 @@ changeIntendedDirection pId d =
 initialGame :: Game
 initialGame =
   { map: basicMap
-  , players: M.fromList
-    [ Tuple P1 (Player
-              { position: Position {x: z, y: z}
-              , direction: Nothing
-              , intendedDirection: Nothing
-              })
-    , Tuple P2 (Player
-              { position: Position {x: z', y: z'}
-              , direction: Nothing
-              , intendedDirection: Nothing
-              })
-    ]
+  , players: M.fromList $ f <$> [1,2,3,4]
   }
   where
+  f n = Tuple (fromJust (intToPlayerId n))
+          (Player { position: Position {x: z' n, y: z' n}
+                  , direction: Nothing
+                  , intendedDirection: Nothing
+                  })
   z = floor (tileSize / 2)
-  z' = z + tileSize
+  z' n = z + (n * tileSize)
 
 stepGame :: Input -> Game -> Tuple Game [GameUpdate]
 stepGame input game =

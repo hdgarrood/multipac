@@ -75,7 +75,7 @@ createWebSocketServer refState = do
 
 
 startMainLoop refState =
-  void $ interval 35 $ do
+  void $ interval 33 $ do
     s <- readRef refState
 
     let result = stepGame s.input s.game

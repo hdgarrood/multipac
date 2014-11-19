@@ -49,14 +49,14 @@ setupRenderingById elId =
 clearBackground :: forall e.
   Context2D -> Eff (canvas :: Canvas | e) Unit
 clearBackground ctx = do
-  setFillStyle "black" ctx
+  setFillStyle "hsl(200, 10%, 75%)" ctx
   void $ fillRect ctx {x: 0, y: 0, h: canvasSize, w: canvasSize}
 
 foreign import renderMapFFI
   """
   function renderMapFFI(isEmpty, getRect, ctx, map) {
     return function() {
-      ctx.fillStyle = 'grey'
+      ctx.fillStyle = 'hsl(320, 20%, 10%)'
       var b = map.blocks
       for (var i = 0; i < b.length; i++) {
         for (var j = 0; j < b[i].length; j++) {
@@ -92,7 +92,7 @@ renderPlayer :: forall e.
 renderPlayer ctx pId player =
   void $ do
     setFillStyle (fillStyleFor pId) ctx
-    fillRect ctx (getRectAt (player ^. position))
+    fillRect ctx (enlargeRect 3 $ getRectAt (player ^. position))
 
 clearPlayer :: forall e.
   Context2D
@@ -100,18 +100,22 @@ clearPlayer :: forall e.
   -> Player
   -> Eff (canvas :: Canvas | e) Unit
 clearPlayer ctx pId player =
-  void $ clearRect ctx (expand $ getRectAt (player ^. position))
-  where
-  -- just to mop up any bits that accidentally don't get cleared
-  delta = 5
-  expand r = { x: r.x - delta, y: r.y - delta, w: r.w + delta, h: r.h + delta }
+  void $ clearRect ctx (enlargeRect 5 $ getRectAt (player ^. position))
+
+enlargeRect :: Number -> Rectangle -> Rectangle
+enlargeRect delta r =
+  { x: r.x - delta
+  , y: r.y - delta
+  , w: r.w + (2 * delta)
+  , h: r.h + (2 * delta)
+  }
 
 
 fillStyleFor :: PlayerId -> String
-fillStyleFor P1 = "yellow"
-fillStyleFor P2 = "red"
-fillStyleFor P3 = "green"
-fillStyleFor P4 = "blue"
+fillStyleFor P1 = "hsl(0, 100%, 60%)"
+fillStyleFor P2 = "hsl(90, 100%, 60%)"
+fillStyleFor P3 = "hsl(180, 100%, 60%)"
+fillStyleFor P4 = "hsl(270, 100%, 60%)"
 
 renderPlayers :: forall e.
   Context2D
