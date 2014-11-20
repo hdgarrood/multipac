@@ -128,8 +128,8 @@ clearPreviousPlayers :: forall e.
   Context2D
   -> Game
   -> Eff (canvas :: Canvas | e) Unit
-clearPreviousPlayers ctx game = do
-  eachPlayer' game $ clearPlayer ctx
+clearPreviousPlayers ctx game =
+  void $ clearRect ctx {x: 0, y: 0, h: canvasSize, w: canvasSize}
 
 render :: forall e.
   RenderingContext

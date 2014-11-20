@@ -8,10 +8,8 @@ import Data.Maybe
 import qualified Data.Either as E
 import qualified Data.Map as M
 import Data.Foldable (for_)
-import Data.Foreign.EasyFFI
 import Control.Monad
 import Control.Monad.Eff
-import Control.Monad.Eff.Class
 import Control.Monad.Eff.Ref
 import Control.Reactive.Timer
 
@@ -33,8 +31,8 @@ initialState =
 main = do
   refState <- newRef initialState
 
-  unsafeForeignFunction [""] "process.chdir('../static')"
-  port <- unsafeForeignFunction [""] "process.env.PORT || 8080"
+  chdir "static"
+  port <- portOrDefault 8080
 
   httpServer <- createHttpServer 
   wsServer <- createWebSocketServer refState
@@ -150,3 +148,44 @@ sendUpdate conn update =
 shouldBroadcast :: GameUpdate -> Boolean
 shouldBroadcast (GUPU _ (ChangedPosition _)) = true
 shouldBroadcast _ = false
+
+
+foreign import data Process :: !
+
+foreign import chdir
+  """
+  function chdir(path) {
+    return function() {
+      process.chdir(path)
+    }
+  }
+  """ :: forall e. String -> Eff (process :: Process | e) Unit
+
+foreign import getEnvImpl
+  """
+  function getEnvImpl(just, nothing, key) {
+    return function() {
+      var v = process.env[key]
+      return v ? just(v) : nothing
+    }
+  }
+  """ :: forall e a.
+  Fn3
+    (a -> Maybe a)
+    (Maybe a)
+    String
+    (Eff (process :: Process | e) (Maybe String))
+
+getEnv :: forall e.
+  String -> Eff (process :: Process | e) (Maybe String)
+getEnv key =
+  runFn3 getEnvImpl Just Nothing key
+
+parseNumber :: String -> Maybe Number
+parseNumber = decode
+
+portOrDefault :: forall e.
+  Number -> Eff (process :: Process | e) Number
+portOrDefault default = do
+  port <- getEnv "PORT"
+  return $ fromMaybe default (port >>= parseNumber)
