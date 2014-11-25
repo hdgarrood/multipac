@@ -65,8 +65,25 @@ instance fromJSONPlayerId :: FromJSON PlayerId where
       Nothing -> failJsonParse n "PlayerId"
   parseJSON val = failJsonParse val "PlayerId"
 
-type LevelMap = {blocks :: [[Block]]}
+type LevelMap = {blocks :: [[Block]], tiles :: [[Tile]]}
 data Block = Wall | Empty
+
+-- A fixed size two-dimensional array of blocks.
+type BlockTile = [[Block]]
+
+data Tile
+  = Intersection
+  | TeeJunctionUp
+  | TeeJunctionRight
+  | TeeJunctionDown
+  | TeeJunctionLeft
+  | CornerUpRight
+  | CornerRightDown
+  | CornerDownLeft
+  | CornerLeftUp
+  | StraightHorizontal
+  | StraightVertical
+
 
 instance showBlock :: Show Block where
   show Wall = "Wall"

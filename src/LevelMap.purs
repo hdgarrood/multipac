@@ -1,32 +1,70 @@
 module LevelMap where
 
+import Data.Tuple
+import Control.Lens
 import Types
 import Math (floor)
-import Data.Array (map, reverse, (!!), (..), concatMap, concat)
+import Data.Array (map, reverse, (!!), range, concatMap, concat)
 import Data.Maybe
+import Data.Maybe.Unsafe
 import Data.Traversable (sequence)
 import Data.Foldable (mconcat)
 import Utils
 
--- TODO: would it be sensible to represent Tiles with a sum type?
+-- the number of tiles along one side of a level map.
+tilesAlongSide :: Number
+tilesAlongSide = 15
 
--- A fixed size two-dimensional array of blocks.
-type Tile = [[Block]]
+-- the height or width in a level, in blocks.
+mapSize :: Number
+mapSize = tileSize * tilesAlongSide
 
-rotateCW :: Tile -> Tile
+normalize :: Tile -> Tuple Number Tile
+normalize t =
+  case t of
+    Intersection       -> (0 ~ Intersection)
+    TeeJunctionUp      -> (0 ~ TeeJunctionUp)
+    TeeJunctionRight   -> (1 ~ TeeJunctionUp)
+    TeeJunctionDown    -> (2 ~ TeeJunctionUp)
+    TeeJunctionLeft    -> (3 ~ TeeJunctionUp)
+    CornerUpRight      -> (0 ~ CornerUpRight)
+    CornerRightDown    -> (1 ~ CornerUpRight)
+    CornerDownLeft     -> (2 ~ CornerUpRight)
+    CornerLeftUp       -> (3 ~ CornerUpRight)
+    StraightHorizontal -> (0 ~ StraightHorizontal)
+    StraightVertical   -> (1 ~ StraightHorizontal)
+
+applyN :: forall a. Number -> (a -> a) -> a -> a
+applyN = go id
+  where
+  go f n _ | n <= 0 = f
+  go f n g = go (f >>> g) (n - 1) g
+
+toBlockTile :: Tile -> BlockTile
+toBlockTile t =
+  case normalize t of
+    Tuple n t' -> applyN n rotateCW (convert t')
+  where
+  convert t =
+    case t of
+      Intersection       -> intersectionB
+      TeeJunctionUp      -> teeJunctionUpB
+      CornerUpRight      -> cornerUpRightB
+      StraightHorizontal -> straightHorizontalB
+
+rotateCW :: BlockTile -> BlockTile
 rotateCW = transpose >>> map reverse
 
-getRow :: Number -> Tile -> Maybe [Block]
-getRow n t = t !! n
-
 concatTiles :: [[Tile]] -> Maybe [[Block]]
-concatTiles = map concatTileRow >>> sequence >>> fmap concat
+concatTiles =
+  map (map toBlockTile) >>> map concatTileRow >>> sequence >>> fmap concat
 
-concatTileRow :: [Tile] -> Maybe [[Block]]
+concatTileRow :: [BlockTile] -> Maybe [[Block]]
 concatTileRow ts =
-    let range = 0 .. tileSize - 1
+    let r = range 0 (tileSize - 1)
+        getRow n t = t !! n
         getRowComponents n = map (getRow n) ts
-        maybes = map (getRowComponents >>> mconcat) range
+        maybes = map (getRowComponents >>> mconcat) r
     in  sequence maybes
 
 -- The number of blocks along one side of a tile in the level map. This allows
@@ -38,27 +76,19 @@ tileSize = 11
 halfTile :: Number
 halfTile = floor (tileSize / 2)
 
--- the number of tiles along one side of a level map.
-tilesAlongSide :: Number
-tilesAlongSide = 15
-
--- the height or width in a level, in blocks.
-mapSize :: Number
-mapSize = tileSize * tilesAlongSide
-
 mirror :: forall a. a -> a -> [a]
 mirror x y =
     let xs = replicate halfTile x
     in xs <> [y] <> xs
 
-intersection :: Tile
-intersection =
+intersectionB :: BlockTile
+intersectionB =
     let normalRow = mirror Wall Empty
         centralRow = replicate tileSize Empty
     in mirror normalRow centralRow
 
-teeJunctionUp :: Tile
-teeJunctionUp =
+teeJunctionUpB :: BlockTile
+teeJunctionUpB =
     let upperRow   = mirror Wall Empty
         centralRow = replicate tileSize Empty
         lowerRow   = replicate tileSize Wall
@@ -66,15 +96,8 @@ teeJunctionUp =
         [centralRow] <>
         replicate halfTile lowerRow
 
-teeJunctionRight :: Tile
-teeJunctionRight = rotateCW teeJunctionUp
-teeJunctionDown :: Tile
-teeJunctionDown  = rotateCW teeJunctionRight
-teeJunctionLeft :: Tile
-teeJunctionLeft  = rotateCW teeJunctionDown
-
-uprightCorner :: Tile
-uprightCorner =
+cornerUpRightB :: BlockTile
+cornerUpRightB =
     let upperRow = mirror Wall Empty
         centralRow = replicate halfTile Wall <> replicate (halfTile + 1) Empty
         lowerRow = replicate tileSize Wall
@@ -82,34 +105,35 @@ uprightCorner =
             [centralRow] <>
             replicate halfTile lowerRow
 
-downrightCorner :: Tile
-downrightCorner = rotateCW uprightCorner
-downleftCorner :: Tile
-downleftCorner = rotateCW downrightCorner
-upleftCorner :: Tile
-upleftCorner = rotateCW downleftCorner
+straightHorizontalB :: BlockTile
+straightHorizontalB =
+  let centralRow = replicate tileSize Empty
+      normalRow = replicate tileSize Wall
+  in  mirror normalRow centralRow
 
 basicTileMap :: [[Tile]]
 basicTileMap =
     let n = tilesAlongSide - 2
         topRow =
-            [downrightCorner] <>
-                replicate n teeJunctionDown <>
-                [downleftCorner]
+            [CornerRightDown] <>
+                replicate n TeeJunctionDown <>
+                [CornerDownLeft]
         centralRow =
-            [teeJunctionRight] <>
-                replicate n intersection <>
-                [teeJunctionLeft]
+            [TeeJunctionRight] <>
+                replicate n Intersection <>
+                [TeeJunctionLeft]
         bottomRow =
-            [uprightCorner] <>
-                replicate n teeJunctionUp <>
-                [upleftCorner]
+            [CornerUpRight] <>
+                replicate n TeeJunctionUp <>
+                [CornerLeftUp]
     in [topRow] <> replicate n centralRow <> [bottomRow]
 
+
+mkLevelMap :: [[Tile]] -> Maybe LevelMap
+mkLevelMap ts = fmap (\bs -> { blocks: bs, tiles: ts }) (concatTiles ts)
+
 basicMap :: LevelMap
-basicMap = case concatTiles basicTileMap of
-    Just x  -> {blocks: x}
-    Nothing -> {blocks: [[]]}
+basicMap = fromJust (mkLevelMap basicTileMap)
 
 getBlockAt :: Position -> LevelMap -> Maybe Block
 getBlockAt (Position pos) levelmap =
