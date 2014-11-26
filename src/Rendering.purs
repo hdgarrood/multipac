@@ -10,22 +10,41 @@ import Graphics.Canvas
 import Control.Monad.Eff
 import Control.Monad (when)
 import Control.Lens ((^.), (..))
+import Math (pi, floor)
 
 import LevelMap
 import Types
 import Utils
 
 pxPerBlock :: Number
-pxPerBlock = 4
+pxPerBlock = 3
 
-getRectAt ::
-  Position -> Rectangle
-getRectAt (Position p) =
-  {x: p.x * pxPerBlock, y: p.y * pxPerBlock, h: pxPerBlock, w: pxPerBlock}
+halfBlock :: Number
+halfBlock = floor (pxPerBlock / 2)
 
-getRectAt' ::
-  Number -> Number -> Rectangle
+pxPerTile :: Number
+pxPerTile = pxPerBlock * tileSize
+
+scaleRect :: Number -> Position -> Rectangle
+scaleRect scale (Position p) =
+  {x: p.x * scale, y: p.y * scale, h: scale, w: scale}
+
+getRectAt :: Position -> Rectangle
+getRectAt = scaleRect pxPerBlock
+
+getCentredRectAt :: Position -> Rectangle
+getCentredRectAt p =
+  let r = getRectAt p
+  in  r {x = r.x + halfBlock, y = r.y + halfBlock}
+
+getRectAt' :: Number -> Number -> Rectangle
 getRectAt' x y = getRectAt (Position {x: x, y: y})
+
+getTileRectAt :: Position -> Rectangle
+getTileRectAt = scaleRect pxPerTile
+
+getTileRectAt' :: Number -> Number -> Rectangle
+getTileRectAt' x y = getTileRectAt (Position {x: x, y: y})
 
 -- the height and width of the canvas
 canvasSize :: Number
@@ -54,14 +73,23 @@ clearBackground ctx = do
 
 foreign import renderMapFFI
   """
-  function renderMapFFI(isEmpty, getRect, ctx, map) {
+  function renderMapFFI(isEmpty, getBlockRect, getTileRect, ctx, map) {
     return function() {
+      ctx.strokeStyle = 'hsl(40, 70%, 50%)'
+      var t = map.tiles
+      for (var i = 0; i < t.length; i++) {
+        for (var j = 0; j < t[i].length; j++) {
+          var r = getTileRect(i)(j)
+          ctx.strokeRect(r.x, r.y, r.w, r.h)
+        }
+      }
+
       ctx.fillStyle = 'hsl(320, 20%, 10%)'
       var b = map.blocks
       for (var i = 0; i < b.length; i++) {
         for (var j = 0; j < b[i].length; j++) {
           if (isEmpty(b[i][j])) {
-            var r = getRect(i)(j)
+            var r = getBlockRect(i)(j)
             ctx.fillRect(r.x, r.y, r.w, r.h)
           }
         }
@@ -69,8 +97,9 @@ foreign import renderMapFFI
     }
   }
   """ :: forall e.
-  Fn4
+  Fn5
     (Block -> Boolean)
+    (Number -> Number -> Rectangle)
     (Number -> Number -> Rectangle)
     Context2D
     LevelMap
@@ -82,7 +111,7 @@ renderMap :: forall e.
   -> Eff (canvas :: Canvas | e) Unit
 renderMap ctx map = do
   clearBackground ctx
-  runFn4 renderMapFFI (not .. isWall) getRectAt' ctx map
+  runFn5 renderMapFFI (not .. isWall) getRectAt' getTileRectAt' ctx map
 
 renderPlayer :: forall e.
   Context2D
@@ -92,7 +121,10 @@ renderPlayer :: forall e.
 renderPlayer ctx pId player =
   void $ do
     setFillStyle (fillStyleFor pId) ctx
-    fillRect ctx (enlargeRect 3 $ getRectAt (player ^. position))
+    let centre = getCentredRectAt (player ^. position)
+    beginPath ctx
+    arc ctx {x: centre.x, y: centre.y, start: 0, end: 2 * pi, r: 9}
+    fill ctx
 
 clearPlayer :: forall e.
   Context2D
@@ -109,7 +141,6 @@ enlargeRect delta r =
   , w: r.w + (2 * delta)
   , h: r.h + (2 * delta)
   }
-
 
 fillStyleFor :: PlayerId -> String
 fillStyleFor P1 = "hsl(0, 100%, 60%)"

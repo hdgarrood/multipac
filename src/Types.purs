@@ -83,7 +83,21 @@ data Tile
   | CornerLeftUp
   | StraightHorizontal
   | StraightVertical
+  | Inaccessible
 
+instance showTile :: Show Tile where
+  show Intersection       = "Intersection"
+  show TeeJunctionUp      = "TeeJunctionUp"
+  show TeeJunctionRight   = "TeeJunctionRight"
+  show TeeJunctionLeft    = "TeeJunctionLeft"
+  show TeeJunctionDown    = "TeeJunctionDown"
+  show CornerUpRight      = "CornerUpRight"
+  show CornerRightDown    = "CornerRightDown"
+  show CornerDownLeft     = "CornerDownLeft"
+  show CornerLeftUp       = "CornerLeftUp"
+  show StraightHorizontal = "StraightHorizontal"
+  show StraightVertical   = "StraightVertical"
+  show Inaccessible       = "Inaccessible"
 
 instance showBlock :: Show Block where
   show Wall = "Wall"

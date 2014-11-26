@@ -54,12 +54,12 @@ changeIntendedDirection pId d =
 
 initialGame :: Game
 initialGame =
-  { map: basicMap
+  { map: basicMap2
   , players: M.fromList $ f <$> [1,2,3,4]
   }
   where
   f n = Tuple (fromJust (intToPlayerId n))
-          (Player { position: Position {x: z' n, y: z' n}
+          (Player { position: Position {x: z' n, y: z}
                   , direction: Nothing
                   , intendedDirection: Nothing
                   })

@@ -6,7 +6,8 @@ import Data.Maybe
 import Data.Array
 import Data.Either
 import Data.Traversable (sequence)
-import Data.Foldable (for_)
+import Data.Monoid.All
+import Data.Foldable (Foldable, for_, foldMap)
 import Prelude.Unsafe (unsafeIndex)
 import Control.Monad.Eff
 
@@ -82,3 +83,17 @@ traceTime msg = runFn2 traceTimeImpl trace msg
 fromEither :: forall a b. Either a b -> Maybe b
 fromEither (Left _) = Nothing
 fromEither (Right x) = Just x
+
+applyN :: forall a. Number -> (a -> a) -> a -> a
+applyN = go id
+  where
+  go f n _ | n <= 0 = f
+  go f n g = go (f >>> g) (n - 1) g
+
+foreign import error
+  """
+  function error(msg) {
+    throw new Error(msg)
+  }
+  """ :: forall a. String -> a
+

@@ -1,15 +1,21 @@
 module LevelMap where
 
+import Data.Either
 import Data.Tuple
-import Control.Lens
-import Types
+import Data.Char (charString)
+import Data.String (split, trim, toCharArray, joinWith)
+import Control.Lens ((~))
+import Control.Monad (unless)
 import Math (floor)
-import Data.Array (map, reverse, (!!), range, concatMap, concat)
+import Data.Array (map, filter, null, reverse, (!!), range, concatMap,
+                   concat, length)
 import Data.Maybe
 import Data.Maybe.Unsafe
-import Data.Traversable (sequence)
-import Data.Foldable (mconcat)
+import Data.Traversable (for, sequence)
+import Data.Foldable (mconcat, all)
+
 import Utils
+import Types hiding (Direction(..))
 
 -- the number of tiles along one side of a level map.
 tilesAlongSide :: Number
@@ -33,12 +39,7 @@ normalize t =
     CornerLeftUp       -> (3 ~ CornerUpRight)
     StraightHorizontal -> (0 ~ StraightHorizontal)
     StraightVertical   -> (1 ~ StraightHorizontal)
-
-applyN :: forall a. Number -> (a -> a) -> a -> a
-applyN = go id
-  where
-  go f n _ | n <= 0 = f
-  go f n g = go (f >>> g) (n - 1) g
+    Inaccessible       -> (0 ~ Inaccessible)
 
 toBlockTile :: Tile -> BlockTile
 toBlockTile t =
@@ -51,9 +52,20 @@ toBlockTile t =
       TeeJunctionUp      -> teeJunctionUpB
       CornerUpRight      -> cornerUpRightB
       StraightHorizontal -> straightHorizontalB
+      Inaccessible       -> inaccessibleB
 
 rotateCW :: BlockTile -> BlockTile
-rotateCW = transpose >>> map reverse
+rotateCW = map reverse >>> transpose
+
+debugShowBlockTile :: BlockTile -> String
+debugShowBlockTile bt =
+  let rows = transpose bt
+      showRow = map showBlock >>> joinWith ""
+      showBlock b =
+        case b of
+          Wall -> "#"
+          Empty -> " "
+  in  joinWith "\n" (map showRow rows)
 
 concatTiles :: [[Tile]] -> Maybe [[Block]]
 concatTiles =
@@ -89,45 +101,137 @@ intersectionB =
 
 teeJunctionUpB :: BlockTile
 teeJunctionUpB =
-    let upperRow   = mirror Wall Empty
-        centralRow = replicate tileSize Empty
-        lowerRow   = replicate tileSize Wall
-    in replicate halfTile upperRow <>
-        [centralRow] <>
-        replicate halfTile lowerRow
+    let normalCol  = mirror Wall Empty
+        centralCol = replicate halfTile Empty <>
+                        [Empty] <>
+                        replicate halfTile Wall
+    in  mirror normalCol centralCol
 
 cornerUpRightB :: BlockTile
 cornerUpRightB =
     let upperRow = mirror Wall Empty
         centralRow = replicate halfTile Wall <> replicate (halfTile + 1) Empty
         lowerRow = replicate tileSize Wall
-    in  replicate halfTile upperRow <>
-            [centralRow] <>
-            replicate halfTile lowerRow
+        byRows =
+          replicate halfTile upperRow <>
+              [centralRow] <>
+              replicate halfTile lowerRow
+    in  transpose byRows
 
 straightHorizontalB :: BlockTile
 straightHorizontalB =
-  let centralRow = replicate tileSize Empty
-      normalRow = replicate tileSize Wall
-  in  mirror normalRow centralRow
+  let col = mirror Wall Empty
+  in  replicate tileSize col
+
+inaccessibleB :: BlockTile
+inaccessibleB = replicate tileSize (replicate tileSize Wall)
 
 basicTileMap :: [[Tile]]
 basicTileMap =
     let n = tilesAlongSide - 2
-        topRow =
+        leftCol =
             [CornerRightDown] <>
                 replicate n TeeJunctionDown <>
-                [CornerDownLeft]
-        centralRow =
-            [TeeJunctionRight] <>
+                [CornerUpRight]
+        centralCol =
+            [TeeJunctionDown] <>
                 replicate n Intersection <>
-                [TeeJunctionLeft]
-        bottomRow =
-            [CornerUpRight] <>
+                [TeeJunctionUp]
+        rightCol =
+            [CornerDownLeft] <>
                 replicate n TeeJunctionUp <>
                 [CornerLeftUp]
-    in [topRow] <> replicate n centralRow <> [bottomRow]
+    in [leftCol] <> replicate n centralCol <> [rightCol]
 
+fromString :: String -> Either String [[Tile]]
+fromString str = parseLevelMapString str >>= constructLevelMap
+
+-- 'Wall' or 'Empty'
+data BasicTile = W | E
+
+fail = Left
+
+parseLevelMapString :: String -> Either String [[BasicTile]]
+parseLevelMapString str = do
+  let toLines =
+    split "\n" >>>
+      map (trim >>> toCharArray) >>>
+      filter (not <<< null) >>>
+      transpose
+
+  let lines = toLines str
+  unless (rightLength lines && all rightLength lines) $
+    fail $ "expected a square levelmap; dimensions should be " <>
+            show tilesAlongSide <> " by " <> show tilesAlongSide
+
+  for lines $ \line ->
+    for line $ \char ->
+      let c = charString char
+      in case c of
+        "#" -> return W
+        "_" -> return E
+        _   -> fail $ "unexpected char '" <> c <> "'; expected '#' or '_'"
+
+  where
+  rightLength :: forall a. [a] -> Boolean
+  rightLength x = length x == tilesAlongSide
+
+constructLevelMap :: [[BasicTile]] -> Either String [[Tile]]
+constructLevelMap basicTiles = do
+  let tileIndices = range 0 (tilesAlongSide - 1)
+  let b i j = basicTiles !! i >>= (\r -> r !! j)
+
+  for tileIndices $ \i ->
+    for tileIndices $ \j ->
+      let centre = fromJust $ b i j
+          above = fromMaybe W $ b i (j-1)
+          below = fromMaybe W $ b i (j+1)
+          right = fromMaybe W $ b (i+1) j
+          left  = fromMaybe W $ b (i-1) j
+      in  toTile centre above right below left
+
+-- order is: centre, above, right, below, left
+toTile :: BasicTile -> BasicTile -> BasicTile -> BasicTile -> BasicTile ->
+          Either String Tile
+toTile W _ _ _ _ = return Inaccessible
+toTile E E E E E = return Intersection
+toTile E W E E E = return TeeJunctionDown
+toTile E E W E E = return TeeJunctionLeft
+toTile E E E W E = return TeeJunctionUp
+toTile E E E E W = return TeeJunctionRight
+toTile E W W E E = return CornerDownLeft
+toTile E W E W E = return StraightHorizontal
+toTile E W E E W = return CornerRightDown
+toTile E E W W E = return CornerLeftUp
+toTile E E W E W = return StraightVertical
+toTile E E E W W = return CornerUpRight
+toTile E _ _ _ _ = fail "dead ends are not supported"
+
+basicMap2 :: LevelMap
+basicMap2 =
+  fromJust $ mkLevelMap $ either error id $ fromString $
+  """
+  _______________
+  _##_###_###_##_
+  _____#___#_____
+  #_##___#___##_#
+  ___###_#_###___
+  _#__##___##__#_
+  _##____#____##_
+  ____##___##____
+  _##____#____##_
+  _#__##___##__#_
+  ___###_#_###___
+  #_##___#___##_#
+  _____#___#_____
+  _##_###_###_##_
+  _______________
+  """
+
+basicMap3 :: LevelMap
+basicMap3 =
+  fromJust $ mkLevelMap (replicate tilesAlongSide
+                (replicate tilesAlongSide TeeJunctionLeft))
 
 mkLevelMap :: [[Tile]] -> Maybe LevelMap
 mkLevelMap ts = fmap (\bs -> { blocks: bs, tiles: ts }) (concatTiles ts)
@@ -137,6 +241,4 @@ basicMap = fromJust (mkLevelMap basicTileMap)
 
 getBlockAt :: Position -> LevelMap -> Maybe Block
 getBlockAt (Position pos) levelmap =
-  case levelmap.blocks !! pos.y of
-    Just row -> row !! pos.x
-    Nothing -> Nothing
+  levelmap.blocks !! pos.x >>= (\r -> r !! pos.y)
