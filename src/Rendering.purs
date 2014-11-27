@@ -17,7 +17,7 @@ import LevelMap
 import Types
 import Utils
 
-debug = true
+debug = false
 
 pxPerBlock :: Number
 pxPerBlock = 3
@@ -143,6 +143,9 @@ renderMap :: forall e.
   -> LevelMap
   -> Eff (trace :: Trace, canvas :: Canvas | e) Unit
 renderMap ctx map = do
+  setStrokeStyle "hsl(200, 80%, 40%)" ctx
+  strokeRect ctx {x:0, y:0, w: canvasSize, h: canvasSize}
+
   let tileIndices = range 0 (tilesAlongSide - 1)
   let getTile i j = map.tiles !! i >>= (\r -> r !! j)
   let t i j = toBasic <$> getTile i j
@@ -157,28 +160,14 @@ renderMap ctx map = do
       case t i j of
         Just W -> do
           let cs = getCorners above right below left
+          let es = getEdges above right below left
           withContext ctx $ do
             translate {translateX: (i + 0.5) * pxPerTile
                       , translateY: (j + 0.5) * pxPerTile} ctx
             renderCorners ctx cs
+            renderEdges ctx es
         _ ->
           return unit
-
-renderMapTemp ctx map =
-  let getTile i j = map.tiles !! i >>= (\r -> r !! j)
-      t i j = toBasic <$> getTile i j
-      i = 1
-      j = 1
-      above = fromMaybe W $ t i (j-1)
-      below = fromMaybe W $ t i (j+1)
-      right = fromMaybe W $ t (i+1) j
-      left  = fromMaybe W $ t (i-1) j
-      cs = getCorners above right below left
-  
-  in do
-    withContext ctx $ do
-      translate { translateX: 1.5 * pxPerTile, translateY: 1.5 * pxPerTile } ctx
-      renderCorners ctx cs
 
 showCorners :: Corners -> String
 showCorners cs =
@@ -200,18 +189,15 @@ getCorner W E = CSH
 getCorner E W = CSV
 getCorner E E = CRO
 
+cornerSize = 9
+cornerMid = floor (cornerSize / 2)
+cornerRadius = cornerMid
+
 renderCorners :: forall e.
   Context2D
   -> Corners
   -> Eff (trace :: Trace, canvas :: Canvas | e) Unit
 renderCorners ctx cs = do
-  setStrokeStyle "hsl(200, 80%, 40%)" ctx
-  let cornerSize = 9
-  let cornerMid = floor (cornerSize / 2)
-  let cornerRadius = cornerMid
-  
-  -- these are the instructions for the top left corner. Others will
-  -- need to be rotated
   let renderCorner ctx c a t =
     case c of
         CRO ->
@@ -233,24 +219,24 @@ renderCorners ctx cs = do
               rotate a ctx
           , go:
               arc ctx
-                { start: pi/2
-                , end:   0
-                , x:     0
-                , y:     0
+                { start: 0
+                , end:   pi/2
+                , x:     -cornerMid
+                , y:     -cornerMid
                 , r:     cornerRadius
                 }
           }  
         CSH ->
           { prep: translate t ctx
           , go: do
-              moveTo ctx (-cornerMid) 0
-              lineTo ctx cornerMid 0
+              moveTo ctx (-cornerMid - 1) 0
+              lineTo ctx (cornerMid + 1) 0
           }
         CSV ->
           { prep: translate t ctx
           , go: do
-              moveTo ctx 0 (-cornerMid)
-              lineTo ctx 0 cornerMid
+              moveTo ctx 0 (-cornerMid - 1)
+              lineTo ctx 0 (cornerMid + 1)
           }
 
   let s = (pxPerTile - cornerSize) / 2
@@ -284,6 +270,41 @@ renderCorners ctx cs = do
       r.go
       stroke ctx
 
+
+getEdges above right below left =
+  { t: above, r: right, b: below, l: left }
+
+
+renderEdges ctx es =
+  let s = (pxPerTile / 2) - cornerSize
+      x1 = -s - 1
+      y1 = -s - (cornerSize / 2)
+      x2 = s
+      y2 = y1
+
+      renderEdge ctx e =
+        case e of
+          W -> return unit
+          E -> do
+            moveTo ctx x1 y1
+            void $ lineTo ctx x2 y2
+
+      es' =
+        [ { e: es.t, a: 0 }
+        , { e: es.r, a: pi/2 }
+        , { e: es.b, a: pi }
+        , { e: es.l, a: 3*pi/2 }
+        ]
+
+  in
+  for_ es' $ \e ->
+    withContext ctx $ do
+      rotate e.a ctx
+      beginPath ctx
+      renderEdge ctx e.e
+      stroke ctx
+         
+
 renderPlayer :: forall e.
   Context2D
   -> PlayerId
@@ -294,7 +315,7 @@ renderPlayer ctx pId player =
     setFillStyle (fillStyleFor pId) ctx
     let centre = getCentredRectAt (player ^. position)
     beginPath ctx
-    arc ctx {x: centre.x, y: centre.y, start: 0, end: 2 * pi, r: 9}
+    arc ctx {x: centre.x, y: centre.y, start: 0, end: 2 * pi, r: 13}
     fill ctx
 
 clearPlayer :: forall e.
