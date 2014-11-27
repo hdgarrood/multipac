@@ -124,6 +124,7 @@ data CornerType
   | CRI -- rounded inner
   | CSH -- straight horizontal
   | CSV -- straight vertical
+  | NON -- nothing (inside a block)
 
 instance showCornerType :: Show CornerType where
   show CRO = "CRO"
@@ -152,14 +153,19 @@ renderMap ctx map = do
 
   for_ tileIndices $ \i ->
     for_ tileIndices $ \j -> do
-      let above = fromMaybe W $ t i (j-1)
-      let below = fromMaybe W $ t i (j+1)
-      let right = fromMaybe W $ t (i+1) j
-      let left  = fromMaybe W $ t (i-1) j
+      let above      = fromMaybe W $ t i (j-1)
+      let aboveRight = fromMaybe W $ t (i+1) (j-1)
+      let right      = fromMaybe W $ t (i+1) j
+      let belowRight = fromMaybe W $ t (i+1) (j+1)
+      let below      = fromMaybe W $ t i (j+1)
+      let belowLeft  = fromMaybe W $ t (i-1) (j+1)
+      let left       = fromMaybe W $ t (i-1) j
+      let aboveLeft  = fromMaybe W $ t (i-1) (j-1)
 
       case t i j of
         Just W -> do
-          let cs = getCorners above right below left
+          let cs = getCorners above aboveRight right belowRight
+                              below belowLeft left aboveLeft
           let es = getEdges above right below left
           withContext ctx $ do
             translate {translateX: (i + 0.5) * pxPerTile
@@ -174,20 +180,19 @@ showCorners cs =
   showRecord "Corners"
     ["tl" .:: cs.tl, "tr" .:: cs.tr, "br" .:: cs.br, "bl" .:: cs.bl]
 
-getCorners :: BasicTile -> BasicTile -> BasicTile -> BasicTile -> Corners
-getCorners above right below left =
-  { tl: getCorner left above
-  , tr: getCorner right above
-  , br: getCorner right below
-  , bl: getCorner left below
+getCorners above aboveRight right belowRight below belowLeft left aboveLeft =
+  { tl: getCorner left above aboveLeft
+  , tr: getCorner right above aboveRight
+  , br: getCorner right below belowRight
+  , bl: getCorner left below belowLeft
   }
 
--- order is: horizontal vertical
-getCorner :: BasicTile -> BasicTile -> CornerType
-getCorner W W = CRI
-getCorner W E = CSH
-getCorner E W = CSV
-getCorner E E = CRO
+-- order is: horizontal vertical corner
+getCorner W W E = CRI
+getCorner W W W = NON
+getCorner W E _ = CSH
+getCorner E W _ = CSV
+getCorner E E _ = CRO
 
 cornerSize = 9
 cornerMid = floor (cornerSize / 2)
@@ -237,6 +242,10 @@ renderCorners ctx cs = do
           , go: do
               moveTo ctx 0 (-cornerMid - 1)
               lineTo ctx 0 (cornerMid + 1)
+          }
+        NON ->
+          { prep: return ctx
+          , go: return ctx
           }
 
   let s = (pxPerTile - cornerSize) / 2
