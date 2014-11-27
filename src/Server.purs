@@ -5,6 +5,7 @@ import Data.Tuple
 import Data.JSON
 import Data.Function
 import Data.Maybe
+import Data.Array
 import qualified Data.Either as E
 import qualified Data.Map as M
 import Data.Foldable (for_)
@@ -24,7 +25,6 @@ initialState =
   { game: initialGame
   , input: M.empty
   , connections: []
-  , lastUsedPlayerId: Nothing
   }
 
 
@@ -60,13 +60,16 @@ createWebSocketServer refState = do
   WS.onRequest server $ \req -> do
     trace "got a request"
     conn <- WS.accept req
-    trace "opened connection"
 
     maybePId <- addPlayer conn refState
 
-    whenJust maybePId $ \pId -> do
-      WS.onMessage conn (handleMessage refState pId)
-      WS.onClose   conn (handleClose refState pId)
+    case maybePId of
+      Just pId -> do
+        trace $ "opened connection for player " <> show pId
+        WS.onMessage conn (handleMessage refState pId)
+        WS.onClose   conn (handleClose refState pId)
+      Nothing ->
+        return unit
 
   return server
 
@@ -90,9 +93,7 @@ addPlayer conn refState = do
   case getNextPlayerId state of
     Just pId -> do
       let state' = state
-                    { connections = state.connections <> [Tuple conn pId]
-                    , lastUsedPlayerId = Just pId
-                    }
+                    { connections = state.connections <> [Tuple conn pId] }
       writeRef refState state'
       return (Just pId)
     Nothing ->
@@ -124,14 +125,14 @@ handleMessage refState pId msg = do
 handleClose :: forall e.
   RefVal ServerState
   -> PlayerId
-  -> Close
-  -> Eff (ws :: WS.WebSocket, trace :: Trace | e) Unit
+  -> WS.Close
+  -> Eff (ws :: WS.WebSocket, trace :: Trace, ref :: Ref | e) Unit
 handleClose refState pId _ = do
   state <- readRef refState
   let conns = filter (\(Tuple _ pId') -> pId /= pId') state.connections
   let state' = state { connections = conns }
   writeRef refState state'
-  trace "closed connection"
+  trace $ "closed connection for player " <> show pId
 
 
 sendUpdates :: forall e.
