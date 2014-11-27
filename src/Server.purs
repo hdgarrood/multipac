@@ -113,7 +113,6 @@ handleMessage :: forall e.
   -> WS.Message
   -> Eff (trace :: Trace, ws :: WS.WebSocket, ref :: Ref | e) Unit
 handleMessage refState pId msg = do
-  trace $ "got message: " <> msg
   case eitherDecode msg of
     E.Right newDir ->
       modifyRef refState $ \s ->
