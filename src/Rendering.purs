@@ -145,7 +145,6 @@ renderMap :: forall e.
   -> Eff (trace :: Trace, canvas :: Canvas | e) Unit
 renderMap ctx map = do
   setStrokeStyle "hsl(200, 80%, 40%)" ctx
-  strokeRect ctx {x:0, y:0, w: canvasSize, h: canvasSize}
 
   let tileIndices = range 0 (tilesAlongSide - 1)
   let getTile i j = map.tiles !! i >>= (\r -> r !! j)

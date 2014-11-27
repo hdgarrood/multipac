@@ -59,7 +59,7 @@ initialGame =
   }
   where
   f n = Tuple (fromJust (intToPlayerId n))
-          (Player { position: Position {x: z' n, y: z}
+          (Player { position: Position {x: z' n, y: z' 1}
                   , direction: Nothing
                   , intendedDirection: Nothing
                   })

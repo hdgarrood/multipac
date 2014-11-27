@@ -19,7 +19,7 @@ import Types hiding (Direction(..))
 
 -- the number of tiles along one side of a level map.
 tilesAlongSide :: Number
-tilesAlongSide = 15
+tilesAlongSide = 17
 
 -- the height or width in a level, in blocks.
 mapSize :: Number
@@ -53,6 +53,13 @@ toBlockTile t =
       CornerUpRight      -> cornerUpRightB
       StraightHorizontal -> straightHorizontalB
       Inaccessible       -> inaccessibleB
+
+mkBlockTile :: BlockTile -> BlockTile
+mkBlockTile b =
+  let rightLength :: forall a. [a] -> Boolean
+      rightLength x = length x == tileSize
+      ok = rightLength b && all rightLength b
+  in  if ok then b else error "bad dimensions for BlockTile"
 
 rotateCW :: BlockTile -> BlockTile
 rotateCW = map reverse >>> transpose
@@ -97,7 +104,7 @@ intersectionB :: BlockTile
 intersectionB =
     let normalRow = mirror Wall Empty
         centralRow = replicate tileSize Empty
-    in mirror normalRow centralRow
+    in mkBlockTile $ mirror normalRow centralRow
 
 teeJunctionUpB :: BlockTile
 teeJunctionUpB =
@@ -105,7 +112,7 @@ teeJunctionUpB =
         centralCol = replicate halfTile Empty <>
                         [Empty] <>
                         replicate halfTile Wall
-    in  mirror normalCol centralCol
+    in  mkBlockTile $ mirror normalCol centralCol
 
 cornerUpRightB :: BlockTile
 cornerUpRightB =
@@ -116,15 +123,15 @@ cornerUpRightB =
           replicate halfTile upperRow <>
               [centralRow] <>
               replicate halfTile lowerRow
-    in  transpose byRows
+    in  mkBlockTile $ transpose byRows
 
 straightHorizontalB :: BlockTile
 straightHorizontalB =
   let col = mirror Wall Empty
-  in  replicate tileSize col
+  in  mkBlockTile $ replicate tileSize col
 
 inaccessibleB :: BlockTile
-inaccessibleB = replicate tileSize (replicate tileSize Wall)
+inaccessibleB = mkBlockTile $ replicate tileSize (replicate tileSize Wall)
 
 basicTileMap :: [[Tile]]
 basicTileMap =
@@ -211,21 +218,23 @@ basicMap2 :: LevelMap
 basicMap2 =
   fromJust $ mkLevelMap $ either error id $ fromString $
   """
-  _______________
-  _##_###_###_##_
-  _____#___#_____
-  #_##___#___##_#
-  _____#_#_#_____
-  _##_##___##_##_
-  _##____#____##_
-  ____##___##____
-  _##____#____##_
-  _##_##___##_##_
-  _____#_#_#_____
-  #_##___#___##_#
-  _____#___#_____
-  _##_###_###_##_
-  _______________
+  ################# 
+  #_______________#
+  #_##_###_###_##_#
+  #_____#___#_____#
+  ##_##___#___##_##
+  #_____#_#_#_____#
+  #_##_##___##_##_#
+  #_##____#____##_#
+  #____##___##____#
+  #_##____#____##_#
+  #_##_##___##_##_#
+  #_____#_#_#_____#
+  ##_##___#___##_##
+  #_____#___#_____#
+  #_##_###_###_##_# 
+  #_______________# 
+  #################
   """
 
 basicMap3 :: LevelMap
