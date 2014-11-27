@@ -12,13 +12,30 @@
 #foreground {
   position: absolute;
   z-index: 1;
+  margin: 0 auto;
+}
+
+body {
+  background-color: #34344e;
+  color: #dfd1a5;
+  font-family: "ubuntu", sans-serif;
+}
+
+h1 {
+  text-align: center;
+}
+
+#multipac {
+  margin: 0 auto;
+  width: 495px; /* FIXME: this should be set during setupRendering */
 }
 </style>
 </head>
 <body>
 <div id="multipac">
-<canvas id="foreground"></canvas>
-<canvas id="background"></canvas>
+  <h1>multipac</h1>
+  <canvas id="foreground"></canvas>
+  <canvas id="background"></canvas>
 </div>
 </body>
 </html>
