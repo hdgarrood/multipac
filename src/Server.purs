@@ -34,7 +34,7 @@ main = do
   chdir "static"
   port <- portOrDefault 8080
 
-  httpServer <- createHttpServer 
+  httpServer <- createHttpServer
   wsServer <- createWebSocketServer refState
 
   WS.mount wsServer httpServer
@@ -44,7 +44,7 @@ main = do
   startMainLoop refState
 
 
-createHttpServer = 
+createHttpServer =
   Http.createServer $ \req res -> do
     let path = (Http.getUrl req).pathname
     let reply =
@@ -66,8 +66,7 @@ createWebSocketServer refState = do
 
     whenJust maybePId $ \pId -> do
       WS.onMessage conn (handleMessage refState pId)
-
-    WS.onClose conn handleClose
+      WS.onClose   conn (handleClose refState pId)
 
   return server
 
@@ -88,7 +87,7 @@ startMainLoop refState =
 
 addPlayer conn refState = do
   state <- readRef refState
-  case nextPlayerId state.lastUsedPlayerId of
+  case getNextPlayerId state of
     Just pId -> do
       let state' = state
                     { connections = state.connections <> [Tuple conn pId]
@@ -100,12 +99,10 @@ addPlayer conn refState = do
       return Nothing
 
 
-nextPlayerId :: Maybe PlayerId -> Maybe PlayerId
-nextPlayerId Nothing = Just P1
-nextPlayerId (Just P1) = Just P2
-nextPlayerId (Just P2) = Just P3
-nextPlayerId (Just P3) = Just P4
-nextPlayerId (Just P4) = Nothing
+getNextPlayerId :: ServerState -> Maybe PlayerId
+getNextPlayerId state =
+  let playerIdsInUse = map snd state.connections
+  in  head $ allPlayerIds \\ playerIdsInUse
 
 
 handleMessage :: forall e.
@@ -124,9 +121,17 @@ handleMessage refState pId msg = do
       trace err
 
 
-handleClose :: forall a e.
-  a -> Eff (ws :: WS.WebSocket, trace :: Trace | e) Unit
-handleClose = const (trace "closed connection")
+handleClose :: forall e.
+  RefVal ServerState
+  -> PlayerId
+  -> Close
+  -> Eff (ws :: WS.WebSocket, trace :: Trace | e) Unit
+handleClose refState pId _ = do
+  state <- readRef refState
+  let conns = filter (\(Tuple _ pId') -> pId /= pId') state.connections
+  let state' = state { connections = conns }
+  writeRef refState state'
+  trace "closed connection"
 
 
 sendUpdates :: forall e.

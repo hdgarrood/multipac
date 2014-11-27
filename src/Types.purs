@@ -29,6 +29,9 @@ unwrapGame (WrappedGame g) = g
 
 data PlayerId = P1 | P2 | P3 | P4
 
+allPlayerIds :: [PlayerId]
+allPlayerIds = [P1, P2, P3, P4]
+
 playerIdToInt :: PlayerId -> Number
 playerIdToInt p =
   case p of
@@ -44,6 +47,7 @@ intToPlayerId x =
     2 -> Just P2
     3 -> Just P3
     4 -> Just P4
+    _ -> Nothing
 
 instance showPlayerId :: Show PlayerId where
   show P1 = "P1"
@@ -331,7 +335,6 @@ type ServerState =
   { game :: Game
   , input :: Input
   , connections :: [Tuple WS.Connection PlayerId]
-  , lastUsedPlayerId :: Maybe PlayerId
   }
 
 type ClientState =
