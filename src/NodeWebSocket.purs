@@ -120,3 +120,12 @@ foreign import mountImpl
 mount :: forall e.
   Server -> Http.Server -> Eff (ws :: WebSocket, http :: Http.Http | e) Unit
 mount wsServer httpServer = runFn2 mountImpl wsServer httpServer
+
+foreign import close
+  """
+  function close(conn) {
+    return function() {
+      conn.close()
+    }
+  }
+  """ :: forall e. Connection -> Eff (ws :: WebSocket | e) Unit

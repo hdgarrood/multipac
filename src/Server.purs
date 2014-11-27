@@ -68,8 +68,9 @@ createWebSocketServer refState = do
         trace $ "opened connection for player " <> show pId
         WS.onMessage conn (handleMessage refState pId)
         WS.onClose   conn (handleClose refState pId)
-      Nothing ->
-        return unit
+      Nothing -> do
+        trace "rejecting connection, no player ids available"
+        WS.close conn
 
   return server
 
