@@ -1,5 +1,6 @@
 module Rendering where
 
+import Debug.Trace
 import Data.Array hiding (map, (..))
 import Data.Function
 import qualified Data.Map as M
@@ -16,6 +17,8 @@ import LevelMap
 import Types
 import Utils
 
+debug = true
+
 pxPerBlock :: Number
 pxPerBlock = 3
 
@@ -24,6 +27,9 @@ halfBlock = floor (pxPerBlock / 2)
 
 pxPerTile :: Number
 pxPerTile = pxPerBlock * tileSize
+
+halfPxPerTile :: Number
+halfPxPerTile = floor (pxPerTile / 2)
 
 scaleRect :: Number -> Position -> Rectangle
 scaleRect scale (Position p) =
@@ -71,9 +77,9 @@ clearBackground ctx = do
   setFillStyle "hsl(200, 10%, 75%)" ctx
   void $ fillRect ctx {x: 0, y: 0, h: canvasSize, w: canvasSize}
 
-foreign import renderMapFFI
+foreign import renderMapDebugFFI
   """
-  function renderMapFFI(isEmpty, getBlockRect, getTileRect, ctx, map) {
+  function renderMapDebugFFI(isEmpty, getBlockRect, getTileRect, ctx, map) {
     return function() {
       ctx.strokeStyle = 'hsl(40, 70%, 50%)'
       var t = map.tiles
@@ -105,13 +111,178 @@ foreign import renderMapFFI
     LevelMap
     (Eff (canvas :: Canvas | e) Unit)
 
-renderMap :: forall e.
+renderMapDebug :: forall e.
   Context2D
   -> LevelMap
   -> Eff (canvas :: Canvas | e) Unit
-renderMap ctx map = do
+renderMapDebug ctx map = do
   clearBackground ctx
-  runFn5 renderMapFFI (not .. isWall) getRectAt' getTileRectAt' ctx map
+  runFn5 renderMapDebugFFI (not .. isWall) getRectAt' getTileRectAt' ctx map
+
+data CornerType
+  = CRO -- rounded outer
+  | CRI -- rounded inner
+  | CSH -- straight horizontal
+  | CSV -- straight vertical
+
+instance showCornerType :: Show CornerType where
+  show CRO = "CRO"
+  show CRI = "CRI"
+  show CSH = "CSH"
+  show CSV = "CSV"
+
+type Corners =
+  { tl :: CornerType, tr :: CornerType, bl :: CornerType, br :: CornerType }
+
+toBasic :: Tile -> BasicTile
+toBasic Inaccessible = W
+toBasic _ = E
+
+renderMap :: forall e.
+  Context2D
+  -> LevelMap
+  -> Eff (trace :: Trace, canvas :: Canvas | e) Unit
+renderMap ctx map = do
+  let tileIndices = range 0 (tilesAlongSide - 1)
+  let getTile i j = map.tiles !! i >>= (\r -> r !! j)
+  let t i j = toBasic <$> getTile i j
+
+  for_ tileIndices $ \i ->
+    for_ tileIndices $ \j -> do
+      let above = fromMaybe W $ t i (j-1)
+      let below = fromMaybe W $ t i (j+1)
+      let right = fromMaybe W $ t (i+1) j
+      let left  = fromMaybe W $ t (i-1) j
+
+      case t i j of
+        Just W -> do
+          let cs = getCorners above right below left
+          withContext ctx $ do
+            translate {translateX: (i + 0.5) * pxPerTile
+                      , translateY: (j + 0.5) * pxPerTile} ctx
+            renderCorners ctx cs
+        _ ->
+          return unit
+
+renderMapTemp ctx map =
+  let getTile i j = map.tiles !! i >>= (\r -> r !! j)
+      t i j = toBasic <$> getTile i j
+      i = 1
+      j = 1
+      above = fromMaybe W $ t i (j-1)
+      below = fromMaybe W $ t i (j+1)
+      right = fromMaybe W $ t (i+1) j
+      left  = fromMaybe W $ t (i-1) j
+      cs = getCorners above right below left
+  
+  in do
+    withContext ctx $ do
+      translate { translateX: 1.5 * pxPerTile, translateY: 1.5 * pxPerTile } ctx
+      renderCorners ctx cs
+
+showCorners :: Corners -> String
+showCorners cs =
+  showRecord "Corners"
+    ["tl" .:: cs.tl, "tr" .:: cs.tr, "br" .:: cs.br, "bl" .:: cs.bl]
+
+getCorners :: BasicTile -> BasicTile -> BasicTile -> BasicTile -> Corners
+getCorners above right below left =
+  { tl: getCorner left above
+  , tr: getCorner right above
+  , br: getCorner right below
+  , bl: getCorner left below
+  }
+
+-- order is: horizontal vertical
+getCorner :: BasicTile -> BasicTile -> CornerType
+getCorner W W = CRI
+getCorner W E = CSH
+getCorner E W = CSV
+getCorner E E = CRO
+
+renderCorners :: forall e.
+  Context2D
+  -> Corners
+  -> Eff (trace :: Trace, canvas :: Canvas | e) Unit
+renderCorners ctx cs = do
+  setStrokeStyle "hsl(200, 80%, 40%)" ctx
+  let cornerSize = 9
+  let cornerMid = floor (cornerSize / 2)
+  let cornerRadius = cornerMid
+  
+  -- these are the instructions for the top left corner. Others will
+  -- need to be rotated
+  let renderCorner ctx c a t =
+    case c of
+        CRO ->
+          { prep: do
+              translate t ctx
+              rotate a ctx
+          , go:
+              arc ctx
+                { start: pi
+                , end:   3*pi/2
+                , x:     cornerMid
+                , y:     cornerMid
+                , r:     cornerRadius
+                }
+          }  
+        CRI ->
+          { prep: do
+              translate t ctx
+              rotate a ctx
+          , go:
+              arc ctx
+                { start: pi/2
+                , end:   0
+                , x:     0
+                , y:     0
+                , r:     cornerRadius
+                }
+          }  
+        CSH ->
+          { prep: translate t ctx
+          , go: do
+              moveTo ctx (-cornerMid) 0
+              lineTo ctx cornerMid 0
+          }
+        CSV ->
+          { prep: translate t ctx
+          , go: do
+              moveTo ctx 0 (-cornerMid)
+              lineTo ctx 0 cornerMid
+          }
+
+  let s = (pxPerTile - cornerSize) / 2
+  let cs' =
+      [ { c: cs.tl
+        , a: 0
+        , t: {translateX: -s, translateY: -s}
+        },
+
+        { c: cs.tr
+        , a: pi/2
+        , t: {translateX: s, translateY: -s}
+        },
+
+        { c: cs.br
+        , a: pi
+        , t: {translateX: s, translateY: s}
+        },
+
+        { c: cs.bl
+        , a: 3*pi/2
+        , t: {translateX: -s, translateY: s}
+        }
+        ]
+
+  for_ cs' $ \c -> do
+    withContext ctx $ do
+      let r = renderCorner ctx c.c c.a c.t
+      r.prep
+      beginPath ctx
+      r.go
+      stroke ctx
 
 renderPlayer :: forall e.
   Context2D
@@ -165,9 +336,10 @@ clearPreviousPlayers ctx game =
 render :: forall e.
   RenderingContext
   -> ClientState
-  -> Eff (canvas :: Canvas | e) Unit
+  -> Eff (trace :: Trace, canvas :: Canvas | e) Unit
 render ctx state = do
-  when (state.redrawMap) $
+  when state.redrawMap $ do
+    when debug $ renderMapDebug ctx.background state.game.map
     renderMap ctx.background state.game.map
   clearPreviousPlayers ctx.foreground state.prevGame
   renderPlayers ctx.foreground state.game
