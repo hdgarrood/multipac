@@ -27,6 +27,7 @@ initialState =
   , connections: []
   }
 
+stepsPerSecond = 30
 
 main = do
   refState <- newRef initialState
@@ -76,7 +77,7 @@ createWebSocketServer refState = do
 
 
 startMainLoop refState =
-  void $ interval 33 $ do
+  void $ interval (1000 / stepsPerSecond) $ do
     s <- readRef refState
 
     let result = stepGame s.input s.game
