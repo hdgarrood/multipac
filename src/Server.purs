@@ -62,7 +62,7 @@ createWebSocketServer refState = do
     trace "got a request"
     conn <- WS.accept req
 
-    maybePId <- addPlayer conn refState
+    maybePId <- addPlayer conn refState "harry"
 
     case maybePId of
       Just pId -> do
@@ -90,12 +90,13 @@ startMainLoop refState =
     sendUpdates refState updates
 
 
-addPlayer conn refState = do
+addPlayer conn refState name = do
   state <- readRef refState
   case getNextPlayerId state of
     Just pId -> do
-      let state' = state
-                    { connections = state.connections <> [Tuple conn pId] }
+      let state' = state { connections =
+                            state.connections <>
+                              [{ pId: pId, wsConn: conn, name: name }] }
       writeRef refState state'
       return (Just pId)
     Nothing ->
@@ -104,7 +105,7 @@ addPlayer conn refState = do
 
 getNextPlayerId :: ServerState -> Maybe PlayerId
 getNextPlayerId state =
-  let playerIdsInUse = map snd state.connections
+  let playerIdsInUse = map (\c -> c.pId) state.connections
   in  head $ allPlayerIds \\ playerIdsInUse
 
 
@@ -130,7 +131,7 @@ handleClose :: forall e.
   -> Eff (ws :: WS.WebSocket, trace :: Trace, ref :: Ref | e) Unit
 handleClose refState pId _ = do
   state <- readRef refState
-  let conns = filter (\(Tuple _ pId') -> pId /= pId') state.connections
+  let conns = filter (\c -> pId /= c.pId) state.connections
   let state' = state { connections = conns }
   writeRef refState state'
   trace $ "closed connection for player " <> show pId
@@ -143,8 +144,8 @@ sendUpdates :: forall e.
 sendUpdates refState updates = do
   state <- readRef refState
   for_ updates $ \update ->
-    for_ state.connections $ \(Tuple conn _) ->
-      sendUpdate conn update
+    for_ state.connections $ \c ->
+      sendUpdate c.wsConn update
 
 sendUpdate :: forall e.
   WS.Connection -> GameUpdate -> Eff (ws :: WS.WebSocket | e) Unit

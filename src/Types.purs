@@ -331,10 +331,16 @@ execGameUpdateM :: forall a.
   Game -> GameUpdateM a -> Tuple Game [GameUpdate]
 execGameUpdateM game action = snd $ runGameUpdateM game action
 
+type Connection =
+  { wsConn :: WS.Connection
+  , pId :: PlayerId
+  , name :: String
+  }
+
 type ServerState =
   { game :: Game
   , input :: Input
-  , connections :: [Tuple WS.Connection PlayerId]
+  , connections :: [Connection]
   }
 
 type ClientState =
