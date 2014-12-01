@@ -8,6 +8,8 @@ import Data.Tuple
 import Data.Maybe
 import Data.Foldable
 import Graphics.Canvas
+  (getContext2D, setCanvasHeight, setCanvasWidth, Rectangle(), Arc(),
+  Context2D(), Canvas(), getCanvasElementById)
 import Control.Monad.Eff
 import Control.Monad (when)
 import Control.Lens ((^.), (..))
@@ -15,6 +17,7 @@ import Math (pi, floor)
 
 import LevelMap
 import Types
+import CanvasFree
 import Utils
 
 debug = false
@@ -216,7 +219,7 @@ renderCorners ctx cs = do
                 , y:     cornerMid
                 , r:     cornerRadius
                 }
-          }  
+          }
         CRI ->
           { prep: do
               translate t ctx
@@ -229,7 +232,7 @@ renderCorners ctx cs = do
                 , y:     -cornerMid
                 , r:     cornerRadius
                 }
-          }  
+          }
         CSH ->
           { prep: translate t ctx
           , go: do
@@ -311,7 +314,7 @@ renderEdges ctx es =
       beginPath ctx
       renderEdge ctx e.e
       stroke ctx
-         
+
 
 renderPlayer :: forall e.
   Context2D
@@ -321,7 +324,7 @@ renderPlayer :: forall e.
 renderPlayer ctx pId player =
   void $ do
     setFillStyle (fillStyleFor pId) ctx
-    let centre = getCentredRectAt (player ^. position)
+    let centre = getCentredRectAt (player ^. pPosition)
     beginPath ctx
     arc ctx {x: centre.x, y: centre.y, start: 0, end: 2 * pi, r: 13}
     fill ctx
@@ -332,7 +335,7 @@ clearPlayer :: forall e.
   -> Player
   -> Eff (canvas :: Canvas | e) Unit
 clearPlayer ctx pId player =
-  void $ clearRect ctx (enlargeRect 5 $ getRectAt (player ^. position))
+  void $ clearRect ctx (enlargeRect 5 $ getRectAt (player ^. pPosition))
 
 enlargeRect :: Number -> Rectangle -> Rectangle
 enlargeRect delta r =
@@ -348,6 +351,35 @@ fillStyleFor P2 = "hsl(90, 100%, 60%)"
 fillStyleFor P3 = "hsl(180, 100%, 60%)"
 fillStyleFor P4 = "hsl(270, 100%, 60%)"
 
+renderItems :: forall e.
+  Context2D
+  -> Game
+  -> CanvasM e Unit
+renderItems ctx game = do
+  eachItem' game $ renderItem ctx
+
+littleDotRadius :: Number
+littleDotRadius = 4
+
+littleDotFillStyle :: String
+littleDotFillStyle = "#eecccc"
+
+renderItem :: forall e.
+  Context2D
+  -> Item
+  -> CanvasM e Unit
+renderItem ctx item = do
+  let centre = getCentredRectAt (item ^. iPosition)
+  setFillStyle littleDotFillStyle
+  beginPath
+  arc { x: centre.x
+      , y: centre.y
+      , start: 0
+      , end: 2 * pi
+      , r: littleDotRadius
+      }
+  fill
+
 renderPlayers :: forall e.
   Context2D
   -> Game
@@ -355,11 +387,11 @@ renderPlayers :: forall e.
 renderPlayers ctx game = do
   eachPlayer' game $ renderPlayer ctx
 
-clearPreviousPlayers :: forall e.
+clearCanvas :: forall e.
   Context2D
   -> Game
   -> Eff (canvas :: Canvas | e) Unit
-clearPreviousPlayers ctx game =
+clearCanvas ctx game =
   void $ clearRect ctx {x: 0, y: 0, h: canvasSize, w: canvasSize}
 
 render :: forall e.
@@ -370,5 +402,8 @@ render ctx state = do
   when state.redrawMap $ do
     when debug $ renderMapDebug ctx.background state.game.map
     renderMap ctx.background state.game.map
-  clearPreviousPlayers ctx.foreground state.prevGame
+
+  clearCanvas ctx.foreground state.prevGame
+
+  renderItems ctx.foreground state.game
   renderPlayers ctx.foreground state.game
