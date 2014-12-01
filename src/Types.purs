@@ -21,7 +21,10 @@ import Utils
 import qualified NodeWebSocket as WS
 
 -- newtype wrapper is just so that the ReaderT instance works
-type Game = {map :: LevelMap, players :: M.Map PlayerId Player}
+type Game = { map :: LevelMap
+            , players :: M.Map PlayerId Player
+            , items :: [Item]
+            }
 newtype WrappedGame = WrappedGame Game
 
 unwrapGame :: WrappedGame -> Game
@@ -160,20 +163,23 @@ instance showPlayer :: Show Player where
       ]
 
 players :: forall r a. LensP { players :: a | r } a
-players = lens (\o -> o.players) (\o p -> o { players = p })
+players = lens (\o -> o.players) (\o x -> o { players = x })
 
-position :: LensP Player Position
-position = lens
+items :: forall r a. LensP { items :: a | r } a
+items = lens (\o -> o.items) (\o x -> o { items = x })
+
+pPosition :: LensP Player Position
+pPosition = lens
   (\(Player p) -> p.position)
   (\(Player p) pos -> Player $ p { position = pos })
 
-direction :: LensP Player (Maybe Direction)
-direction = lens
+pDirection :: LensP Player (Maybe Direction)
+pDirection = lens
   (\(Player p) -> p.direction)
   (\(Player p) dir -> Player $ p { direction = dir })
 
-intendedDirection :: LensP Player (Maybe Direction)
-intendedDirection = lens
+pIntendedDirection :: LensP Player (Maybe Direction)
+pIntendedDirection = lens
   (\(Player p) -> p.intendedDirection)
   (\(Player p) dir -> Player $ p { intendedDirection = dir })
 
@@ -199,6 +205,22 @@ instance showItem :: Show Item where
       [ "position" .:: i.position
       , "itemType" .:: i.itemType
       ]
+
+iType :: LensP Item ItemType
+iType = lens
+  (\(Item x) -> x.itemType)
+  (\(Item x) typ -> Item $ x { itemType = typ })
+
+iPosition :: LensP Item Position
+iPosition = lens
+  (\(Item x) -> x.position)
+  (\(Item x) pos -> Item $ x { position = pos })
+  
+
+eachItem' :: forall f. (Applicative f) =>
+  Game -> (Item -> f Unit) -> f Unit
+eachItem' game action =
+  for_ (game ^. items) action
 
 data Direction = Up | Down | Left | Right
 

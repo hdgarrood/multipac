@@ -4,7 +4,7 @@ import Data.Either
 import Data.Tuple
 import Data.Char (charString)
 import Data.String (split, trim, toCharArray, joinWith)
-import Control.Lens ((~))
+import Control.Lens ((~), (^.))
 import Control.Monad (unless)
 import Math (floor)
 import Data.Array (map, filter, null, reverse, (!!), range, concatMap,
@@ -24,6 +24,14 @@ tilesAlongSide = 17
 -- the height or width in a level, in blocks.
 mapSize :: Number
 mapSize = tileSize * tilesAlongSide
+
+-- convert tile coordinates into block coordinates, returning coordinates of
+-- the block at the centre of the given tile
+tilePositionToBlock :: Position -> Position
+tilePositionToBlock (Position p) =
+  Position { x: f p.x, y: f p.y }
+  where
+  f n = halfTile + (n * tileSize)
 
 normalize :: Tile -> Tuple Number Tile
 normalize t =

@@ -3,7 +3,7 @@ module Game where
 import Data.Tuple
 import Data.Maybe
 import Data.Maybe.Unsafe (fromJust)
-import Data.Array ((!!))
+import Data.Array ((!!), range)
 import qualified Data.Map as M
 import Data.Foldable
 import Control.Alt
@@ -31,9 +31,9 @@ applyGameUpdate u =
 applyPlayerUpdate :: PlayerUpdate -> Player -> Player
 applyPlayerUpdate u =
   case u of
-    (ChangedPosition p) -> position .~ p
-    (ChangedDirection d) -> direction .~ d
-    (ChangedIntendedDirection d) -> intendedDirection .~ d
+    (ChangedPosition p) -> pPosition .~ p
+    (ChangedDirection d) -> pDirection .~ d
+    (ChangedIntendedDirection d) -> pIntendedDirection .~ d
 
 applyGameUpdateM :: GameUpdate -> GameUpdateM Unit
 applyGameUpdateM update = do
@@ -54,17 +54,17 @@ changeIntendedDirection pId d =
 
 initialGame :: Game
 initialGame =
-  { map: basicMap2
+  { map: levelmap
   , players: M.fromList $ f <$> [1,2,3,4]
+  , items: makeItems levelmap
   }
   where
+  levelmap = basicMap2
   f n = Tuple (fromJust (intToPlayerId n))
-          (Player { position: Position {x: z' n, y: z' 1}
+          (Player { position: tilePositionToBlock (Position {x: n, y: 1})
                   , direction: Nothing
                   , intendedDirection: Nothing
                   })
-  z = floor (tileSize / 2)
-  z' n = z + (n * tileSize)
 
 stepGame :: Input -> Game -> Tuple Game [GameUpdate]
 stepGame input game =
@@ -85,14 +85,14 @@ doLogic = do
 
 updateDirection :: PlayerId -> Player -> GameUpdateM Unit
 updateDirection pId p =
-  whenJust (p ^.intendedDirection) $ tryChangeDirection pId p
+  whenJust (p ^.pIntendedDirection) $ tryChangeDirection pId p
 
 movePlayer :: PlayerId -> Player -> GameUpdateM Unit
 movePlayer pId p =
-  whenJust (p ^. direction) $ \dir -> do
+  whenJust (p ^. pDirection) $ \dir -> do
     ok <- canMoveInDirection p dir
     when ok $
-      changePosition pId $ moveInDirection dir (p ^. position)
+      changePosition pId $ moveInDirection dir (p ^. pPosition)
 
 tryChangeDirection :: PlayerId -> Player -> Direction -> GameUpdateM Unit
 tryChangeDirection pId p d = do
@@ -114,3 +114,15 @@ isFree :: LevelMap -> Position -> Boolean
 isFree levelmap pos =
   let block = getBlockAt pos levelmap
   in  maybe false (not <<< isWall) block
+
+-- Prepare items on a map
+-- * put a little dot in every free space
+makeItems :: LevelMap -> [Item]
+makeItems levelmap =
+  Tuple <$> r <*> r >>= \(Tuple x y) ->
+    let pos = tilePositionToBlock (Position {x: x, y: y})
+    in if isFree levelmap pos
+         then [Item { itemType: LittleDot, position: pos }]
+         else []
+  where
+  r = range 0 (tilesAlongSide - 1)
