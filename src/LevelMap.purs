@@ -164,6 +164,12 @@ fromString str = parseLevelMapString str >>= constructLevelMap
 -- 'Wall' or 'Empty'
 data BasicTile = W | E
 
+instance eqBasicTile :: Eq BasicTile where
+  (==) W W = true
+  (==) E E = true
+  (==) _ _ = false
+  (/=) x y = not (x == y)
+
 fail = Left
 
 parseLevelMapString :: String -> Either String [[BasicTile]]

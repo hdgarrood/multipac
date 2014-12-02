@@ -12,12 +12,13 @@ import Graphics.Canvas
   Context2D(), Canvas(), getCanvasElementById)
 import Control.Monad.Eff
 import Control.Monad (when)
+import Control.Monad.Reader.Class (reader)
 import Control.Lens ((^.), (..))
 import Math (pi, floor)
 
 import LevelMap
 import Types
-import CanvasFree
+import CanvasM
 import Utils
 
 debug = false
@@ -74,11 +75,10 @@ setupRenderingById elId =
     >>= setCanvasWidth canvasSize
     >>= getContext2D
 
-clearBackground :: forall e.
-  Context2D -> Eff (canvas :: Canvas | e) Unit
-clearBackground ctx = do
-  setFillStyle "hsl(200, 10%, 75%)" ctx
-  void $ fillRect ctx {x: 0, y: 0, h: canvasSize, w: canvasSize}
+clearBackground :: forall e. CanvasM e Unit
+clearBackground = do
+  setFillStyle "hsl(200, 10%, 75%)"
+  fillRect {x: 0, y: 0, h: canvasSize, w: canvasSize}
 
 foreign import renderMapDebugFFI
   """
@@ -114,13 +114,11 @@ foreign import renderMapDebugFFI
     LevelMap
     (Eff (canvas :: Canvas | e) Unit)
 
-renderMapDebug :: forall e.
-  Context2D
-  -> LevelMap
-  -> Eff (canvas :: Canvas | e) Unit
-renderMapDebug ctx map = do
-  clearBackground ctx
-  runFn5 renderMapDebugFFI (not .. isWall) getRectAt' getTileRectAt' ctx map
+renderMapDebug :: forall e. LevelMap -> CanvasM e Unit
+renderMapDebug map = do
+  clearBackground
+  liftC $ \ctx ->
+    runFn5 renderMapDebugFFI (not .. isWall) getRectAt' getTileRectAt' ctx map
 
 data CornerType
   = CRO -- rounded outer
@@ -142,12 +140,9 @@ toBasic :: Tile -> BasicTile
 toBasic Inaccessible = W
 toBasic _ = E
 
-renderMap :: forall e.
-  Context2D
-  -> LevelMap
-  -> Eff (trace :: Trace, canvas :: Canvas | e) Unit
-renderMap ctx map = do
-  setStrokeStyle "hsl(200, 80%, 40%)" ctx
+renderMap :: forall e. LevelMap -> CanvasM e Unit
+renderMap map = do
+  setStrokeStyle "hsl(200, 80%, 40%)"
 
   let tileIndices = range 0 (tilesAlongSide - 1)
   let getTile i j = map.tiles !! i >>= (\r -> r !! j)
@@ -169,11 +164,12 @@ renderMap ctx map = do
           let cs = getCorners above aboveRight right belowRight
                               below belowLeft left aboveLeft
           let es = getEdges above right below left
-          withContext ctx $ do
-            translate {translateX: (i + 0.5) * pxPerTile
-                      , translateY: (j + 0.5) * pxPerTile} ctx
-            renderCorners ctx cs
-            renderEdges ctx es
+          withContext $ do
+            translate { translateX: (i + 0.5) * pxPerTile
+                      , translateY: (j + 0.5) * pxPerTile
+                      }
+            renderCorners cs
+            renderEdges es
         _ ->
           return unit
 
@@ -200,54 +196,49 @@ cornerSize = 9
 cornerMid = floor (cornerSize / 2)
 cornerRadius = cornerMid
 
-renderCorners :: forall e.
-  Context2D
-  -> Corners
-  -> Eff (trace :: Trace, canvas :: Canvas | e) Unit
-renderCorners ctx cs = do
-  let renderCorner ctx c a t =
+renderCorners :: forall e.  Corners -> CanvasM e Unit
+renderCorners cs = do
+  let renderCorner c a t =
     case c of
         CRO ->
           { prep: do
-              translate t ctx
-              rotate a ctx
+              translate t
+              rotate a
           , go:
-              arc ctx
-                { start: pi
-                , end:   3*pi/2
-                , x:     cornerMid
-                , y:     cornerMid
-                , r:     cornerRadius
-                }
+              arc { start: pi
+                  , end:   3*pi/2
+                  , x:     cornerMid
+                  , y:     cornerMid
+                  , r:     cornerRadius
+                  }
           }
         CRI ->
           { prep: do
-              translate t ctx
-              rotate a ctx
+              translate t
+              rotate a
           , go:
-              arc ctx
-                { start: 0
-                , end:   pi/2
-                , x:     -cornerMid
-                , y:     -cornerMid
-                , r:     cornerRadius
-                }
+              arc { start: 0
+                  , end:   pi/2
+                  , x:     -cornerMid
+                  , y:     -cornerMid
+                  , r:     cornerRadius
+                  }
           }
         CSH ->
-          { prep: translate t ctx
+          { prep: translate t
           , go: do
-              moveTo ctx (-cornerMid - 1) 0
-              lineTo ctx (cornerMid + 1) 0
+              moveTo (-cornerMid - 1) 0
+              lineTo (cornerMid + 1) 0
           }
         CSV ->
-          { prep: translate t ctx
+          { prep: translate t
           , go: do
-              moveTo ctx 0 (-cornerMid - 1)
-              lineTo ctx 0 (cornerMid + 1)
+              moveTo 0 (-cornerMid - 1)
+              lineTo 0 (cornerMid + 1)
           }
         NON ->
-          { prep: return ctx
-          , go: return ctx
+          { prep: return unit
+          , go: return unit
           }
 
   let s = (pxPerTile - cornerSize) / 2
@@ -274,31 +265,27 @@ renderCorners ctx cs = do
         ]
 
   for_ cs' $ \c -> do
-    withContext ctx $ do
-      let r = renderCorner ctx c.c c.a c.t
+    withContext $ do
+      let r = renderCorner c.c c.a c.t
       r.prep
-      beginPath ctx
+      beginPath
       r.go
-      stroke ctx
-
+      stroke
 
 getEdges above right below left =
   { t: above, r: right, b: below, l: left }
 
-
-renderEdges ctx es =
+renderEdges es =
   let s = (pxPerTile / 2) - cornerSize
       x1 = -s - 1
       y1 = -s - (cornerSize / 2)
       x2 = s
       y2 = y1
 
-      renderEdge ctx e =
-        case e of
-          W -> return unit
-          E -> do
-            moveTo ctx x1 y1
-            void $ lineTo ctx x2 y2
+      renderEdge e =
+        when (e == E) $ do
+          moveTo x1 y1
+          lineTo x2 y2
 
       es' =
         [ { e: es.t, a: 0 }
@@ -309,33 +296,29 @@ renderEdges ctx es =
 
   in
   for_ es' $ \e ->
-    withContext ctx $ do
-      rotate e.a ctx
-      beginPath ctx
-      renderEdge ctx e.e
-      stroke ctx
-
+    withContext $ do
+      rotate e.a
+      beginPath
+      renderEdge e.e
+      stroke
 
 renderPlayer :: forall e.
-  Context2D
-  -> PlayerId
+  PlayerId
   -> Player
-  -> Eff (canvas :: Canvas | e) Unit
-renderPlayer ctx pId player =
-  void $ do
-    setFillStyle (fillStyleFor pId) ctx
-    let centre = getCentredRectAt (player ^. pPosition)
-    beginPath ctx
-    arc ctx {x: centre.x, y: centre.y, start: 0, end: 2 * pi, r: 13}
-    fill ctx
+  -> CanvasM e Unit
+renderPlayer pId player = do
+  setFillStyle (fillStyleFor pId)
+  let centre = getCentredRectAt (player ^. pPosition)
+  beginPath
+  arc {x: centre.x, y: centre.y, start: 0, end: 2 * pi, r: 13}
+  fill
 
 clearPlayer :: forall e.
-  Context2D
-  -> PlayerId
+  PlayerId
   -> Player
-  -> Eff (canvas :: Canvas | e) Unit
-clearPlayer ctx pId player =
-  void $ clearRect ctx (enlargeRect 5 $ getRectAt (player ^. pPosition))
+  -> CanvasM e Unit
+clearPlayer pId player =
+  clearRect (enlargeRect 5 $ getRectAt (player ^. pPosition))
 
 enlargeRect :: Number -> Rectangle -> Rectangle
 enlargeRect delta r =
@@ -351,12 +334,9 @@ fillStyleFor P2 = "hsl(90, 100%, 60%)"
 fillStyleFor P3 = "hsl(180, 100%, 60%)"
 fillStyleFor P4 = "hsl(270, 100%, 60%)"
 
-renderItems :: forall e.
-  Context2D
-  -> Game
-  -> CanvasM e Unit
-renderItems ctx game = do
-  eachItem' game $ renderItem ctx
+renderItems :: forall e. Game -> CanvasM e Unit
+renderItems game = do
+  eachItem' game renderItem
 
 littleDotRadius :: Number
 littleDotRadius = 4
@@ -364,11 +344,8 @@ littleDotRadius = 4
 littleDotFillStyle :: String
 littleDotFillStyle = "#eecccc"
 
-renderItem :: forall e.
-  Context2D
-  -> Item
-  -> CanvasM e Unit
-renderItem ctx item = do
+renderItem :: forall e. Item -> CanvasM e Unit
+renderItem item = do
   let centre = getCentredRectAt (item ^. iPosition)
   setFillStyle littleDotFillStyle
   beginPath
@@ -380,30 +357,25 @@ renderItem ctx item = do
       }
   fill
 
-renderPlayers :: forall e.
-  Context2D
-  -> Game
-  -> Eff (canvas :: Canvas | e) Unit
-renderPlayers ctx game = do
-  eachPlayer' game $ renderPlayer ctx
+renderPlayers :: forall e. Game -> CanvasM e Unit
+renderPlayers game =
+  eachPlayer' game renderPlayer
 
-clearCanvas :: forall e.
-  Context2D
-  -> Game
-  -> Eff (canvas :: Canvas | e) Unit
-clearCanvas ctx game =
-  void $ clearRect ctx {x: 0, y: 0, h: canvasSize, w: canvasSize}
+clearCanvas :: forall e. CanvasM e Unit
+clearCanvas =
+  clearRect {x: 0, y: 0, h: canvasSize, w: canvasSize}
 
 render :: forall e.
   RenderingContext
   -> ClientState
-  -> Eff (trace :: Trace, canvas :: Canvas | e) Unit
+  -> Eff (canvas :: Canvas | e) Unit
 render ctx state = do
   when state.redrawMap $ do
-    when debug $ renderMapDebug ctx.background state.game.map
-    renderMap ctx.background state.game.map
+    runCanvasM ctx.background $ do
+      when debug $ renderMapDebug state.game.map
+      renderMap state.game.map
 
-  clearCanvas ctx.foreground state.prevGame
-
-  renderItems ctx.foreground state.game
-  renderPlayers ctx.foreground state.game
+  runCanvasM ctx.foreground $ do
+    clearCanvas
+    renderItems state.game
+    renderPlayers state.game
