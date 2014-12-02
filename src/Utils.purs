@@ -3,6 +3,7 @@ module Utils where
 import Debug.Trace
 import Data.Function
 import Data.Maybe
+import Data.Tuple
 import Data.Array
 import Data.Either
 import Data.Traversable (sequence)
@@ -97,3 +98,5 @@ foreign import error
   }
   """ :: forall a. String -> a
 
+zipNumbers :: forall a. [a] -> [Tuple Number a]
+zipNumbers xs = zip (range 0 (length xs - 1)) xs

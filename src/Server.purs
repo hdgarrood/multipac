@@ -155,8 +155,8 @@ sendUpdate conn update =
 
 shouldBroadcast :: GameUpdate -> Boolean
 shouldBroadcast (GUPU _ (ChangedPosition _)) = true
+shouldBroadcast (GUIU _ _) = true
 shouldBroadcast _ = false
-
 
 foreign import data Process :: !
 

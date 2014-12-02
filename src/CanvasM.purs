@@ -46,7 +46,7 @@ setFillStyle style =
 
 setStrokeStyle :: forall e. String -> CanvasM e Unit
 setStrokeStyle style =
-  liftC $ GC.setFillStyle style
+  liftC $ GC.setStrokeStyle style
 
 lineTo :: forall e. Number -> Number -> CanvasM e Unit
 lineTo x y =

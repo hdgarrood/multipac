@@ -3,13 +3,13 @@ module Game where
 import Data.Tuple
 import Data.Maybe
 import Data.Maybe.Unsafe (fromJust)
-import Data.Array ((!!), range)
+import Data.Array ((!!), range, filter)
 import qualified Data.Map as M
 import Data.Foldable
 import Control.Alt
 import Control.Monad
 import Control.Monad.Reader.Class
-import Control.Lens (LensP(), TraversalP(), lens, at, _Just,
+import Control.Lens (LensP(), TraversalP(), lens, at, _Just, _1, _2,
                      (.~), (..), (^.), (%~))
 import Math (ceil, floor)
 
@@ -22,11 +22,16 @@ import Utils
 player :: PlayerId -> TraversalP Game Player
 player pId = players .. at pId .. _Just
 
+item :: ItemId -> TraversalP Game Item
+item iId = items .. at iId .. _Just
+
 applyGameUpdate :: GameUpdate -> Game -> Game
 applyGameUpdate u =
   case u of
     GUPU pId x ->
       player pId %~ applyPlayerUpdate x
+    GUIU iId x ->
+      items .. at iId %~ applyItemUpdate x
 
 applyPlayerUpdate :: PlayerUpdate -> Player -> Player
 applyPlayerUpdate u =
@@ -34,6 +39,12 @@ applyPlayerUpdate u =
     (ChangedPosition p) -> pPosition .~ p
     (ChangedDirection d) -> pDirection .~ d
     (ChangedIntendedDirection d) -> pIntendedDirection .~ d
+    (ChangedScore s) -> pScore .~ s
+
+applyItemUpdate :: ItemUpdate -> Maybe Item -> Maybe Item
+applyItemUpdate u =
+  case u of
+    Eaten -> const Nothing
 
 applyGameUpdateM :: GameUpdate -> GameUpdateM Unit
 applyGameUpdateM update = do
@@ -52,19 +63,25 @@ changeIntendedDirection :: PlayerId -> Maybe Direction -> GameUpdateM Unit
 changeIntendedDirection pId d =
   applyGameUpdateM (GUPU pId (ChangedIntendedDirection d))
 
+changeScore :: PlayerId -> Number -> GameUpdateM Unit
+changeScore pId s =
+  applyGameUpdateM (GUPU pId (ChangedScore s))
+
+eat :: ItemId -> GameUpdateM Unit
+eat iId =
+  applyGameUpdateM (GUIU iId Eaten)
+
 initialGame :: Game
 initialGame =
   { map: levelmap
   , players: M.fromList $ f <$> [1,2,3,4]
-  , items: makeItems levelmap
+  , items:   M.fromList $ zipNumbers $ makeItems levelmap
   }
   where
   levelmap = basicMap2
-  f n = Tuple (fromJust (intToPlayerId n))
-          (Player { position: tilePositionToBlock (Position {x: n, y: 1})
-                  , direction: Nothing
-                  , intendedDirection: Nothing
-                  })
+  f n = Tuple
+          (fromJust (intToPlayerId n))
+          (mkPlayer (tilePositionToBlock (Position { x: n, y: 1})))
 
 stepGame :: Input -> Game -> Tuple Game [GameUpdate]
 stepGame input game =
@@ -82,6 +99,7 @@ doLogic :: GameUpdateM Unit
 doLogic = do
   eachPlayer updateDirection
   eachPlayer movePlayer
+  eachPlayer eatItems
 
 updateDirection :: PlayerId -> Player -> GameUpdateM Unit
 updateDirection pId p =
@@ -93,6 +111,11 @@ movePlayer pId p =
     ok <- canMoveInDirection p dir
     when ok $
       changePosition pId $ moveInDirection dir (p ^. pPosition)
+
+eatItems :: PlayerId -> Player -> GameUpdateM Unit
+eatItems pId p = do
+  g <- getGame
+  whenJust (lookupItemByPosition (p ^. pPosition) g) eat
 
 tryChangeDirection :: PlayerId -> Player -> Direction -> GameUpdateM Unit
 tryChangeDirection pId p d = do
@@ -126,3 +149,10 @@ makeItems levelmap =
          else []
   where
   r = range 0 (tilesAlongSide - 1)
+
+-- TODO: performance
+lookupItemByPosition :: Position -> Game -> Maybe ItemId
+lookupItemByPosition pos g =
+  case filter (\i -> (i ^. _2 ^. iPosition) == pos) (M.toList g.items) of
+      [i] -> Just (i ^. _1)
+      _   -> Nothing

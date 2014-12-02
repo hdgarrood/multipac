@@ -21,7 +21,6 @@ import Types
 import CanvasM
 import Utils
 
-debug = false
 
 pxPerBlock :: Number
 pxPerBlock = 3
@@ -335,11 +334,11 @@ fillStyleFor P3 = "hsl(180, 100%, 60%)"
 fillStyleFor P4 = "hsl(270, 100%, 60%)"
 
 renderItems :: forall e. Game -> CanvasM e Unit
-renderItems game = do
+renderItems game =
   eachItem' game renderItem
 
 littleDotRadius :: Number
-littleDotRadius = 4
+littleDotRadius = 3
 
 littleDotFillStyle :: String
 littleDotFillStyle = "#eecccc"
@@ -379,3 +378,6 @@ render ctx state = do
     clearCanvas
     renderItems state.game
     renderPlayers state.game
+
+debug :: Boolean
+debug = false
