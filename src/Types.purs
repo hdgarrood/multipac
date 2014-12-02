@@ -1,5 +1,6 @@
 module Types where
 
+import Debug.Trace
 import Data.Maybe
 import Data.Traversable
 import Data.Foldable
@@ -15,6 +16,7 @@ import Control.Monad.Writer.Trans
 import Control.Monad.Writer.Class
 import Control.Monad.State
 import Control.Monad.State.Class
+import Control.Monad.Eff
 import Control.Lens hiding ((.=))
 
 import Utils
@@ -235,7 +237,7 @@ iPosition :: LensP Item Position
 iPosition = lens
   (\(Item x) -> x.position)
   (\(Item x) pos -> Item $ x { position = pos })
-  
+
 eachItem' :: forall f. (Applicative f) =>
   Game -> (Item -> f Unit) -> f Unit
 eachItem' game action =
@@ -279,9 +281,6 @@ dirToPos Right = Position {x:  1, y:  0}
 dirToPos Down  = Position {x:  0, y:  1}
 
 type Input = M.Map PlayerId (Maybe Direction)
-
-{-- instance showInput :: Show Input where --}
-{--   show (Input x) = "Input (" <> show x <> ")" --}
 
 data PlayerUpdate
   = ChangedDirection (Maybe Direction)
@@ -331,7 +330,7 @@ instance fromJSONItemUpdate :: FromJSON ItemUpdate where
   parseJSON v = failJsonParse v "ItemUpdate"
 
 instance toJSONItemUpdate :: ToJSON ItemUpdate where
-  toJSON u = JArray [JString "iu"] 
+  toJSON u = JArray [JString "iu"]
 
 instance showGameUpdate :: Show GameUpdate where
   show (GUPU pId u) = "GUPU (" <> show pId <> ") (" <> show u <> ")"
@@ -399,10 +398,34 @@ type Connection =
   }
 
 type ServerState =
-  { game :: Game
-  , input :: Input
+  { gameState :: GameState
   , connections :: [Connection]
+  , callbacks :: ServerCallbacks
   }
+
+
+type ServerCallback a = forall e.
+  a -> ServerState
+  -> Eff (trace :: Trace, ws :: WS.WebSocket | e) ServerState
+
+data ServerCallbackType = Step | OnMessage | OnNewPlayer | OnClose
+
+newtype ServerCallbacks
+  = ServerCallbacks
+    { step :: ServerCallback {}
+    , onMessage :: ServerCallback {msg::String, pId::PlayerId}
+    , onNewPlayer :: ServerCallback {pId::PlayerId}
+    , onClose :: ServerCallback {pId::PlayerId}
+    }
+
+unwrapServerCallbacks (ServerCallbacks sc) = sc
+
+data GameState
+  = WaitingForPlayers GameStateWaitingForPlayers
+  | InProgress        GameStateInProgress
+
+type GameStateWaitingForPlayers = M.Map PlayerId Boolean
+type GameStateInProgress = { game :: Game, input :: Input }
 
 type ClientState =
   { game :: Game

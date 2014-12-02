@@ -8,11 +8,12 @@ import Data.Maybe
 import Data.Array
 import qualified Data.Either as E
 import qualified Data.Map as M
-import Data.Foldable (for_)
+import Data.Foldable (for_, all)
 import Control.Monad
 import Control.Monad.Eff
 import Control.Monad.Eff.Ref
 import Control.Reactive.Timer
+import Control.Lens (lens, (^.), (%~), (.~), at, LensP())
 
 import qualified NodeWebSocket as WS
 import qualified NodeHttp as Http
@@ -22,9 +23,9 @@ import Utils
 
 initialState :: ServerState
 initialState =
-  { game: initialGame
-  , input: M.empty
+  { gameState: InProgress { game: initialGame, input: M.empty }
   , connections: []
+  , callbacks: inProgressCallbacks
   }
 
 stepsPerSecond = 30
@@ -62,13 +63,17 @@ createWebSocketServer refState = do
     trace "got a request"
     conn <- WS.accept req
 
-    maybePId <- addPlayer conn refState "harry"
+    maybePId <- tryAddPlayer conn refState "harry" -- TODO: actual name
 
     case maybePId of
       Just pId -> do
         trace $ "opened connection for player " <> show pId
-        WS.onMessage conn (handleMessage refState pId)
-        WS.onClose   conn (handleClose refState pId)
+        runCallback refState (\c -> c.onNewPlayer) {pId:pId}
+
+        WS.onMessage conn $ \msg ->
+          runCallback refState (\c -> c.onMessage) {msg:msg, pId:pId}
+        WS.onClose   conn $ \close ->
+          runCallback refState (\c -> c.onClose) {pId:pId}
       Nothing -> do
         trace "rejecting connection, no player ids available"
         WS.close conn
@@ -76,21 +81,19 @@ createWebSocketServer refState = do
   return server
 
 
+runCallback refState callback args = do
+  state <- readRef refState
+  let sc = unwrapServerCallbacks state.callbacks
+  state' <- callback sc args state
+  writeRef refState state'
+
+
 startMainLoop refState =
-  void $ interval (1000 / stepsPerSecond) $ do
-    s <- readRef refState
-
-    let result = stepGame s.input s.game
-    let game' = fst result
-    let updates = snd result
-
-    let s' = s { game = game', input = M.empty }
-    writeRef refState s'
-
-    sendUpdates refState updates
+  void $ interval (1000 / stepsPerSecond) $
+    runCallback refState (\c -> c.step) {}
 
 
-addPlayer conn refState name = do
+tryAddPlayer conn refState name = do
   state <- readRef refState
   case getNextPlayerId state of
     Just pId -> do
@@ -109,43 +112,92 @@ getNextPlayerId state =
   in  head $ allPlayerIds \\ playerIdsInUse
 
 
-handleMessage :: forall e.
-  RefVal ServerState
-  -> PlayerId
-  -> WS.Message
-  -> Eff (trace :: Trace, ws :: WS.WebSocket, ref :: Ref | e) Unit
-handleMessage refState pId msg = do
-  case eitherDecode msg of
-    E.Right newDir ->
-      modifyRef refState $ \s ->
-        let newInput = M.insert pId (Just newDir) s.input
-        in  s { input = newInput }
-    E.Left err ->
-      trace err
+gameInProgress :: LensP ServerState GameStateInProgress
+gameInProgress = lens
+  (\s -> case s.gameState of
+    InProgress x -> x
+    _ -> error "gameInProgress: expected game to be in progress")
+  (\s x -> s { gameState = InProgress x })
+
+gameWaiting :: LensP ServerState GameStateWaitingForPlayers
+gameWaiting = lens
+  (\s -> case s.gameState of
+    WaitingForPlayers x -> x
+    _ -> error "gameWaiting: expected game to be waiting for players")
+  (\s x -> s { gameState = WaitingForPlayers x })
 
 
-handleClose :: forall e.
-  RefVal ServerState
-  -> PlayerId
-  -> WS.Close
-  -> Eff (ws :: WS.WebSocket, trace :: Trace, ref :: Ref | e) Unit
-handleClose refState pId _ = do
-  state <- readRef refState
-  let conns = filter (\c -> pId /= c.pId) state.connections
+inProgressCallbacks =
+  ServerCallbacks
+  { step: \args state -> do
+      let g = state ^. gameInProgress
+      let r = stepGame g.input g.game
+      let game' = fst r
+      let updates = snd r
+      sendUpdates state updates
+      return $ state
+        { gameState = InProgress { game: game', input: M.empty }}
+
+  , onMessage: \args state -> do
+      case (eitherDecode args.msg :: E.Either String Direction) of
+        E.Right newDir -> do
+          {-- return $ state # gameInProgress %~ \g -> --}
+          {--   let newInput = M.insert args.pId (Just newDir) g.input --}
+          {--   in  {game: g.game, input: newInput} --}
+          let g = state ^. gameInProgress
+          let newInput = M.insert args.pId (Just newDir) g.input
+          return $ state
+              { gameState = InProgress { game: g.game, input: newInput }}
+        E.Left err -> do
+          trace $ "failed to parse message: " <> err
+          return state
+
+  , onNewPlayer: \args state -> return state
+
+  , onClose: onClose
+  }
+
+onClose :: ServerCallback {pId::PlayerId}
+onClose args state = do
+  let conns = filter (\c -> args.pId /= c.pId) state.connections
   let state' = state { connections = conns }
-  writeRef refState state'
-  trace $ "closed connection for player " <> show pId
+  trace $ "closed connection for player " <> show args.pId
+  return state'
 
+waitingCallbacks =
+  ServerCallbacks
+    { step: stepWaiting
+    , onMessage: onMessageWaiting
+    , onNewPlayer: onNewPlayerWaiting
+    , onClose: onClose
+    }
+
+stepWaiting :: ServerCallback {}
+stepWaiting args state = return state
+
+onMessageWaiting args state =
+  case (eitherDecode args.msg :: E.Either String Boolean) of
+    E.Right isReady -> do
+      let m = state ^. gameWaiting
+      let m' = M.insert args.pId isReady m
+      return $ state { gameState = WaitingForPlayers m' }
+      {-- return $ state # (gameWaiting .. at args.pId) .~ isReady --}
+    E.Left err -> do
+      trace $ "failed to parse message: " <> err
+      return state
+
+onNewPlayerWaiting :: ServerCallback {pId::PlayerId}
+onNewPlayerWaiting args state = return state
 
 sendUpdates :: forall e.
-  RefVal ServerState
+  ServerState
   -> [GameUpdate]
-  -> Eff (ref :: Ref, ws :: WS.WebSocket | e) Unit
-sendUpdates refState updates = do
-  state <- readRef refState
+  -> Eff (ws :: WS.WebSocket | e) Unit
+sendUpdates state updates = do
   for_ updates $ \update ->
     for_ state.connections $ \c ->
       sendUpdate c.wsConn update
+
 
 sendUpdate :: forall e.
   WS.Connection -> GameUpdate -> Eff (ws :: WS.WebSocket | e) Unit
@@ -153,10 +205,12 @@ sendUpdate conn update =
   when (shouldBroadcast update) $
     WS.send conn $ encode update
 
+
 shouldBroadcast :: GameUpdate -> Boolean
 shouldBroadcast (GUPU _ (ChangedPosition _)) = true
 shouldBroadcast (GUIU _ _) = true
 shouldBroadcast _ = false
+
 
 foreign import data Process :: !
 
