@@ -23,9 +23,9 @@ import Utils
 
 initialState :: ServerState
 initialState =
-  { gameState: InProgress { game: initialGame, input: M.empty }
+  { gameState: WaitingForPlayers M.empty
   , connections: []
-  , callbacks: inProgressCallbacks
+  , callbacks: waitingCallbacks
   }
 
 stepsPerSecond = 30
@@ -173,7 +173,22 @@ waitingCallbacks =
     }
 
 stepWaiting :: ServerCallback {}
-stepWaiting args state = return state
+stepWaiting args state = do
+  let m = state ^. gameWaiting
+  if readyToStart m
+    then do
+      -- everyone's ready - start
+      let game = makeGame (M.keys m)
+      sendUpdates state [GameStarting game]
+      return state { gameState = InProgress { game: game, input: M.empty }}
+    else
+      return state
+  where
+  minPlayers = 2
+  readyToStart m =
+    let ps = M.values m
+    in length ps >= minPlayers && all id ps
+
 
 onMessageWaiting args state =
   case (eitherDecode args.msg :: E.Either String Boolean) of
@@ -189,9 +204,9 @@ onMessageWaiting args state =
 onNewPlayerWaiting :: ServerCallback {pId::PlayerId}
 onNewPlayerWaiting args state = return state
 
-sendUpdates :: forall e.
+sendUpdates :: forall e a. (ToJSON a) =>
   ServerState
-  -> [GameUpdate]
+  -> [a]
   -> Eff (ws :: WS.WebSocket | e) Unit
 sendUpdates state updates = do
   for_ updates $ \update ->
@@ -199,17 +214,10 @@ sendUpdates state updates = do
       sendUpdate c.wsConn update
 
 
-sendUpdate :: forall e.
-  WS.Connection -> GameUpdate -> Eff (ws :: WS.WebSocket | e) Unit
+sendUpdate :: forall e a. (ToJSON a) =>
+  WS.Connection -> a -> Eff (ws :: WS.WebSocket | e) Unit
 sendUpdate conn update =
-  when (shouldBroadcast update) $
-    WS.send conn $ encode update
-
-
-shouldBroadcast :: GameUpdate -> Boolean
-shouldBroadcast (GUPU _ (ChangedPosition _)) = true
-shouldBroadcast (GUIU _ _) = true
-shouldBroadcast _ = false
+  WS.send conn $ encode update
 
 
 foreign import data Process :: !

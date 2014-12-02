@@ -6,9 +6,10 @@ import Data.Maybe
 import Data.Tuple
 import Data.Array
 import Data.Either
+import qualified Data.Map as M
 import Data.Traversable (sequence)
 import Data.Monoid.All
-import Data.Foldable (Foldable, for_, foldMap)
+import Data.Foldable (Foldable, for_, foldMap, foldr)
 import Prelude.Unsafe (unsafeIndex)
 import Control.Monad.Eff
 
@@ -100,3 +101,13 @@ foreign import error
 
 zipNumbers :: forall a. [a] -> [Tuple Number a]
 zipNumbers xs = zip (range 0 (length xs - 1)) xs
+
+deleteWhere :: forall k v. (Ord k) =>
+  (k -> v -> Boolean) -> M.Map k v -> M.Map k v
+deleteWhere pred map =
+  foldr go map (M.toList map)
+  where
+  go (Tuple k v) m =
+    if pred k v
+       then M.delete k m
+       else m

@@ -150,6 +150,12 @@ makeItems levelmap =
   where
   r = range 0 (tilesAlongSide - 1)
 
+makeGame :: [PlayerId] -> Game
+makeGame pIds =
+  let players' =
+    deleteWhere (\pId _ -> not (elem pId pIds)) (initialGame.players)
+  in initialGame { players = players' }
+
 -- TODO: performance
 lookupItemByPosition :: Position -> Game -> Maybe ItemId
 lookupItemByPosition pos g =

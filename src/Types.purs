@@ -22,6 +22,13 @@ import Control.Lens hiding ((.=))
 import Utils
 import qualified NodeWebSocket as WS
 
+instance toJSONMap :: (ToJSON k, ToJSON v) => ToJSON (M.Map k v) where
+  toJSON m = JArray $ map toJSON (M.toList m)
+
+instance fromJSONMap :: (Ord k, FromJSON k, FromJSON v) => FromJSON (M.Map k v) where
+  parseJSON (JArray arr) =
+    M.fromList <$> traverse parseJSON arr
+
 -- newtype wrapper is just so that the ReaderT instance works
 type Game = { map :: LevelMap
             , players :: M.Map PlayerId Player
@@ -31,6 +38,20 @@ newtype WrappedGame = WrappedGame Game
 
 unwrapGame :: WrappedGame -> Game
 unwrapGame (WrappedGame g) = g
+
+instance toJSONWrappedGame :: ToJSON WrappedGame where
+  toJSON (WrappedGame game) =
+    object [ "map" .= toJSON (WrappedLevelMap game.map)
+           , "players" .= toJSON game.players
+           , "items" .= toJSON game.items
+           ]
+
+instance fromJSONWrappedGame :: FromJSON WrappedGame where
+  parseJSON (JObject obj) = do
+    (WrappedLevelMap m) <- obj .: "map"
+    p <- obj .: "players"
+    i <- obj .: "items"
+    return $ WrappedGame {map:m, players:p, items:i}
 
 data PlayerId = P1 | P2 | P3 | P4
 
@@ -74,10 +95,39 @@ instance fromJSONPlayerId :: FromJSON PlayerId where
       Nothing -> failJsonParse n "PlayerId"
   parseJSON val = failJsonParse val "PlayerId"
 
+instance toJSONPlayerId :: ToJSON PlayerId where
+  toJSON = JNumber <<< playerIdToInt
+
 type ItemId = Number
 
 type LevelMap = {blocks :: [[Block]], tiles :: [[Tile]]}
+newtype WrappedLevelMap = WrappedLevelMap LevelMap
+
+instance toJSONWrappedLevelMap :: ToJSON WrappedLevelMap where
+  toJSON (WrappedLevelMap m) =
+    object [ "blocks" .= toJSON m.blocks
+           , "tiles" .= toJSON m.tiles
+           ]
+
+instance fromJSONWrappedLevelMap :: FromJSON WrappedLevelMap where
+  parseJSON (JObject obj) = do
+    b <- obj .: "blocks"
+    t <- obj .: "tiles"
+    return $ WrappedLevelMap {blocks: b, tiles: t}
+
 data Block = Wall | Empty
+
+instance showBlock :: Show Block where
+  show Wall = "Wall"
+  show Empty = "Empty"
+
+instance toJSONBlock :: ToJSON Block where
+  toJSON b = JString (show b)
+
+instance fromJSONBlock :: FromJSON Block where
+  parseJSON (JString "Wall") = return Wall
+  parseJSON (JString "Empty") = return Empty
+  parseJSON v = failJsonParse v "Block"
 
 -- A fixed size two-dimensional array of blocks.
 type BlockTile = [[Block]]
@@ -110,9 +160,23 @@ instance showTile :: Show Tile where
   show StraightVertical   = "StraightVertical"
   show Inaccessible       = "Inaccessible"
 
-instance showBlock :: Show Block where
-  show Wall = "Wall"
-  show Empty = "Empty"
+instance toJSONTile :: ToJSON Tile where
+  toJSON t = JString (show t)
+
+instance fromJSONTile :: FromJSON Tile where
+  parseJSON (JString "Intersection") = return Intersection
+  parseJSON (JString "TeeJunctionUp") = return TeeJunctionUp
+  parseJSON (JString "TeeJunctionRight") = return TeeJunctionRight
+  parseJSON (JString "TeeJunctionDown") = return TeeJunctionDown
+  parseJSON (JString "TeeJunctionLeft") = return TeeJunctionLeft
+  parseJSON (JString "CornerUpRight") = return CornerUpRight
+  parseJSON (JString "CornerRightDown") = return CornerRightDown
+  parseJSON (JString "CornerDownLeft") = return CornerDownLeft
+  parseJSON (JString "CornerLeftUp") = return CornerLeftUp
+  parseJSON (JString "StraightHorizontal") = return StraightHorizontal
+  parseJSON (JString "StraightVertical") = return StraightVertical
+  parseJSON (JString "Inaccessible") = return Inaccessible
+  parseJSON v = failJsonParse v "Tile"
 
 isWall :: Block -> Boolean
 isWall Wall = true
@@ -162,6 +226,36 @@ newtype Player
       , intendedDirection :: Maybe Direction
       , score :: Number
       }
+
+instance toJSONPlayer :: ToJSON Player where
+  toJSON (Player p) =
+    JArray [ JString "Player"
+           , toJSON p.position
+           , toJSON p.direction
+           , toJSON p.intendedDirection
+           , toJSON p.score
+           ]
+
+instance fromJSONPlayer :: FromJSON Player where
+  parseJSON
+    (JArray [ JString "Player"
+            , position
+            , direction
+            , intendedDirection
+            , score
+            ]) = do
+                p <- parseJSON position
+                d <- parseJSON direction
+                i <- parseJSON intendedDirection
+                s <- parseJSON score
+                return $ Player
+                          { position: p
+                          , direction: d
+                          , intendedDirection: i
+                          , score: s
+                          }
+
+
 
 mkPlayer :: Position -> Player
 mkPlayer pos =
@@ -228,6 +322,18 @@ instance showItem :: Show Item where
       , "itemType" .:: i.itemType
       ]
 
+instance fromJSONItem :: FromJSON Item where
+  parseJSON (JArray [JString "Item", position, itemType]) = do
+    p <- parseJSON position
+    i <- parseJSON itemType
+    return $ Item {position: p, itemType: i}
+
+instance toJSONItem :: ToJSON Item where
+  toJSON (Item i) = JArray [ JString "Item"
+                           , toJSON i.position
+                           , toJSON i.itemType
+                           ]
+
 iType :: LensP Item ItemType
 iType = lens
   (\(Item x) -> x.itemType)
@@ -274,6 +380,15 @@ instance showItemType :: Show ItemType where
   show BigDot = "BigDot"
   show Cherry = "Cherry"
 
+instance toJSONItemType :: ToJSON ItemType where
+  toJSON = JString <<< show
+
+instance fromJSONItemType :: FromJSON ItemType where
+  parseJSON (JString "LittleDot") = return LittleDot
+  parseJSON (JString "BigDot") = return BigDot
+  parseJSON (JString "Cherry") = return Cherry
+  parseJSON v = failJsonParse v "ItemType"
+
 dirToPos :: Direction -> Position
 dirToPos Up    = Position {x:  0, y: -1}
 dirToPos Left  = Position {x: -1, y:  0}
@@ -294,6 +409,7 @@ data ItemUpdate
 data GameUpdate
   = GUPU PlayerId PlayerUpdate
   | GUIU ItemId ItemUpdate
+  | GameStarting Game
 
 instance showPlayerUpdate :: Show PlayerUpdate where
   show (ChangedDirection x) =
@@ -351,6 +467,8 @@ instance toJSONGameUpdate :: ToJSON GameUpdate where
     object ["pId" .= playerIdToInt pId, "u" .= pUpd]
   toJSON (GUIU iId iUpd) =
     object ["iId" .= iId, "u" .= iUpd]
+  toJSON (GameStarting game) =
+    object ["starting" .= toJSON (WrappedGame game)]
 
 type GameUpdateM a = WriterT [GameUpdate] (State WrappedGame) a
 
