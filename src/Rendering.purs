@@ -70,9 +70,14 @@ setupRenderingById :: forall e.
   String -> Eff (canvas :: Canvas | e) Context2D
 setupRenderingById elId =
   getCanvasElementById elId
+    >>= justOrError
     >>= setCanvasHeight canvasSize
     >>= setCanvasWidth canvasSize
     >>= getContext2D
+
+  where
+  justOrError (Just x) = return x
+  justOrError Nothing = error $ "no canvas element found with id = " <> elId
 
 clearBackground :: forall e. CanvasM e Unit
 clearBackground = do
@@ -379,6 +384,25 @@ render ctx game redrawMap = do
     clearCanvas
     renderItems game
     renderPlayers game
+
+renderWaiting :: forall e.
+  RenderingContext
+  -> Boolean
+  -> Eff (canvas :: Canvas | e) Unit
+renderWaiting ctx ready = do
+  runCanvasM ctx.foreground $ do
+    clearCanvas
+    renderWaitingMessage ready
+
+renderWaitingMessage :: forall e.  Boolean -> CanvasM e Unit
+renderWaitingMessage ready = do
+  return unit
+  {-- let firstLine = --}
+  {--     if ready --}
+  {--        then "Waiting for other players..." --}
+  {--        else "Press SPACE when you're ready" --}
+  --fillText firstLine 100 100
+
 
 debug :: Boolean
 debug = false

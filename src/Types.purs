@@ -9,7 +9,7 @@ import qualified Data.Map as M
 import qualified Data.Either as E
 import Data.JSON
 import Data.Tuple
-import Data.String
+import Data.String hiding (singleton, uncons)
 import Data.Array (map, singleton)
 import Graphics.Canvas
 import Control.Monad.Writer.Trans
