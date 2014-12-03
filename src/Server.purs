@@ -32,10 +32,7 @@ stepsPerSecond = 30
 
 main = do
   refState <- newRef initialState
-
-  chdir "static"
   port <- portOrDefault 8080
-
   httpServer <- createHttpServer
   wsServer <- createWebSocketServer refState
 
@@ -51,8 +48,8 @@ createHttpServer =
     let path = (Http.getUrl req).pathname
     let reply =
       case path of
-          "/"           -> Http.sendFile "index.html"
-          "/js/game.js" -> Http.sendFile "js/game.js"
+          "/"           -> Http.sendFile "static/index.html"
+          "/js/game.js" -> Http.sendFile "static/js/game.js"
           _             -> Http.send404
     reply res
 
