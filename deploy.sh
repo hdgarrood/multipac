@@ -14,8 +14,7 @@ if check_status; then
     BRANCH=`git rev-parse --abbrev-ref HEAD`
     git checkout deploy
     git add --force dist/ dist/node_modules static/ static/js/
-    git commit -m 'deploying'
-    git push heroku deploy:master
+    git commit -m 'deploying' && git push heroku deploy:master
 
     echo "switching back to ${BRANCH}..."
     git checkout "$BRANCH"
