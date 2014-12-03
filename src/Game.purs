@@ -32,6 +32,10 @@ applyGameUpdate u =
       player pId %~ applyPlayerUpdate x
     GUIU iId x ->
       items .. at iId %~ applyItemUpdate x
+    ChangedCountdown x ->
+      setCountdown x
+  where
+  setCountdown x game = game {countdown = x}
 
 applyPlayerUpdate :: PlayerUpdate -> Player -> Player
 applyPlayerUpdate u =
@@ -67,6 +71,10 @@ changeScore :: PlayerId -> Number -> GameUpdateM Unit
 changeScore pId s =
   applyGameUpdateM (GUPU pId (ChangedScore s))
 
+changeCountdown :: Maybe Number -> GameUpdateM Unit
+changeCountdown =
+  applyGameUpdateM <<< ChangedCountdown
+
 eat :: ItemId -> GameUpdateM Unit
 eat iId =
   applyGameUpdateM (GUIU iId Eaten)
@@ -76,6 +84,7 @@ initialGame =
   { map: levelmap
   , players: M.fromList $ f <$> [1,2,3,4]
   , items:   M.fromList $ zipNumbers $ makeItems levelmap
+  , countdown: Just 90
   }
   where
   levelmap = basicMap2
@@ -97,9 +106,19 @@ handleInput input =
 
 doLogic :: GameUpdateM Unit
 doLogic = do
-  eachPlayer updateDirection
-  eachPlayer movePlayer
-  eachPlayer eatItems
+  g <- getGame
+  case g.countdown of
+    Just x -> changeCountdown (decrementOrNothing x)
+    Nothing -> do
+      eachPlayer updateDirection
+      eachPlayer movePlayer
+      eachPlayer eatItems
+
+decrementOrNothing x =
+  let x' = x - 1
+  in if x' <= 0
+        then Nothing
+        else Just x'
 
 updateDirection :: PlayerId -> Player -> GameUpdateM Unit
 updateDirection pId p =

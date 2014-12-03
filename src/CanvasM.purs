@@ -72,6 +72,10 @@ fillText :: forall e. String -> Number -> Number -> CanvasM e Unit
 fillText str x y =
   liftC $ \ctx -> GC.fillText ctx str x y
 
+strokeText :: forall e. String -> Number -> Number -> CanvasM e Unit
+strokeText str x y =
+  liftC $ \ctx -> GC.strokeText ctx str x y
+
 setTextAlign :: forall e. GC.TextAlign -> CanvasM e Unit
 setTextAlign align =
   liftC $ \ctx -> GC.setTextAlign ctx align

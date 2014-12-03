@@ -35,6 +35,7 @@ instance fromJSONMap :: (Ord k, FromJSON k, FromJSON v) => FromJSON (M.Map k v) 
 type Game = { map :: LevelMap
             , players :: M.Map PlayerId Player
             , items   :: M.Map ItemId Item
+            , countdown :: Maybe Number
             }
 newtype WrappedGame = WrappedGame Game
 
@@ -46,6 +47,7 @@ instance toJSONWrappedGame :: ToJSON WrappedGame where
     object [ "map" .= toJSON (WrappedLevelMap game.map)
            , "players" .= toJSON game.players
            , "items" .= toJSON game.items
+           , "countdown" .= toJSON game.countdown
            ]
 
 instance fromJSONWrappedGame :: FromJSON WrappedGame where
@@ -53,7 +55,8 @@ instance fromJSONWrappedGame :: FromJSON WrappedGame where
     (WrappedLevelMap m) <- obj .: "map"
     p <- obj .: "players"
     i <- obj .: "items"
-    return $ WrappedGame {map:m, players:p, items:i}
+    c <- obj .:? "countdown"
+    return $ WrappedGame {map:m, players:p, items:i, countdown:c}
 
 data PlayerId = P1 | P2 | P3 | P4
 
@@ -411,6 +414,7 @@ data ItemUpdate
 data GameUpdate
   = GUPU PlayerId PlayerUpdate
   | GUIU ItemId ItemUpdate
+  | ChangedCountdown (Maybe Number)
 
 instance showPlayerUpdate :: Show PlayerUpdate where
   show (ChangedDirection x) =
@@ -451,22 +455,27 @@ instance toJSONItemUpdate :: ToJSON ItemUpdate where
 instance showGameUpdate :: Show GameUpdate where
   show (GUPU pId u) = "GUPU (" <> show pId <> ") (" <> show u <> ")"
   show (GUIU iId u) = "GUIU (" <> show iId <> ") (" <> show u <> ")"
+  show (ChangedCountdown x) = "ChangedCountdown " <> show x
 
 instance fromJSONGameUpdate :: FromJSON GameUpdate where
-  parseJSON (JObject obj) =
-    case M.toList obj of
-      [Tuple "pId" pId, Tuple "u" val] ->
-        GUPU <$> parseJSON pId <*> parseJSON val
-      [Tuple "iId" iId, Tuple "u" val] ->
-        GUIU <$> parseJSON iId <*> parseJSON val
-      _ -> failJsonParse obj "GameUpdate"
+  parseJSON (JArray arr) =
+    case arr of
+      [JString "gupu", pId, pUpd] ->
+        GUPU <$> parseJSON pId <*> parseJSON pUpd
+      [JString "guiu", iId, iUpd] ->
+        GUIU <$> parseJSON iId <*> parseJSON iUpd
+      [JString "ccd", x] ->
+        ChangedCountdown <$> parseJSON x
+      _ -> failJsonParse arr "GameUpdate"
   parseJSON val = failJsonParse val "GameUpdate"
 
 instance toJSONGameUpdate :: ToJSON GameUpdate where
   toJSON (GUPU pId pUpd) =
-    object ["pId" .= playerIdToInt pId, "u" .= pUpd]
+    JArray [JString "gupu", toJSON pId, toJSON pUpd]
   toJSON (GUIU iId iUpd) =
-    object ["iId" .= iId, "u" .= iUpd]
+    JArray [JString "guiu", toJSON iId, toJSON iUpd]
+  toJSON (ChangedCountdown x) =
+    JArray [JString "ccd", toJSON x]
 
 data WaitingUpdate
   = GameStarting Game

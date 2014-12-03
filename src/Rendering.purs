@@ -14,7 +14,7 @@ import Control.Monad.Eff
 import Control.Monad (when)
 import Control.Monad.Reader.Class (reader)
 import Control.Lens ((^.), (..), (~))
-import Math (pi, floor)
+import Math (pi, floor, ceil)
 
 import LevelMap
 import Types
@@ -77,6 +77,8 @@ getTileRectAt' x y = getTileRectAt (Position {x: x, y: y})
 -- the height and width of the canvas
 canvasSize :: Number
 canvasSize = pxPerBlock * LevelMap.mapSize
+
+halfCanvas = floor (canvasSize / 2)
 
 setupRendering :: forall e. Eff (canvas :: Canvas | e) RenderingContext
 setupRendering = do
@@ -365,6 +367,18 @@ clearCanvas :: forall e. CanvasM e Unit
 clearCanvas =
   clearRect {x: 0, y: 0, h: canvasSize, w: canvasSize}
 
+renderCountdown :: forall e. Game -> CanvasM e Unit
+renderCountdown game = do
+  whenJust game.countdown $ \cd -> do
+    setFont "50pt sans-serif"
+    setTextAlign AlignCenter
+    setFillStyle "red"
+    setStrokeStyle "black"
+    let text = show (ceil (cd / 30)) <> "..."
+    fillText   text halfCanvas halfCanvas
+    strokeText text halfCanvas halfCanvas
+
+
 render :: forall e.
   RenderingContext
   -> Game
@@ -380,6 +394,7 @@ render ctx game redrawMap = do
     clearCanvas
     renderItems game
     renderPlayers game
+    renderCountdown game
 
 renderWaiting :: forall e.
   RenderingContext
@@ -400,7 +415,6 @@ renderWaitingMessage ready = do
          then "Waiting for other players..." ~ "ready: ✓"
          else "Press SPACE when you're ready" ~ "ready: ✕"
 
-  let halfCanvas = floor (canvasSize / 2)
   let x = 20
   fillText (fst message) halfCanvas (halfCanvas - x)
   fillText (snd message) halfCanvas (halfCanvas + x)
