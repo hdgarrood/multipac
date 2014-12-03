@@ -71,15 +71,11 @@ main = do
 
   addKeyboardEventListener
     KeydownEvent
-    (handleKeydown socket refState)
+    (\event -> runCallback refState (\c -> c.onKeyDown) {event:event})
     globalWindow
 
   startAnimationLoop $ do
     runCallback refState (\c -> c.render) {ctx:ctx}
-
-
-handleKeydown socket refState event =
-  runCallback refState (\c -> c.onKeyDown) {event:event}
 
 
 inProgressCallbacks = ClientCallbacks

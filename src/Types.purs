@@ -421,23 +421,22 @@ instance showPlayerUpdate :: Show PlayerUpdate where
     "ChangedPosition (" <> show x <> ")"
 
 instance fromJSONPlayerUpdate :: FromJSON PlayerUpdate where
-  parseJSON (JObject obj) = do
-    case M.toList obj of
-      [Tuple "cp" p] ->
-        ChangedPosition <$> parseJSON p
-      [Tuple "cd" d] ->
-        ChangedDirection <$> parseJSON d
-      [Tuple "cid" d] ->
-        ChangedIntendedDirection <$> parseJSON d
-      _ -> failJsonParse obj "PlayerUpdate"
+  parseJSON (JArray arr) =
+    case arr of
+       [JString "cp", x] -> ChangedPosition <$> parseJSON x
+       [JString "cd", x] -> ChangedDirection <$> parseJSON x
+       [JString "cid", x] -> ChangedIntendedDirection <$> parseJSON x
+       [JString "cs", x] -> ChangedScore <$> parseJSON x
+
   parseJSON val = failJsonParse val "PlayerUpdate"
 
 instance toJSONPlayerUpdate :: ToJSON PlayerUpdate where
   toJSON update =
-    object $ singleton $ case update of
-      (ChangedPosition p)          -> "cp" .= p
-      (ChangedDirection d)         -> "cd" .= d
-      (ChangedIntendedDirection d) -> "cid" .= d
+    JArray $ case update of
+      ChangedPosition p          -> [JString "cp", toJSON p]
+      ChangedDirection d         -> [JString "cd", toJSON d]
+      ChangedIntendedDirection d -> [JString "cid", toJSON d]
+      ChangedScore x             -> [JString "cs", toJSON x]
 
 instance showItemUpdate :: Show ItemUpdate where
   show Eaten = "Eaten"
