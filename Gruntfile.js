@@ -4,7 +4,7 @@ module.exports = function(grunt) {
   var sourceFiles = [
     "src/**/*.purs",
     "bower_components/**/src/**/*.purs",
-    "vendor/**/src/**/*.purs"
+    "vendor/purescript-*/src/**/*.purs"
   ];
 
   grunt.initConfig({
