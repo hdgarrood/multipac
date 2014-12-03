@@ -37,7 +37,7 @@ module.exports = function(grunt) {
 
     browserify: [
       {
-        src: ["tmp/client.js"],
+        src: ["dist/client.js"],
         dest: "static/js/game.js"
       }
     ]
