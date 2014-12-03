@@ -196,6 +196,8 @@ stepWaiting args state = do
 onMessageWaiting args state =
   case (eitherDecode args.msg :: E.Either String Boolean) of
     E.Right isReady -> do
+      trace $ "updated ready state for " <> show args.pId <>
+                ": " <> show isReady
       let m = state ^. gameWaiting
       let m' = M.insert args.pId isReady m
       return $ state { gameState = WaitingForPlayers m' }
