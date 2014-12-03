@@ -1,6 +1,3 @@
 [submodule "vendor/purescript-simple-dom"]
 	path = vendor/purescript-simple-dom
 	url = https://github.com/aktowns/purescript-simple-dom
-[submodule "vendor/purescript-canvas"]
-	path = vendor/purescript-canvas
-	url = https://github.com/hdgarrood/purescript-canvas
