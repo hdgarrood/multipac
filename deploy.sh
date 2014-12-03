@@ -16,7 +16,8 @@ if check_status; then
     git submodule update
     grunt
     git add --force dist/ dist/node_modules static/ static/js/
-    git commit -m 'deploying' && git push heroku deploy:master
+    git commit -m 'deploying' || true
+    git push heroku deploy:master
 
     echo "switching back to ${BRANCH}..."
     git checkout "$BRANCH"
