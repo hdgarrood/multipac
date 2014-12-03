@@ -115,7 +115,9 @@ movePlayer pId p =
 eatItems :: PlayerId -> Player -> GameUpdateM Unit
 eatItems pId p = do
   g <- getGame
-  whenJust (lookupItemByPosition (p ^. pPosition) g) eat
+  whenJust (lookupItemByPosition (p ^. pPosition) g) $ \iId -> do
+    eat iId
+    changeScore pId (p ^. pScore + 1)
 
 tryChangeDirection :: PlayerId -> Player -> Direction -> GameUpdateM Unit
 tryChangeDirection pId p d = do
