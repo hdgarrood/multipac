@@ -83,3 +83,7 @@ setTextAlign align =
 setFont :: forall e. String -> CanvasM e Unit
 setFont font =
   liftC $ \ctx -> GC.setFont font ctx
+
+setLineWidth :: forall e. Number -> CanvasM e Unit
+setLineWidth width =
+  liftC $ \ctx -> GC.setLineWidth width ctx

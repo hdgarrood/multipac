@@ -370,11 +370,12 @@ clearCanvas =
 renderCountdown :: forall e. Game -> CanvasM e Unit
 renderCountdown game = do
   whenJust game.countdown $ \cd -> do
-    setFont "50pt sans-serif"
+    setFont "100pt sans-serif"
     setTextAlign AlignCenter
+    setLineWidth 3
     setFillStyle "red"
     setStrokeStyle "black"
-    let text = show (ceil (cd / 30)) <> "..."
+    let text = show (ceil (cd / 30))
     fillText   text halfCanvas halfCanvas
     strokeText text halfCanvas halfCanvas
 
