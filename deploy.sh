@@ -13,6 +13,7 @@ if check_status; then
 
     BRANCH=`git rev-parse --abbrev-ref HEAD`
     git checkout deploy
+    grunt
     git add --force dist/ dist/node_modules static/ static/js/
     git commit -m 'deploying' && git push heroku deploy:master
 
