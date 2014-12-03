@@ -9,7 +9,7 @@ import Data.Maybe
 import Data.Foldable
 import Graphics.Canvas
   (getContext2D, setCanvasHeight, setCanvasWidth, Rectangle(), Arc(),
-  Context2D(), Canvas(), getCanvasElementById)
+  Context2D(), Canvas(), getCanvasElementById, TextAlign(..))
 import Control.Monad.Eff
 import Control.Monad (when)
 import Control.Monad.Reader.Class (reader)
@@ -22,7 +22,26 @@ import CanvasM
 import Utils
 
 
-pxPerBlock :: Number
+fontColour = "#dfd1a5"
+backgroundColour = "hsl(200, 10%, 75%)"
+tileColour = "hsl(200, 80%, 40%)"
+
+playerRadius = 13
+
+-- parameters for corners of tiles
+cornerSize = 9
+cornerMid = floor (cornerSize / 2)
+cornerRadius = cornerMid
+
+littleDotRadius = 3
+littleDotFillStyle = "#eecccc"
+
+fillStyleFor :: PlayerId -> String
+fillStyleFor P1 = "hsl(0, 100%, 60%)"
+fillStyleFor P2 = "hsl(90, 100%, 60%)"
+fillStyleFor P3 = "hsl(180, 100%, 60%)"
+fillStyleFor P4 = "hsl(270, 100%, 60%)"
+
 pxPerBlock = 3
 
 halfBlock :: Number
@@ -81,7 +100,7 @@ setupRenderingById elId =
 
 clearBackground :: forall e. CanvasM e Unit
 clearBackground = do
-  setFillStyle "hsl(200, 10%, 75%)"
+  setFillStyle backgroundColour
   fillRect {x: 0, y: 0, h: canvasSize, w: canvasSize}
 
 foreign import renderMapDebugFFI
@@ -146,7 +165,7 @@ toBasic _ = E
 
 renderMap :: forall e. LevelMap -> CanvasM e Unit
 renderMap map = do
-  setStrokeStyle "hsl(200, 80%, 40%)"
+  setStrokeStyle tileColour
 
   let tileIndices = range 0 (tilesAlongSide - 1)
   let getTile i j = map.tiles !! i >>= (\r -> r !! j)
@@ -195,10 +214,6 @@ getCorner W W W = NON
 getCorner W E _ = CSH
 getCorner E W _ = CSV
 getCorner E E _ = CRO
-
-cornerSize = 9
-cornerMid = floor (cornerSize / 2)
-cornerRadius = cornerMid
 
 renderCorners :: forall e.  Corners -> CanvasM e Unit
 renderCorners cs = do
@@ -314,15 +329,8 @@ renderPlayer pId player = do
   setFillStyle (fillStyleFor pId)
   let centre = getCentredRectAt (player ^. pPosition)
   beginPath
-  arc {x: centre.x, y: centre.y, start: 0, end: 2 * pi, r: 13}
+  arc {x: centre.x, y: centre.y, start: 0, end: 2 * pi, r: playerRadius}
   fill
-
-clearPlayer :: forall e.
-  PlayerId
-  -> Player
-  -> CanvasM e Unit
-clearPlayer pId player =
-  clearRect (enlargeRect 5 $ getRectAt (player ^. pPosition))
 
 enlargeRect :: Number -> Rectangle -> Rectangle
 enlargeRect delta r =
@@ -332,21 +340,9 @@ enlargeRect delta r =
   , h: r.h + (2 * delta)
   }
 
-fillStyleFor :: PlayerId -> String
-fillStyleFor P1 = "hsl(0, 100%, 60%)"
-fillStyleFor P2 = "hsl(90, 100%, 60%)"
-fillStyleFor P3 = "hsl(180, 100%, 60%)"
-fillStyleFor P4 = "hsl(270, 100%, 60%)"
-
 renderItems :: forall e. Game -> CanvasM e Unit
 renderItems game =
   eachItem' game renderItem
-
-littleDotRadius :: Number
-littleDotRadius = 3
-
-littleDotFillStyle :: String
-littleDotFillStyle = "#eecccc"
 
 renderItem :: forall e. Item -> CanvasM e Unit
 renderItem item = do
@@ -396,12 +392,15 @@ renderWaiting ctx ready = do
 
 renderWaitingMessage :: forall e.  Boolean -> CanvasM e Unit
 renderWaitingMessage ready = do
-  return unit
-  {-- let firstLine = --}
-  {--     if ready --}
-  {--        then "Waiting for other players..." --}
-  {--        else "Press SPACE when you're ready" --}
-  --fillText firstLine 100 100
+  setFont "20pt sans-serif"
+  setTextAlign AlignCenter
+  setFillStyle fontColour
+  let firstLine =
+      if ready
+         then "Waiting for other players..."
+         else "Press SPACE when you're ready"
+  let halfCanvas = floor (canvasSize / 2)
+  fillText firstLine halfCanvas halfCanvas
 
 
 debug :: Boolean

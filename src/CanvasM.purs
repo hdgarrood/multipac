@@ -67,3 +67,15 @@ fill =
 clearRect :: forall e. GC.Rectangle -> CanvasM e Unit
 clearRect rect =
   liftC $ \ctx -> GC.clearRect ctx rect
+
+fillText :: forall e. String -> Number -> Number -> CanvasM e Unit
+fillText str x y =
+  liftC $ \ctx -> GC.fillText ctx str x y
+
+setTextAlign :: forall e. GC.TextAlign -> CanvasM e Unit
+setTextAlign align =
+  liftC $ \ctx -> GC.setTextAlign ctx align
+
+setFont :: forall e. String -> CanvasM e Unit
+setFont font =
+  liftC $ \ctx -> GC.setFont font ctx
