@@ -13,7 +13,7 @@ import Graphics.Canvas
 import Control.Monad.Eff
 import Control.Monad (when)
 import Control.Monad.Reader.Class (reader)
-import Control.Lens ((^.), (..))
+import Control.Lens ((^.), (..), (~))
 import Math (pi, floor)
 
 import LevelMap
@@ -395,12 +395,15 @@ renderWaitingMessage ready = do
   setFont "20pt sans-serif"
   setTextAlign AlignCenter
   setFillStyle fontColour
-  let firstLine =
+  let message =
       if ready
-         then "Waiting for other players..."
-         else "Press SPACE when you're ready"
+         then "Waiting for other players..." ~ "ready: ✓"
+         else "Press SPACE when you're ready" ~ "ready: ✕"
+
   let halfCanvas = floor (canvasSize / 2)
-  fillText firstLine halfCanvas halfCanvas
+  let x = 20
+  fillText (fst message) halfCanvas (halfCanvas - x)
+  fillText (snd message) halfCanvas (halfCanvas + x)
 
 
 debug :: Boolean
