@@ -10,7 +10,7 @@ import Control.Alt
 import Control.Monad
 import Control.Monad.Reader.Class
 import Control.Lens (LensP(), TraversalP(), lens, at, _Just, _1, _2,
-                     (.~), (..), (^.), (%~))
+                     (.~), (..), (^.), (%~), (~))
 import Math (ceil, floor)
 
 import Types
@@ -82,15 +82,19 @@ eat iId =
 initialGame :: Game
 initialGame =
   { map: levelmap
-  , players: M.fromList $ f <$> [1,2,3,4]
-  , items:   M.fromList $ zipNumbers $ makeItems levelmap
+  , players: M.fromList $ f <$> starts
+  , items:   M.fromList $ zipNumbers $ makeItems levelmap (snd <$> starts)
   , countdown: Just 90
   }
   where
   levelmap = basicMap2
-  f n = Tuple
-          (fromJust (intToPlayerId n))
-          (mkPlayer (tilePositionToBlock (Position { x: n, y: 1})))
+  f (Tuple pId position) = Tuple pId (mkPlayer position)
+  starts =
+    [ P1 ~ tilePositionToBlock (Position {x:7, y:7})
+    , P2 ~ tilePositionToBlock (Position {x:9, y:7})
+    , P3 ~ tilePositionToBlock (Position {x:7, y:8})
+    , P4 ~ tilePositionToBlock (Position {x:9, y:8})
+    ]
 
 stepGame :: Input -> Game -> Tuple Game [GameUpdate]
 stepGame input game =
@@ -161,15 +165,16 @@ isFree levelmap pos =
 
 -- Prepare items on a map
 -- * put a little dot in every free space
-makeItems :: LevelMap -> [Item]
-makeItems levelmap =
+makeItems :: LevelMap -> [Position] -> [Item]
+makeItems levelmap excludes =
   Tuple <$> r <*> r >>= \(Tuple x y) ->
     let pos = tilePositionToBlock (Position {x: x, y: y})
-    in if isFree levelmap pos
+    in if shouldHaveDot pos
          then [Item { itemType: LittleDot, position: pos }]
          else []
   where
   r = range 0 (tilesAlongSide - 1)
+  shouldHaveDot pos = isFree levelmap pos && not (elem pos excludes)
 
 makeGame :: [PlayerId] -> Game
 makeGame pIds =
