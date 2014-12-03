@@ -23,15 +23,15 @@ module.exports = function(grunt) {
         expand: true,
         cwd: "output",
         src: ["**"],
-        dest: "tmp/node_modules/"
+        dest: "dist/node_modules/"
       },
       {
         src: ["js/client.js"],
-        dest: "tmp/client.js"
+        dest: "dist/client.js"
       },
       {
         src: ["js/server.js"],
-        dest: "tmp/server.js"
+        dest: "dist/server.js"
       }
     ],
 
