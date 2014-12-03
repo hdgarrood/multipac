@@ -366,18 +366,19 @@ clearCanvas =
 
 render :: forall e.
   RenderingContext
-  -> ClientState
+  -> Game
+  -> Boolean
   -> Eff (canvas :: Canvas | e) Unit
-render ctx state = do
-  when state.redrawMap $ do
+render ctx game redrawMap = do
+  when redrawMap $ do
     runCanvasM ctx.background $ do
-      when debug $ renderMapDebug state.game.map
-      renderMap state.game.map
+      when debug $ renderMapDebug game.map
+      renderMap game.map
 
   runCanvasM ctx.foreground $ do
     clearCanvas
-    renderItems state.game
-    renderPlayers state.game
+    renderItems game
+    renderPlayers game
 
 debug :: Boolean
 debug = false

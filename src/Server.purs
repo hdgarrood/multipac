@@ -177,10 +177,13 @@ stepWaiting args state = do
   let m = state ^. gameWaiting
   if readyToStart m
     then do
-      -- everyone's ready - start
+      trace "all players are ready; starting game"
       let game = makeGame (M.keys m)
       sendUpdates state [GameStarting game]
-      return state { gameState = InProgress { game: game, input: M.empty }}
+      return $ state
+        { gameState = InProgress { game: game, input: M.empty }
+        , callbacks = inProgressCallbacks
+        }
     else
       return state
   where
