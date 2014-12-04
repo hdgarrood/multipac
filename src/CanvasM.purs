@@ -87,3 +87,7 @@ setFont font =
 setLineWidth :: forall e. Number -> CanvasM e Unit
 setLineWidth width =
   liftC $ \ctx -> GC.setLineWidth width ctx
+
+setLineCap :: forall e. GC.LineCap -> CanvasM e Unit
+setLineCap lc =
+  liftC $ GC.setLineCap lc

@@ -9,7 +9,7 @@ import Data.Maybe
 import Data.Foldable
 import Graphics.Canvas
   (getContext2D, setCanvasHeight, setCanvasWidth, Rectangle(), Arc(),
-  Context2D(), Canvas(), getCanvasElementById, TextAlign(..))
+  Context2D(), Canvas(), getCanvasElementById, TextAlign(..), LineCap(..))
 import Control.Monad.Eff
 import Control.Monad (when)
 import Control.Monad.Reader.Class (reader)
@@ -23,18 +23,22 @@ import Utils
 import Game
 
 
+pxPerTile = 35
+pxPerBlock = pxPerTile / tileSize
+
+playerRadius = floor (pxPerTile / 2.2)
+littleDotRadius = pxPerBlock
+
+-- parameters for corners of tiles
+cornerSize = floor (pxPerTile / 3)
+cornerMid = floor (cornerSize / 2)
+cornerRadius = cornerMid
+
+
 fontColour = "#dfd1a5"
 backgroundColour = "#34344e"
 tileColour = "hsl(200, 80%, 40%)"
 
-playerRadius = 13
-
--- parameters for corners of tiles
-cornerSize = 9
-cornerMid = floor (cornerSize / 2)
-cornerRadius = cornerMid
-
-littleDotRadius = 3
 littleDotFillStyle = "#eecccc"
 
 fillStyleFor :: PlayerId -> String
@@ -43,13 +47,8 @@ fillStyleFor P2 = "hsl(90, 100%, 60%)"
 fillStyleFor P3 = "hsl(180, 100%, 60%)"
 fillStyleFor P4 = "hsl(270, 100%, 60%)"
 
-pxPerBlock = 3
-
 halfBlock :: Number
 halfBlock = floor (pxPerBlock / 2)
-
-pxPerTile :: Number
-pxPerTile = pxPerBlock * tileSize
 
 halfPxPerTile :: Number
 halfPxPerTile = floor (pxPerTile / 2)
@@ -252,8 +251,8 @@ renderCorners cs = do
         CSH ->
           { prep: translate t
           , go: do
-              moveTo (-cornerMid - 1) 0
-              lineTo (cornerMid + 1) 0
+              moveTo (-cornerMid -1) 0
+              lineTo (cornerMid + 1)  0
           }
         CSV ->
           { prep: translate t
@@ -291,6 +290,7 @@ renderCorners cs = do
 
   for_ cs' $ \c -> do
     withContext $ do
+      setLineCap Square
       let r = renderCorner c.c c.a c.t
       r.prep
       beginPath
@@ -410,7 +410,8 @@ renderCountdown game pId = do
 
 
 renderCounter cd = do
-  setFont "100pt Ubuntu"
+  let pt = pxPerTile * 3
+  setFont $ show pt <> "pt Ubuntu"
   setTextAlign AlignCenter
   setLineWidth 3
   setFillStyle fontColour
@@ -486,7 +487,8 @@ renderWaiting ctx ready pId = do
     renderYourPlayer pId
 
 setTextStyle = do
-  setFont "20pt sans-serif"
+  let pt = floor (0.6 * pxPerTile)
+  setFont $ show pt <> "pt Ubuntu"
   setFillStyle fontColour
 
 renderWaitingMessage :: forall e.  Boolean -> CanvasM e Unit
