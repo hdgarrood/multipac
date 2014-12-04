@@ -20,11 +20,10 @@ import LevelMap
 import Types
 import CanvasM
 import Utils
-import Game
 
 
 fontColour = "#dfd1a5"
-backgroundColour = "hsl(200, 10%, 75%)"
+backgroundColour = "#34344e"
 tileColour = "hsl(200, 80%, 40%)"
 
 playerRadius = 13
@@ -371,14 +370,16 @@ clearCanvas =
 renderCountdown :: forall e. Game -> CanvasM e Unit
 renderCountdown game = do
   whenJust game.countdown $ \cd -> do
-    setFont "100pt sans-serif"
+    setFont "100pt Ubuntu"
     setTextAlign AlignCenter
     setLineWidth 3
-    setFillStyle "red"
+    setFillStyle fontColour
     setStrokeStyle "black"
     let text = show (ceil (cd / 30))
-    fillText   text halfCanvas halfCanvas
-    strokeText text halfCanvas halfCanvas
+    let x = halfCanvas
+    let y = floor (halfCanvas / 2)
+    fillText   text x y
+    strokeText text x y
 
 
 render :: forall e.
