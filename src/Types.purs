@@ -19,6 +19,7 @@ import Control.Monad.State.Class
 import Control.Monad.Eff
 import Control.Lens hiding ((.=))
 import Data.DOM.Simple.Types (DOM(), DOMEvent())
+import Math (pi)
 
 import Utils
 import qualified NodeWebSocket as WS
@@ -230,6 +231,7 @@ newtype Player
       , direction :: Maybe Direction
       , intendedDirection :: Maybe Direction
       , score :: Number
+      , nomAngle :: Number
       }
 
 instance toJSONPlayer :: ToJSON Player where
@@ -239,27 +241,27 @@ instance toJSONPlayer :: ToJSON Player where
            , toJSON p.direction
            , toJSON p.intendedDirection
            , toJSON p.score
+           , toJSON p.nomAngle
            ]
 
 instance fromJSONPlayer :: FromJSON Player where
-  parseJSON
-    (JArray [ JString "Player"
-            , position
-            , direction
-            , intendedDirection
-            , score
-            ]) = do
-                p <- parseJSON position
-                d <- parseJSON direction
-                i <- parseJSON intendedDirection
-                s <- parseJSON score
-                return $ Player
-                          { position: p
-                          , direction: d
-                          , intendedDirection: i
-                          , score: s
-                          }
-
+  parseJSON (JArray arr) =
+    case arr of
+      [JString "Player", pos, dir, intdir, sc, angle] -> do
+        p <- parseJSON pos
+        d <- parseJSON dir
+        i <- parseJSON intdir
+        s <- parseJSON sc
+        a <- parseJSON angle
+        return $ Player
+                  { position: p
+                  , direction: d
+                  , intendedDirection: i
+                  , score: s
+                  , nomAngle: a
+                  }
+      _ -> failJsonParse arr "Player"
+  parseJSON val = failJsonParse val "Player"
 
 
 mkPlayer :: Position -> Player
@@ -268,6 +270,7 @@ mkPlayer pos =
          , direction: Nothing
          , intendedDirection: Nothing
          , score: 0
+         , nomAngle: pi / 8
          }
 
 instance showPlayer :: Show Player where
@@ -303,6 +306,11 @@ pScore :: LensP Player Number
 pScore = lens
   (\(Player p) -> p.score)
   (\(Player p) s -> Player $ p { score = s })
+
+pNomAngle :: LensP Player Number
+pNomAngle = lens
+  (\(Player p) -> p.nomAngle)
+  (\(Player p) s -> Player $ p { nomAngle = s })
 
 eachPlayer' :: forall f. (Applicative f) =>
   Game -> (PlayerId -> Player -> f Unit) -> f Unit
@@ -417,6 +425,7 @@ data PlayerUpdate
   | ChangedIntendedDirection (Maybe Direction)
   | ChangedPosition Position
   | ChangedScore Number
+  | ChangedNomAngle Number
 
 instance showPlayerUpdate :: Show PlayerUpdate where
   show (ChangedDirection x) =
@@ -433,6 +442,7 @@ instance fromJSONPlayerUpdate :: FromJSON PlayerUpdate where
        [JString "cd", x] -> ChangedDirection <$> parseJSON x
        [JString "cid", x] -> ChangedIntendedDirection <$> parseJSON x
        [JString "cs", x] -> ChangedScore <$> parseJSON x
+       [JString "cna", x] -> ChangedNomAngle <$> parseJSON x
 
   parseJSON val = failJsonParse val "PlayerUpdate"
 
@@ -443,6 +453,7 @@ instance toJSONPlayerUpdate :: ToJSON PlayerUpdate where
       ChangedDirection d         -> [JString "cd", toJSON d]
       ChangedIntendedDirection d -> [JString "cid", toJSON d]
       ChangedScore x             -> [JString "cs", toJSON x]
+      ChangedNomAngle x          -> [JString "cna", toJSON x]
 
 
 data ItemUpdate

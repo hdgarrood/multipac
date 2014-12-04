@@ -11,7 +11,7 @@ import Control.Monad
 import Control.Monad.Reader.Class
 import Control.Lens (LensP(), TraversalP(), lens, at, _Just, _1, _2,
                      (.~), (..), (^.), (%~), (~))
-import Math (ceil, floor)
+import Math (ceil, floor, pi)
 
 import Types
 import LevelMap
@@ -75,6 +75,10 @@ changeCountdown :: Maybe Number -> GameUpdateM Unit
 changeCountdown =
   applyGameUpdateM <<< ChangedCountdown
 
+changeNomAngle :: PlayerId -> Number -> GameUpdateM Unit
+changeNomAngle pId angle =
+  applyGameUpdateM (GUPU pId (ChangedNomAngle angle))
+
 eat :: ItemId -> GameUpdateM Unit
 eat iId =
   applyGameUpdateM (GUIU iId Eaten)
@@ -128,12 +132,16 @@ updateDirection :: PlayerId -> Player -> GameUpdateM Unit
 updateDirection pId p =
   whenJust (p ^.pIntendedDirection) $ tryChangeDirection pId p
 
+nomAngleDelta = pi / 24
+nomAngleMax = pi / 4
+
 movePlayer :: PlayerId -> Player -> GameUpdateM Unit
 movePlayer pId p =
   whenJust (p ^. pDirection) $ \dir -> do
     ok <- canMoveInDirection p dir
-    when ok $
+    when ok $ do
       changePosition pId $ moveInDirection dir (p ^. pPosition)
+      changeNomAngle pId $ ((p ^. pNomAngle) + nomAngleDelta) % nomAngleMax
 
 eatItems :: PlayerId -> Player -> GameUpdateM Unit
 eatItems pId p = do
