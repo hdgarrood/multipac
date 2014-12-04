@@ -136,7 +136,7 @@ directionFromKeyCode code =
 waitingCallbacks = ClientCallbacks
   { render: \args state -> do
       let g = state ^. gameWaiting
-      renderWaiting args.ctx g
+      renderWaiting args.ctx g state.playerId
       return state
 
   , onMessage: \args state -> do
