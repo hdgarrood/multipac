@@ -6,9 +6,10 @@ import Data.JSON
 import Data.Function
 import Data.Maybe
 import Data.Array
+import qualified Data.String as S
 import qualified Data.Either as E
 import qualified Data.Map as M
-import Data.Foldable (for_, all)
+import Data.Foldable (for_, all, find)
 import Control.Monad
 import Control.Monad.Eff
 import Control.Monad.Eff.Ref
@@ -58,22 +59,26 @@ createWebSocketServer refState = do
   server <- WS.mkServer
   WS.onRequest server $ \req -> do
     trace "got a request"
-    conn <- WS.accept req
+    let playerName = (WS.resourceUrl req).search
 
-    maybePId <- tryAddPlayer conn refState "harry" -- TODO: actual name
+    if S.null playerName
+      then WS.reject req
+      else do
+        conn <- WS.accept req
+        maybePId <- tryAddPlayer conn refState playerName
 
-    case maybePId of
-      Just pId -> do
-        trace $ "opened connection for player " <> show pId
-        runCallback refState (\c -> c.onNewPlayer) {pId:pId}
+        case maybePId of
+          Just pId -> do
+            trace $ "opened connection for player " <> show pId
+            runCallback refState (\c -> c.onNewPlayer) {pId:pId}
 
-        WS.onMessage conn $ \msg ->
-          runCallback refState (\c -> c.onMessage) {msg:msg, pId:pId}
-        WS.onClose   conn $ \close ->
-          runCallback refState (\c -> c.onClose) {pId:pId}
-      Nothing -> do
-        trace "rejecting connection, no player ids available"
-        WS.close conn
+            WS.onMessage conn $ \msg ->
+              runCallback refState (\c -> c.onMessage) {msg:msg, pId:pId}
+            WS.onClose   conn $ \close ->
+              runCallback refState (\c -> c.onClose) {pId:pId}
+          Nothing -> do
+            trace "rejecting connection, no player ids available"
+            WS.close conn
 
   return server
 
@@ -203,8 +208,12 @@ onMessageWaiting args state =
       trace $ "failed to parse message: " <> err
       return state
 
+
 onNewPlayerWaiting :: ServerCallback {pId::PlayerId}
-onNewPlayerWaiting args state = return state
+onNewPlayerWaiting args state = do
+  sendUpdateTo state args.pId (YourPlayerIdIs args.pId)
+  return state
+
 
 sendUpdates :: forall e a. (ToJSON a) =>
   ServerState
@@ -220,6 +229,15 @@ sendUpdate :: forall e a. (ToJSON a) =>
   WS.Connection -> a -> Eff (ws :: WS.WebSocket | e) Unit
 sendUpdate conn update =
   WS.send conn $ encode update
+
+
+sendUpdateTo :: forall e a. (ToJSON a) =>
+  ServerState -> PlayerId -> a -> Eff (ws :: WS.WebSocket | e) Unit
+sendUpdateTo state pId update = do
+  let mConn = find (\c -> c.pId == pId) state.connections
+  whenJust mConn $ \conn ->
+    WS.send conn.wsConn $ encode update
+
 
 
 foreign import data Process :: !

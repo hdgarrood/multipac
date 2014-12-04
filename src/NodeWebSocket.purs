@@ -32,21 +32,21 @@ foreign import mkServer
 
 foreign import registerEventHandlerUnsafe
   """
-  function registerEventHandlerUnsafe(receiver, msgType, callback, transform) {
+  function registerEventHandlerUnsafe(receiver, method, msgType, callback, transform) {
     return function() {
-      receiver.on(msgType, function(param) {
-        var param2 = transform ? transform(param) : param
-        callback(param2)()
+      receiver[method](msgType, function(param) {
+        callback(transform(param))()
       })
     }
   }
-  """ :: forall e a b c d.
-    Fn4
-      a
+  """ :: forall receiver param x y eff.
+    Fn5
+      receiver
       String
-      (b -> Eff (ws :: WebSocket | e) c)
-      (d -> b)
-      (Eff (ws :: WebSocket | e) Unit)
+      String
+      (param -> Eff (ws :: WebSocket | eff) x)
+      (y -> param)
+      (Eff (ws :: WebSocket | eff) Unit)
 
 type RegisterHandler receiver param = forall e a.
   receiver
@@ -55,11 +55,18 @@ type RegisterHandler receiver param = forall e a.
 
 onRequest :: RegisterHandler Server Request
 onRequest server callback =
-  runFn4 registerEventHandlerUnsafe server "request" callback id
+  runFn5 registerEventHandlerUnsafe
+    server "on" "request" callback id
 
 onMessage :: RegisterHandler Connection String
 onMessage conn callback =
-  runFn4 registerEventHandlerUnsafe conn "message" callback getMessageData
+  runFn5 registerEventHandlerUnsafe
+    conn "on" "message" callback getMessageData
+
+onceOnMessage :: RegisterHandler Connection String
+onceOnMessage conn callback =
+  runFn5 registerEventHandlerUnsafe
+    conn "once" "message" callback getMessageData
 
 foreign import getMessageData
   """
@@ -74,7 +81,8 @@ foreign import getMessageData
 
 onClose :: RegisterHandler Connection Close
 onClose conn callback =
-  runFn4 registerEventHandlerUnsafe conn "close" callback id
+  runFn5 registerEventHandlerUnsafe
+    conn "on" "close" callback id
 
 foreign import reject
   """
@@ -93,6 +101,12 @@ foreign import accept
     }
   }
   """ :: forall e. Request -> Eff (ws :: WebSocket | e) Connection
+
+foreign import resourceUrl
+  """
+  function resourceUrl(request) {
+    return request.resourceURL;
+  }""" :: Request -> Http.Url
 
 foreign import sendImpl
   """

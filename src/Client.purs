@@ -7,6 +7,7 @@ import Data.JSON
 import Data.Tuple
 import Data.Array (length)
 import qualified Data.Map as M
+import qualified Data.String as S
 import Data.DOM.Simple.Events hiding (view)
 import Data.DOM.Simple.Types (DOM(), DOMEvent(), DOMLocation())
 import Data.DOM.Simple.Window (globalWindow, location)
@@ -29,11 +30,12 @@ foreign import host
   }
   """ :: DOMLocation -> String
 
-mkInitialState :: WS.Socket -> ClientState
-mkInitialState socket =
+mkInitialState :: WS.Socket -> PlayerId -> ClientState
+mkInitialState socket pId =
   { socket: socket
   , gameState: CWaitingForPlayers false
   , callbacks: waitingCallbacks
+  , playerId: pId
   }
 
 runCallback refState callback args = do
@@ -60,28 +62,45 @@ gameWaiting = lens
 
 
 main = do
+  name <- prompt "Enter a screen name:"
+  if S.null name
+     then main
+     else start name
+
+
+start name = do
   ctx <- setupRendering
   h <- host <$> location globalWindow
-  socket <- WS.mkWebSocket $ "ws://" <> h <> "/"
+  socket <- WS.mkWebSocket $ "ws://" <> h <> "/?" <> name
 
-  refState <- newRef (mkInitialState socket)
+  getPlayerId socket $ \pId -> do
+    refState <- newRef (mkInitialState socket pId)
 
-  WS.onMessage socket $ \msg -> do
-    runCallback refState (\c -> c.onMessage) {msg:msg}
+    WS.onMessage socket $ \msg -> do
+      runCallback refState (\c -> c.onMessage) {msg:msg}
 
-  addKeyboardEventListener
-    KeydownEvent
-    (\event -> runCallback refState (\c -> c.onKeyDown) {event:event})
-    globalWindow
+    addKeyboardEventListener
+      KeydownEvent
+      (\event -> runCallback refState (\c -> c.onKeyDown) {event:event})
+      globalWindow
 
-  startAnimationLoop $ do
-    runCallback refState (\c -> c.render) {ctx:ctx}
+    void $ startAnimationLoop $ do
+      runCallback refState (\c -> c.render) {ctx:ctx}
+
+
+getPlayerId socket cont =
+  WS.onMessage socket callback
+  where
+  callback msg =
+    case eitherDecode msg of
+      E.Right (YourPlayerIdIs pId) -> cont pId
+      E.Left err -> trace err
 
 
 inProgressCallbacks = ClientCallbacks
   { render: \args state -> do
       let g = state ^. gameInProgress
-      render args.ctx g.game g.redrawMap
+      render args.ctx g.game state.playerId g.redrawMap
       return $ state { gameState = CInProgress (g { redrawMap = false }) }
 
   , onKeyDown: \args state -> do
@@ -127,7 +146,7 @@ waitingCallbacks = ClientCallbacks
           return state
         E.Right update ->
           case update of
-            (GameStarting game) -> do
+            GameStarting game -> do
               let cip = { game: game, prevGame: game, redrawMap: true }
               return $ state
                 { gameState = CInProgress cip
@@ -177,3 +196,11 @@ foreign import stopAnimationLoop
     loop.stop()
   }
   """ :: forall e. AnimationLoop -> Eff e Unit
+
+foreign import prompt
+  """
+  function prompt(msg) {
+    return function() {
+      return window.prompt(msg);
+    }
+  }""" :: forall e. String -> Eff e String

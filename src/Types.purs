@@ -196,7 +196,7 @@ showRecord name props =
 
 failJsonParse :: forall a b. (Show a) => a -> String -> JParser b
 failJsonParse value typ =
-  fail $ "failed to parse " <> show value <> " as " <> show typ <> "."
+  fail $ "failed to parse " <> show value <> " as " <> typ <> "."
 
 newtype Position = Position {x :: Number, y :: Number}
 
@@ -477,18 +477,36 @@ instance toJSONGameUpdate :: ToJSON GameUpdate where
   toJSON (ChangedCountdown x) =
     JArray [JString "ccd", toJSON x]
 
+{-
+a ConnectingResponse is sent to the client just after establishing a
+connection, so that the client knows what its PlayerId is.
+-}
+
+data ConnectingResponse
+  = YourPlayerIdIs PlayerId
+
+instance toJSONConnectingResponse :: ToJSON ConnectingResponse where
+  toJSON (YourPlayerIdIs pId) =
+    JArray [JString "yourpId", toJSON pId]
+
+instance fromJSONConnectingResponse :: FromJSON ConnectingResponse where
+  parseJSON (JArray [JString "yourpId", pId]) =
+    YourPlayerIdIs <$> parseJSON pId
+  parseJSON v = failJsonParse v "ConnectingResponse"
+
+-- Sent by the server during the waiting stage, ie, after initial connection
+-- but before the game starts
 data WaitingUpdate
   = GameStarting Game
 
 instance toJSONWaitingUpdate :: ToJSON WaitingUpdate where
   toJSON (GameStarting game) =
-    JArray [ JString "starting"
-           , toJSON (WrappedGame game)
-           ]
+    JArray [JString "starting", toJSON (WrappedGame game)]
 
 instance fromJSONWaitingUpdate :: FromJSON WaitingUpdate where
   parseJSON (JArray [JString "starting", game]) =
     (GameStarting <<< unwrapGame) <$> parseJSON game
+  parseJSON v = failJsonParse v "WaitingUpdate"
 
 type GameUpdateM a = WriterT [GameUpdate] (State WrappedGame) a
 
@@ -578,15 +596,17 @@ newtype ClientCallbacks
 
 unwrapClientCallbacks (ClientCallbacks cc) = cc
 
-type ClientStateInProgress = { game :: Game
-                             , prevGame :: Game
-                             , redrawMap :: Boolean
-                             }
+type ClientStateInProgress
+  = { game :: Game
+    , prevGame :: Game
+    , redrawMap :: Boolean
+    }
 
 type ClientState
   = { socket :: BWS.Socket
     , gameState :: ClientGameState
     , callbacks :: ClientCallbacks
+    , playerId :: PlayerId
     }
 
 data ClientGameState

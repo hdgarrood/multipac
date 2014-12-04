@@ -20,6 +20,7 @@ import LevelMap
 import Types
 import CanvasM
 import Utils
+import Game
 
 
 fontColour = "#dfd1a5"
@@ -383,9 +384,10 @@ renderCountdown game = do
 render :: forall e.
   RenderingContext
   -> Game
+  -> PlayerId
   -> Boolean
   -> Eff (canvas :: Canvas | e) Unit
-render ctx game redrawMap = do
+render ctx game pId redrawMap = do
   when redrawMap $ do
     runCanvasM ctx.background $ do
       when debug $ renderMapDebug game.map

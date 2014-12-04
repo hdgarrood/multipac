@@ -182,6 +182,9 @@ makeGame pIds =
     deleteWhere (\pId _ -> not (elem pId pIds)) (initialGame.players)
   in initialGame { players = players' }
 
+inCountdown :: Game -> Boolean
+inCountdown g = isJust g.countdown
+
 -- TODO: performance
 lookupItemByPosition :: Position -> Game -> Maybe ItemId
 lookupItemByPosition pos g =
