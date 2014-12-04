@@ -13,13 +13,14 @@ import Graphics.Canvas
 import Control.Monad.Eff
 import Control.Monad (when)
 import Control.Monad.Reader.Class (reader)
-import Control.Lens ((^.), (..), (~))
+import Control.Lens ((^.), (..), (~), (^?))
 import Math (pi, floor, ceil)
 
 import LevelMap
 import Types
 import CanvasM
 import Utils
+import Game
 
 
 fontColour = "#dfd1a5"
@@ -367,19 +368,58 @@ clearCanvas :: forall e. CanvasM e Unit
 clearCanvas =
   clearRect {x: 0, y: 0, h: canvasSize, w: canvasSize}
 
-renderCountdown :: forall e. Game -> CanvasM e Unit
-renderCountdown game = do
+renderCountdown :: forall e. Game -> PlayerId -> CanvasM e Unit
+renderCountdown game pId = do
   whenJust game.countdown $ \cd -> do
-    setFont "100pt Ubuntu"
-    setTextAlign AlignCenter
-    setLineWidth 3
-    setFillStyle fontColour
-    setStrokeStyle "black"
-    let text = show (ceil (cd / 30))
-    let x = halfCanvas
-    let y = floor (halfCanvas / 2)
-    fillText   text x y
-    strokeText text x y
+    renderCounter cd
+    renderReminderArrow game pId
+
+
+renderCounter cd = do
+  setFont "100pt Ubuntu"
+  setTextAlign AlignCenter
+  setLineWidth 3
+  setFillStyle fontColour
+  setStrokeStyle "black"
+  let text = show (ceil (cd / 30))
+  let x = halfCanvas
+  let y = floor (halfCanvas / 2)
+  fillText   text x y
+  strokeText text x y
+
+
+renderReminderArrow game pId = do
+  whenJust (game ^? player pId) $ \pl ->
+    withContext $ do
+      let pos = pl ^. pPosition
+      let playerX = pos ^. pX
+      let y = pos ^. pY
+
+      let greater = playerX > mapSize / 2
+      let d = 1.5 * tileSize
+      let x = playerX + (if greater then d else -d)
+
+      let centre = getCentredRectAt (Position {x:x, y:y})
+
+      setLineWidth 1
+      beginPath
+      arrowPath greater centre.x centre.y 30 10
+      fill
+      stroke
+
+arrowPath toRight x y length width = do
+  let halfLen = floor (length / 2)
+  let halfWid = floor (width / 2)
+  let f z = if toRight then x + z else x - z
+
+  moveTo (f halfLen)           (y - halfWid)
+  lineTo (f (- halfLen))       (y - halfWid)
+  lineTo (f (- halfLen))       (y - (2 * halfWid))
+  lineTo (f (- (2 * halfLen))) (y)
+  lineTo (f (- halfLen))       (y + (2 * halfWid))
+  lineTo (f (- halfLen))       (y + halfWid)
+  lineTo (f halfLen)           (y + halfWid)
+  lineTo (f halfLen)           (y - halfWid)
 
 
 render :: forall e.
@@ -398,7 +438,7 @@ render ctx game pId redrawMap = do
     clearCanvas
     renderItems game
     renderPlayers game
-    renderCountdown game
+    renderCountdown game pId
 
 renderWaiting :: forall e.
   RenderingContext

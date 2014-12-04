@@ -349,6 +349,16 @@ iPosition = lens
   (\(Item x) -> x.position)
   (\(Item x) pos -> Item $ x { position = pos })
 
+pX :: LensP Position Number
+pX = lens
+  (\(Position p) -> p.x)
+  (\(Position p) x -> Position $ p { x = x })
+
+pY :: LensP Position Number
+pY = lens
+  (\(Position p) -> p.y)
+  (\(Position p) y -> Position $ p { y = y })
+
 eachItem' :: forall f. (Applicative f) =>
   Game -> (Item -> f Unit) -> f Unit
 eachItem' game action =
