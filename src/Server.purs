@@ -59,7 +59,7 @@ createWebSocketServer refState = do
   server <- WS.mkServer
   WS.onRequest server $ \req -> do
     trace "got a request"
-    let playerName = (WS.resourceUrl req).search
+    let playerName = S.drop 1 (WS.resourceUrl req).search
 
     if S.null playerName
       then WS.reject req
@@ -69,7 +69,8 @@ createWebSocketServer refState = do
 
         case maybePId of
           Just pId -> do
-            trace $ "opened connection for player " <> show pId
+            trace $ "opened connection for player " <>
+                        show pId <> ": " <> playerName
             runCallback refState (\c -> c.onNewPlayer) {pId:pId}
 
             WS.onMessage conn $ \msg ->
