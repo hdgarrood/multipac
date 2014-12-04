@@ -19,7 +19,7 @@ import Control.Monad.State.Class
 import Control.Monad.Eff
 import Control.Lens hiding ((.=))
 import Data.DOM.Simple.Types (DOM(), DOMEvent())
-import Math (pi)
+import Math (floor, pi)
 
 import Utils
 import qualified NodeWebSocket as WS
@@ -219,6 +219,9 @@ instance toJsonPosition :: ToJSON Position where
 add :: Position -> Position -> Position
 add (Position p) (Position q) = Position {x: p.x + q.x, y: p.y + q.y}
 
+scalePos :: Number -> Position -> Position
+scalePos s (Position p) = Position {x: s * p.x, y: s * p.y}
+
 data GameObject = GOPlayer Player | GOItem Item
 
 instance showGameObject :: Show GameObject where
@@ -231,7 +234,7 @@ newtype Player
       , direction :: Maybe Direction
       , intendedDirection :: Maybe Direction
       , score :: Number
-      , nomAngle :: Number
+      , nomIndex :: Number
       }
 
 instance toJSONPlayer :: ToJSON Player where
@@ -241,28 +244,30 @@ instance toJSONPlayer :: ToJSON Player where
            , toJSON p.direction
            , toJSON p.intendedDirection
            , toJSON p.score
-           , toJSON p.nomAngle
+           , toJSON p.nomIndex
            ]
 
 instance fromJSONPlayer :: FromJSON Player where
   parseJSON (JArray arr) =
     case arr of
-      [JString "Player", pos, dir, intdir, sc, angle] -> do
+      [JString "Player", pos, dir, intdir, sc, idx] -> do
         p <- parseJSON pos
         d <- parseJSON dir
         i <- parseJSON intdir
         s <- parseJSON sc
-        a <- parseJSON angle
+        x <- parseJSON idx
         return $ Player
                   { position: p
                   , direction: d
                   , intendedDirection: i
                   , score: s
-                  , nomAngle: a
+                  , nomIndex: x
                   }
       _ -> failJsonParse arr "Player"
   parseJSON val = failJsonParse val "Player"
 
+
+nomIndexMax = 10
 
 mkPlayer :: Position -> Player
 mkPlayer pos =
@@ -270,7 +275,7 @@ mkPlayer pos =
          , direction: Nothing
          , intendedDirection: Nothing
          , score: 0
-         , nomAngle: pi / 8
+         , nomIndex: floor (nomIndexMax / 2)
          }
 
 instance showPlayer :: Show Player where
@@ -307,10 +312,10 @@ pScore = lens
   (\(Player p) -> p.score)
   (\(Player p) s -> Player $ p { score = s })
 
-pNomAngle :: LensP Player Number
-pNomAngle = lens
-  (\(Player p) -> p.nomAngle)
-  (\(Player p) s -> Player $ p { nomAngle = s })
+pNomIndex :: LensP Player Number
+pNomIndex = lens
+  (\(Player p) -> p.nomIndex)
+  (\(Player p) s -> Player $ p { nomIndex = s })
 
 eachPlayer' :: forall f. (Applicative f) =>
   Game -> (PlayerId -> Player -> f Unit) -> f Unit
@@ -418,6 +423,21 @@ dirToPos Left  = Position {x: -1, y:  0}
 dirToPos Right = Position {x:  1, y:  0}
 dirToPos Down  = Position {x:  0, y:  1}
 
+directionToRadians :: Direction -> Number
+directionToRadians d =
+  case d of
+    Right -> 0
+    Down -> pi / 2
+    Left -> pi
+    Up -> 3 * pi / 2
+
+opposite d =
+  case d of
+    Up -> Down
+    Down -> Up
+    Right -> Left
+    Left -> Right
+
 type Input = M.Map PlayerId (Maybe Direction)
 
 data PlayerUpdate
@@ -425,7 +445,7 @@ data PlayerUpdate
   | ChangedIntendedDirection (Maybe Direction)
   | ChangedPosition Position
   | ChangedScore Number
-  | ChangedNomAngle Number
+  | ChangedNomIndex Number
 
 instance showPlayerUpdate :: Show PlayerUpdate where
   show (ChangedDirection x) =
@@ -442,7 +462,7 @@ instance fromJSONPlayerUpdate :: FromJSON PlayerUpdate where
        [JString "cd", x] -> ChangedDirection <$> parseJSON x
        [JString "cid", x] -> ChangedIntendedDirection <$> parseJSON x
        [JString "cs", x] -> ChangedScore <$> parseJSON x
-       [JString "cna", x] -> ChangedNomAngle <$> parseJSON x
+       [JString "cni", x] -> ChangedNomIndex <$> parseJSON x
 
   parseJSON val = failJsonParse val "PlayerUpdate"
 
@@ -453,7 +473,7 @@ instance toJSONPlayerUpdate :: ToJSON PlayerUpdate where
       ChangedDirection d         -> [JString "cd", toJSON d]
       ChangedIntendedDirection d -> [JString "cid", toJSON d]
       ChangedScore x             -> [JString "cs", toJSON x]
-      ChangedNomAngle x          -> [JString "cna", toJSON x]
+      ChangedNomIndex x          -> [JString "cni", toJSON x]
 
 
 data ItemUpdate

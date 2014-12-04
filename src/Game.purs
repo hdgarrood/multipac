@@ -44,6 +44,7 @@ applyPlayerUpdate u =
     (ChangedDirection d) -> pDirection .~ d
     (ChangedIntendedDirection d) -> pIntendedDirection .~ d
     (ChangedScore s) -> pScore .~ s
+    (ChangedNomIndex a) -> pNomIndex .~ a
 
 applyItemUpdate :: ItemUpdate -> Maybe Item -> Maybe Item
 applyItemUpdate u =
@@ -75,9 +76,9 @@ changeCountdown :: Maybe Number -> GameUpdateM Unit
 changeCountdown =
   applyGameUpdateM <<< ChangedCountdown
 
-changeNomAngle :: PlayerId -> Number -> GameUpdateM Unit
-changeNomAngle pId angle =
-  applyGameUpdateM (GUPU pId (ChangedNomAngle angle))
+changeNomIndex :: PlayerId -> Number -> GameUpdateM Unit
+changeNomIndex pId i =
+  applyGameUpdateM (GUPU pId (ChangedNomIndex i))
 
 eat :: ItemId -> GameUpdateM Unit
 eat iId =
@@ -132,16 +133,13 @@ updateDirection :: PlayerId -> Player -> GameUpdateM Unit
 updateDirection pId p =
   whenJust (p ^.pIntendedDirection) $ tryChangeDirection pId p
 
-nomAngleDelta = pi / 24
-nomAngleMax = pi / 4
-
 movePlayer :: PlayerId -> Player -> GameUpdateM Unit
 movePlayer pId p =
   whenJust (p ^. pDirection) $ \dir -> do
     ok <- canMoveInDirection p dir
     when ok $ do
       changePosition pId $ moveInDirection dir (p ^. pPosition)
-      changeNomAngle pId $ ((p ^. pNomAngle) + nomAngleDelta) % nomAngleMax
+      changeNomIndex pId $ ((p ^. pNomIndex) + 1) % nomIndexMax
 
 eatItems :: PlayerId -> Player -> GameUpdateM Unit
 eatItems pId p = do

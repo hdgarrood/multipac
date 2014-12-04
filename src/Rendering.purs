@@ -58,6 +58,9 @@ scaleRect :: Number -> Position -> Rectangle
 scaleRect scale (Position p) =
   {x: p.x * scale, y: p.y * scale, h: scale, w: scale}
 
+toPosition :: Rectangle -> Position
+toPosition r = Position {x:r.x, y:r.y}
+
 getRectAt :: Position -> Rectangle
 getRectAt = scaleRect pxPerBlock
 
@@ -330,10 +333,41 @@ renderPlayer :: forall e.
   -> CanvasM e Unit
 renderPlayer pId player = do
   setFillStyle (fillStyleFor pId)
+  let r = playerRenderParameters player
   let centre = getCentredRectAt (player ^. pPosition)
   beginPath
-  arc {x: centre.x, y: centre.y, start: 0, end: 2 * pi, r: playerRadius}
+  moveTo r.start.x r.start.y
+  arc r.arc
+  lineTo r.start.x r.start.y
   fill
+
+playerRenderParameters player =
+  let centre = getCentredRectAt (player ^. pPosition)
+      direction = fromMaybe Left (player ^. pDirection)
+
+      baseAngle = directionToRadians direction
+      index = player ^. pNomIndex
+      half = floor (nomIndexMax / 2)
+      maxAngle = pi / 2
+      multiplier = nomIndexMax / maxAngle
+      delta = multiplier * (if index <= half
+                                then index
+                                else (nomIndexMax - index)) + 0.001
+
+      op = dirToPos $ opposite direction
+      start = add (scalePos (playerRadius / 2) op) (toPosition centre)
+  in
+    { arc: { x: centre.x
+           , y: centre.y
+           , start: (baseAngle + delta)
+           , end: (baseAngle - delta)
+           , r: playerRadius
+           }
+    , start: { x: start ^. pX
+             , y: start ^. pY
+             }
+    }
+
 
 enlargeRect :: Number -> Rectangle -> Rectangle
 enlargeRect delta r =
