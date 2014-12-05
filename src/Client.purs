@@ -34,7 +34,7 @@ foreign import host
 mkInitialState :: WS.Socket -> PlayerId -> ClientState
 mkInitialState socket pId =
   { socket: socket
-  , gameState: CWaitingForPlayers false
+  , gameState: mkWaitingState Nothing
   , callbacks: waitingCallbacks
   , playerId: pId
   }
@@ -46,14 +46,12 @@ runCallback refState callback args = do
   writeRef refState state'
 
 
-gameInProgress :: LensP ClientState ClientStateInProgress
 gameInProgress = lens
   (\s -> case s.gameState of
     CInProgress x -> x
     _ -> error "gameInProgress: expected game to be in progress")
   (\s x -> s { gameState = CInProgress x })
 
-gameWaiting :: LensP ClientState Boolean
 gameWaiting = lens
   (\s -> case s.gameState of
     CWaitingForPlayers x -> x
@@ -120,7 +118,7 @@ inProgressCallbacks = ClientCallbacks
           let game' = foldr applyGameUpdate g.game (updates :: [GameUpdate])
           if isEnded game'
             then do
-              let newGameState = CWaitingForPlayers false
+              let newGameState = mkWaitingState (Just game')
               return $ state { gameState = newGameState
                              , callbacks = waitingCallbacks
                              }
@@ -130,6 +128,13 @@ inProgressCallbacks = ClientCallbacks
               return $ state { gameState = newGameState }
   }
 
+
+mkWaitingState prevGame =
+  CWaitingForPlayers
+    { prevGame: prevGame
+    , backgroundCleared: false
+    , ready: false
+    }
 
 directionFromKeyCode :: Number -> Maybe Direction
 directionFromKeyCode code =
@@ -144,7 +149,7 @@ directionFromKeyCode code =
 waitingCallbacks = ClientCallbacks
   { render: \args state -> do
       let g = state ^. gameWaiting
-      renderWaiting args.ctx g state.playerId
+      renderWaiting args.ctx g.ready state.playerId
       return state
 
   , onMessage: \args state -> do
@@ -163,12 +168,12 @@ waitingCallbacks = ClientCallbacks
 
   , onKeyDown: \args state -> do
       code <- keyCode args.event
-      let ready = state ^. gameWaiting
+      let g = state ^. gameWaiting
       case code of
         32 -> do
-          let ready' = not ready
+          let ready' = not g.ready
           WS.send state.socket (encode ready')
-          return $ state { gameState = CWaitingForPlayers ready' }
+          return $ state { gameState = CWaitingForPlayers $ g { ready = ready' } }
         _ -> return state
   }
 

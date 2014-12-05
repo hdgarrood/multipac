@@ -636,8 +636,14 @@ type ClientState
     }
 
 data ClientGameState
-  = CWaitingForPlayers Boolean
-  | CInProgress ClientStateInProgress
+  = CWaitingForPlayers ClientStateWaiting
+  | CInProgress        ClientStateInProgress
+
+type ClientStateWaiting
+  = { prevGame :: Maybe Game
+    , backgroundCleared :: Boolean
+    , ready :: Boolean
+    }
 
 type ClientStateInProgress
   = { game :: Game
