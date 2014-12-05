@@ -481,6 +481,9 @@ renderWaiting :: forall e.
   -> PlayerId
   -> Eff (canvas :: Canvas | e) Unit
 renderWaiting ctx ready pId = do
+  runCanvasM ctx.background $
+    clearCanvas
+
   runCanvasM ctx.foreground $ do
     clearCanvas
     renderWaitingMessage ready
