@@ -41,8 +41,8 @@ main = do
   Http.listen httpServer port
   trace $ "listening on " <> show port <> "..."
 
-  startMainLoop refState
-
+  void $ interval (1000 / stepsPerSecond) $
+    runCallback refState (\c -> c.step) {}
 
 createHttpServer =
   Http.createServer $ \req res -> do
@@ -91,9 +91,6 @@ runCallback refState callback args = do
   writeRef refState state'
 
 
-startMainLoop refState =
-  void $ interval (1000 / stepsPerSecond) $
-    runCallback refState (\c -> c.step) {}
 
 
 tryAddPlayer conn refState name = do
