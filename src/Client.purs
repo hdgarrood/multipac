@@ -118,9 +118,16 @@ inProgressCallbacks = ClientCallbacks
         E.Right updates -> do
           let g = state ^. gameInProgress
           let game' = foldr applyGameUpdate g.game (updates :: [GameUpdate])
-          let newGameState = CInProgress (g { game = game'
-                                            , prevGame = g.game })
-          return $ state { gameState = newGameState }
+          if isEnded game'
+            then do
+              let newGameState = CWaitingForPlayers false
+              return $ state { gameState = newGameState
+                             , callbacks = waitingCallbacks
+                             }
+            else do
+              let newGameState = CInProgress (g { game = game'
+                                                , prevGame = g.game })
+              return $ state { gameState = newGameState }
   }
 
 

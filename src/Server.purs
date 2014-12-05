@@ -131,8 +131,11 @@ inProgressCallbacks =
       let game' = fst r
       let updates = snd r
       sendUpdates state updates
-      return $ state
-        { gameState = InProgress { game: game', input: M.empty }}
+      let s' =
+            if isEnded game'
+              then state { gameState = WaitingForPlayers M.empty, callbacks = waitingCallbacks }
+              else state { gameState = InProgress { game: game', input: M.empty }}
+      return s'
 
   , onMessage: \args state -> do
       case (eitherDecode args.msg :: E.Either String Direction) of
