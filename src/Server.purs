@@ -154,63 +154,64 @@ inProgressCallbacks =
 
   , onNewPlayer: \args state -> return state
 
-  , onClose: onClose
+  , onClose: \args state -> do
+      let s' = closeConnection args.pId state
+      trace $ "closed connection for " <> show args.pId
+      return s'
   }
 
-onClose :: ServerCallback {pId::PlayerId}
-onClose args state = do
-  let conns = filter (\c -> args.pId /= c.pId) state.connections
-  let state' = state { connections = conns }
-  trace $ "closed connection for player " <> show args.pId
-  return state'
+closeConnection pId state =
+  let conns = filter (\c -> (pId::PlayerId) /= c.pId) state.connections
+  in state { connections = conns }
 
 waitingCallbacks =
   ServerCallbacks
-    { step: stepWaiting
-    , onMessage: onMessageWaiting
-    , onNewPlayer: onNewPlayerWaiting
+    { step: step
+    , onMessage: onMessage
+    , onNewPlayer: onNewPlayer
     , onClose: onClose
     }
-
-stepWaiting :: ServerCallback {}
-stepWaiting args state = do
-  let m = state ^. gameWaiting
-  if readyToStart m
-    then do
-      trace "all players are ready; starting game"
-      let game = makeGame (M.keys m)
-      sendUpdates state [GameStarting game]
-      return $ state
-        { gameState = InProgress { game: game, input: M.empty }
-        , callbacks = inProgressCallbacks
-        }
-    else
-      return state
   where
-  minPlayers = 2
-  readyToStart m =
-    let ps = M.values m
-    in length ps >= minPlayers && all id ps
+  step args state = do
+    let m = state ^. gameWaiting
+    if readyToStart m
+      then do
+        trace "all players are ready; starting game"
+        let game = makeGame (M.keys m)
+        sendUpdates state [GameStarting game]
+        return $ state
+            { gameState = InProgress { game: game, input: M.empty }
+            , callbacks = inProgressCallbacks
+            }
+      else
+        return state
+    where
+    minPlayers = 2
+    readyToStart m =
+      let ps = M.values m
+      in length ps >= minPlayers && all id ps
 
+  onMessage args state =
+    case (eitherDecode args.msg :: E.Either String Boolean) of
+      E.Right isReady -> do
+        trace $ "updated ready state for " <> show args.pId <>
+                  ": " <> show isReady
+        let m = state ^. gameWaiting
+        let m' = M.insert args.pId isReady m
+        return $ state { gameState = WaitingForPlayers m' }
+        {-- return $ state # (gameWaiting .. at args.pId) .~ isReady --}
+      E.Left err -> do
+        trace $ "failed to parse message: " <> err
+        return state
 
-onMessageWaiting args state =
-  case (eitherDecode args.msg :: E.Either String Boolean) of
-    E.Right isReady -> do
-      trace $ "updated ready state for " <> show args.pId <>
-                ": " <> show isReady
-      let m = state ^. gameWaiting
-      let m' = M.insert args.pId isReady m
-      return $ state { gameState = WaitingForPlayers m' }
-      {-- return $ state # (gameWaiting .. at args.pId) .~ isReady --}
-    E.Left err -> do
-      trace $ "failed to parse message: " <> err
-      return state
+  onNewPlayer args state = do
+    sendUpdateTo state args.pId (YourPlayerIdIs args.pId)
+    return state
 
-
-onNewPlayerWaiting :: ServerCallback {pId::PlayerId}
-onNewPlayerWaiting args state = do
-  sendUpdateTo state args.pId (YourPlayerIdIs args.pId)
-  return state
+  onClose args state = do
+    let s' = closeConnection args.pId state
+    trace $ "closed connection for " <> show args.pId
+    return s'
 
 
 sendUpdates :: forall e a. (ToJSON a) =>
