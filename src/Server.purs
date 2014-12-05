@@ -26,7 +26,6 @@ initialState :: ServerState
 initialState =
   { gameState: WaitingForPlayers M.empty
   , connections: []
-  , callbacks: waitingCallbacks
   }
 
 stepsPerSecond = 30
@@ -42,7 +41,7 @@ main = do
   trace $ "listening on " <> show port <> "..."
 
   void $ interval (1000 / stepsPerSecond) $
-    runCallback refState (\c -> c.step) {}
+    runCallback refState step {}
 
 createHttpServer =
   Http.createServer $ \req res -> do
@@ -71,12 +70,12 @@ createWebSocketServer refState = do
           Just pId -> do
             trace $ "opened connection for player " <>
                         show pId <> ": " <> playerName
-            runCallback refState (\c -> c.onNewPlayer) {pId:pId}
+            runCallback refState onNewPlayer {pId:pId}
 
             WS.onMessage conn $ \msg ->
-              runCallback refState (\c -> c.onMessage) {msg:msg, pId:pId}
+              runCallback refState onMessage {msg:msg, pId:pId}
             WS.onClose   conn $ \close ->
-              runCallback refState (\c -> c.onClose) {pId:pId}
+              runCallback refState onClose {pId:pId}
           Nothing -> do
             trace "rejecting connection, no player ids available"
             WS.close conn
@@ -86,11 +85,8 @@ createWebSocketServer refState = do
 
 runCallback refState callback args = do
   state <- readRef refState
-  let sc = unwrapServerCallbacks state.callbacks
-  state' <- callback sc args state
+  state' <- callback args state
   writeRef refState state'
-
-
 
 
 tryAddPlayer conn refState name = do
@@ -110,107 +106,69 @@ getNextPlayerId state =
   let playerIdsInUse = map (\c -> c.pId) state.connections
   in  head $ allPlayerIds \\ playerIdsInUse
 
-gameInProgress = lens
-  (\s -> case s.gameState of
-    InProgress x -> x
-    _ -> error "gameInProgress: expected game to be in progress")
-  (\s x -> s { gameState = InProgress x })
+gameState = lens (\s -> s.gameState) (\s x -> s { gameState = x })
 
-gameWaiting = lens
-  (\s -> case s.gameState of
-    WaitingForPlayers x -> x
-    _ -> error "gameWaiting: expected game to be waiting for players")
-  (\s x -> s { gameState = WaitingForPlayers x })
-
-
-inProgressCallbacks =
-  ServerCallbacks
-  { step: \args state -> do
-      let g = state ^. gameInProgress
+step args state = do
+  case state ^. gameState of
+    InProgress g -> do
       let r = stepGame g.input g.game
       let game' = fst r
       let updates = snd r
-      sendUpdates state updates
-      let s' =
+      let newState =
             if isEnded game'
-              then state { gameState = WaitingForPlayers M.empty, callbacks = waitingCallbacks }
-              else state { gameState = InProgress { game: game', input: M.empty }}
-      return s'
+              then WaitingForPlayers M.empty
+              else InProgress { game: game', input: M.empty }
 
-  , onMessage: \args state -> do
+      sendUpdates state updates
+      return $ state { gameState = newState }
+
+    WaitingForPlayers m -> do
+      if readyToStart m
+        then do
+          trace "all players are ready; starting game"
+          let game = makeGame (M.keys m)
+          sendUpdates state $ GameStarting game
+          let newState = InProgress { game: game, input: M.empty }
+          return $ state { gameState = newState }
+        else
+          return state
+      where
+      minPlayers = 2
+      readyToStart m =
+        let ps = M.values m
+        in length ps >= minPlayers && all id ps
+
+onMessage args state = do
+  case state ^. gameState of
+    InProgress g ->
       case (eitherDecode args.msg :: E.Either String Direction) of
         E.Right newDir -> do
-          {-- return $ state # gameInProgress %~ \g -> --}
-          {--   let newInput = M.insert args.pId (Just newDir) g.input --}
-          {--   in  {game: g.game, input: newInput} --}
-          let g = state ^. gameInProgress
           let newInput = M.insert args.pId (Just newDir) g.input
           return $ state
               { gameState = InProgress { game: g.game, input: newInput }}
         E.Left err -> do
           trace $ "failed to parse message: " <> err
           return state
+    WaitingForPlayers m -> do
+      case (eitherDecode args.msg :: E.Either String Boolean) of
+         E.Right isReady -> do
+           trace $ "updated ready state for " <> show args.pId <>
+                     ": " <> show isReady
+           let m' = M.insert args.pId isReady m
+           return $ state { gameState = WaitingForPlayers m' }
+         E.Left err -> do
+           trace $ "failed to parse message: " <> err
+           return state
 
-  , onNewPlayer: \args state -> return state
+onNewPlayer args state = do
+  sendUpdateTo state args.pId (YourPlayerIdIs args.pId)
+  return state
 
-  , onClose: \args state -> do
-      let s' = closeConnection args.pId state
-      trace $ "closed connection for " <> show args.pId
-      return s'
-  }
-
-closeConnection pId state =
-  let conns = filter (\c -> (pId::PlayerId) /= c.pId) state.connections
-  in state { connections = conns }
-
-waitingCallbacks =
-  ServerCallbacks
-    { step: step
-    , onMessage: onMessage
-    , onNewPlayer: onNewPlayer
-    , onClose: onClose
-    }
-  where
-  step args state = do
-    let m = state ^. gameWaiting
-    if readyToStart m
-      then do
-        trace "all players are ready; starting game"
-        let game = makeGame (M.keys m)
-        sendUpdates state $ GameStarting game
-        return $ state
-            { gameState = InProgress { game: game, input: M.empty }
-            , callbacks = inProgressCallbacks
-            }
-      else
-        return state
-    where
-    minPlayers = 2
-    readyToStart m =
-      let ps = M.values m
-      in length ps >= minPlayers && all id ps
-
-  onMessage args state =
-    case (eitherDecode args.msg :: E.Either String Boolean) of
-      E.Right isReady -> do
-        trace $ "updated ready state for " <> show args.pId <>
-                  ": " <> show isReady
-        let m = state ^. gameWaiting
-        let m' = M.insert args.pId isReady m
-        return $ state { gameState = WaitingForPlayers m' }
-        {-- return $ state # (gameWaiting .. at args.pId) .~ isReady --}
-      E.Left err -> do
-        trace $ "failed to parse message: " <> err
-        return state
-
-  onNewPlayer args state = do
-    sendUpdateTo state args.pId (YourPlayerIdIs args.pId)
-    return state
-
-  onClose args state = do
-    let s' = closeConnection args.pId state
-    trace $ "closed connection for " <> show args.pId
-    return s'
+onClose args state = do
+  let conns = filter (\c -> (args.pId::PlayerId) /= c.pId) state.connections
+  let s' = state { connections = conns }
+  trace $ "closed connection for " <> show args.pId
+  return s'
 
 
 sendUpdates :: forall e a. (ToJSON a) =>
@@ -218,7 +176,6 @@ sendUpdates :: forall e a. (ToJSON a) =>
 sendUpdates state updates = do
   for_ state.connections $ \c ->
     WS.send c.wsConn $ encode updates
-
 
 sendUpdateTo :: forall e a. (ToJSON a) =>
   ServerState -> PlayerId -> a -> Eff (ws :: WS.WebSocket | e) Unit

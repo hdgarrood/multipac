@@ -603,7 +603,6 @@ foreign import data Process :: !
 type ServerState =
   { gameState :: GameState
   , connections :: [Connection]
-  , callbacks :: ServerCallbacks
   }
 
 data GameState
@@ -618,16 +617,6 @@ type Connection =
   , pId :: PlayerId
   , name :: String
   }
-
-newtype ServerCallbacks
-  = ServerCallbacks
-    { step        :: ServerCallback {}
-    , onMessage   :: ServerCallback {msg::String, pId::PlayerId}
-    , onNewPlayer :: ServerCallback {pId::PlayerId}
-    , onClose     :: ServerCallback {pId::PlayerId}
-    }
-
-unwrapServerCallbacks (ServerCallbacks sc) = sc
 
 type ServerCallback a =
   a -> ServerState
