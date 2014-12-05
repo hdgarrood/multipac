@@ -597,8 +597,9 @@ execGameUpdateM :: forall a.
   Game -> GameUpdateM a -> Tuple Game [GameUpdate]
 execGameUpdateM game action = snd $ runGameUpdateM game action
 
-
 foreign import data Process :: !
+
+gameState = lens (\s -> s.gameState) (\s x -> s { gameState = x })
 
 type ServerState =
   { gameState :: GameState
@@ -618,20 +619,9 @@ type Connection =
   , name :: String
   }
 
-type ServerCallback a =
-  a -> ServerState
-  -> Eff ( trace :: Trace
-         , ws :: WS.WebSocket
-         , ref :: Ref
-         , timer :: Timer
-         , http :: Http
-         , process :: Process)
-         ServerState
-
 type ClientState
   = { socket :: BWS.Socket
     , gameState :: ClientGameState
-    , callbacks :: ClientCallbacks
     , playerId :: PlayerId
     }
 
@@ -650,21 +640,6 @@ type ClientStateInProgress
     , prevGame :: Game
     , redrawMap :: Boolean
     }
-
-newtype ClientCallbacks
-  = ClientCallbacks
-    { onMessage :: ClientCallback {msg::String}
-    , onKeyDown :: ClientCallback {event::DOMEvent}
-    , render :: ClientCallback {ctx::RenderingContext}
-    }
-
-unwrapClientCallbacks (ClientCallbacks cc) = cc
-
-type ClientCallback a = forall e.
-  a -> ClientState
-  -> Eff
-    (trace :: Trace, ws :: BWS.WebSocket, canvas :: Canvas, dom :: DOM | e)
-    ClientState
 
 type RenderingContext =
   { foreground :: Context2D

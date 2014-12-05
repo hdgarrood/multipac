@@ -106,8 +106,6 @@ getNextPlayerId state =
   let playerIdsInUse = map (\c -> c.pId) state.connections
   in  head $ allPlayerIds \\ playerIdsInUse
 
-gameState = lens (\s -> s.gameState) (\s x -> s { gameState = x })
-
 step args state = do
   case state ^. gameState of
     InProgress g -> do

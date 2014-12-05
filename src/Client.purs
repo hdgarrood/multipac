@@ -19,7 +19,7 @@ import Control.Reactive.Timer
 import Control.Lens hiding ((.=))
 
 import qualified BrowserWebSocket as WS
-import Rendering
+import qualified Rendering as R
 import Game
 import Types
 import Utils
@@ -35,32 +35,17 @@ mkInitialState :: WS.Socket -> PlayerId -> ClientState
 mkInitialState socket pId =
   { socket: socket
   , gameState: mkWaitingState Nothing
-  , callbacks: waitingCallbacks
   , playerId: pId
   }
 
 runCallback refState callback args = do
   state <- readRef refState
-  let cc = unwrapClientCallbacks state.callbacks
-  state' <- callback cc args state
+  state' <- callback args state
   writeRef refState state'
 
 
-gameInProgress = lens
-  (\s -> case s.gameState of
-    CInProgress x -> x
-    _ -> error "gameInProgress: expected game to be in progress")
-  (\s x -> s { gameState = CInProgress x })
-
-gameWaiting = lens
-  (\s -> case s.gameState of
-    CWaitingForPlayers x -> x
-    _ -> error "gameInProgress: expected game to be in progress")
-  (\s x -> s { gameState = CWaitingForPlayers x })
-
-
-
 main = do
+  -- TODO: nicer ui
   name <- prompt "Enter a screen name:"
   if S.null name
      then main
@@ -68,7 +53,7 @@ main = do
 
 
 start name = do
-  ctx <- setupRendering
+  ctx <- R.setupRendering
   h <- host <$> location globalWindow
   socket <- WS.mkWebSocket $ "ws://" <> h <> "/?" <> name
 
@@ -76,15 +61,15 @@ start name = do
     refState <- newRef (mkInitialState socket pId)
 
     WS.onMessage socket $ \msg -> do
-      runCallback refState (\c -> c.onMessage) {msg:msg}
+      runCallback refState onMessage {msg:msg}
 
     addKeyboardEventListener
       KeydownEvent
-      (\event -> runCallback refState (\c -> c.onKeyDown) {event:event})
+      (\event -> runCallback refState onKeyDown {event:event})
       globalWindow
 
     void $ startAnimationLoop $ do
-      runCallback refState (\c -> c.render) {ctx:ctx}
+      runCallback refState render {ctx:ctx}
 
 
 getPlayerId socket cont =
@@ -96,37 +81,63 @@ getPlayerId socket cont =
       E.Left err -> trace err
 
 
-inProgressCallbacks = ClientCallbacks
-  { render: \args state -> do
-      let g = state ^. gameInProgress
-      render args.ctx g.game state.playerId g.redrawMap
+-- callbacks
+render args state = do
+  case state ^. gameState of
+    CInProgress g -> do
+      R.render args.ctx g.game state.playerId g.redrawMap
       return $ state { gameState = CInProgress (g { redrawMap = false }) }
 
-  , onKeyDown: \args state -> do
-      code <- keyCode args.event
+    CWaitingForPlayers g -> do
+      R.renderWaiting args.ctx g.ready state.playerId
+      return state
+
+onKeyDown args state = do
+  case state ^. gameState of
+    CInProgress _ -> do
+      code <- keyCode (args.event::DOMEvent)
       whenJust (directionFromKeyCode code) $ \direction ->
         WS.send state.socket (encode direction)
       return state
 
-  , onMessage: \args state -> do
+    CWaitingForPlayers g -> do
+      code <- keyCode args.event
+      if code == keyCodeSpace
+        then do
+          let ready' = not g.ready
+          WS.send state.socket (encode ready')
+          return $ state { gameState = CWaitingForPlayers $ g { ready = ready' } }
+        else
+          return state
+
+onMessage args state = do
+  case state ^. gameState of
+    CInProgress g -> 
       case eitherDecode args.msg of
         E.Left err -> do
           trace $ "failed to parse message from server: " <> err
           return state
         E.Right updates -> do
-          let g = state ^. gameInProgress
           let game' = foldr applyGameUpdate g.game (updates :: [GameUpdate])
           if isEnded game'
             then do
               let newGameState = mkWaitingState (Just game')
-              return $ state { gameState = newGameState
-                             , callbacks = waitingCallbacks
-                             }
+              return $ state { gameState = newGameState }
             else do
               let newGameState = CInProgress (g { game = game'
                                                 , prevGame = g.game })
               return $ state { gameState = newGameState }
-  }
+
+    CWaitingForPlayers g -> do
+      case eitherDecode args.msg of
+        E.Left err -> do
+          trace $ "failed to parse message from server: " <> err
+          return state
+        E.Right update ->
+          case update of
+            GameStarting game -> do
+              let gip = { game: game, prevGame: game, redrawMap: true }
+              return $ state { gameState = CInProgress gip }
 
 
 mkWaitingState prevGame =
@@ -145,38 +156,7 @@ directionFromKeyCode code =
     39 -> Just Right
     _  -> Nothing
 
-
-waitingCallbacks = ClientCallbacks
-  { render: \args state -> do
-      let g = state ^. gameWaiting
-      renderWaiting args.ctx g.ready state.playerId
-      return state
-
-  , onMessage: \args state -> do
-      case eitherDecode args.msg of
-        E.Left err -> do
-          trace $ "failed to parse message from server: " <> err
-          return state
-        E.Right update ->
-          case update of
-            GameStarting game -> do
-              let cip = { game: game, prevGame: game, redrawMap: true }
-              return $ state
-                { gameState = CInProgress cip
-                , callbacks = inProgressCallbacks
-                }
-
-  , onKeyDown: \args state -> do
-      code <- keyCode args.event
-      let g = state ^. gameWaiting
-      case code of
-        32 -> do
-          let ready' = not g.ready
-          WS.send state.socket (encode ready')
-          return $ state { gameState = CWaitingForPlayers $ g { ready = ready' } }
-        _ -> return state
-  }
-
+keyCodeSpace = 32
 
 foreign import data AnimationLoop :: *
 
