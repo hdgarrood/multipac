@@ -106,20 +106,16 @@ tryAddPlayer conn refState name = do
       return Nothing
 
 
-getNextPlayerId :: ServerState -> Maybe PlayerId
 getNextPlayerId state =
   let playerIdsInUse = map (\c -> c.pId) state.connections
   in  head $ allPlayerIds \\ playerIdsInUse
 
-
-gameInProgress :: LensP ServerState GameStateInProgress
 gameInProgress = lens
   (\s -> case s.gameState of
     InProgress x -> x
     _ -> error "gameInProgress: expected game to be in progress")
   (\s x -> s { gameState = InProgress x })
 
-gameWaiting :: LensP ServerState GameStateWaitingForPlayers
 gameWaiting = lens
   (\s -> case s.gameState of
     WaitingForPlayers x -> x
@@ -178,7 +174,7 @@ waitingCallbacks =
       then do
         trace "all players are ready; starting game"
         let game = makeGame (M.keys m)
-        sendUpdates state [GameStarting game]
+        sendUpdates state $ GameStarting game
         return $ state
             { gameState = InProgress { game: game, input: M.empty }
             , callbacks = inProgressCallbacks
@@ -215,19 +211,10 @@ waitingCallbacks =
 
 
 sendUpdates :: forall e a. (ToJSON a) =>
-  ServerState
-  -> [a]
-  -> Eff (ws :: WS.WebSocket | e) Unit
+  ServerState -> a -> Eff (ws :: WS.WebSocket | e) Unit
 sendUpdates state updates = do
-  for_ updates $ \update ->
-    for_ state.connections $ \c ->
-      sendUpdate c.wsConn update
-
-
-sendUpdate :: forall e a. (ToJSON a) =>
-  WS.Connection -> a -> Eff (ws :: WS.WebSocket | e) Unit
-sendUpdate conn update =
-  WS.send conn $ encode update
+  for_ state.connections $ \c ->
+    WS.send c.wsConn $ encode updates
 
 
 sendUpdateTo :: forall e a. (ToJSON a) =>
@@ -236,10 +223,6 @@ sendUpdateTo state pId update = do
   let mConn = find (\c -> c.pId == pId) state.connections
   whenJust mConn $ \conn ->
     WS.send conn.wsConn $ encode update
-
-
-
-foreign import data Process :: !
 
 foreign import chdir
   """

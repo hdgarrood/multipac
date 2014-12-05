@@ -17,6 +17,8 @@ import Control.Monad.Writer.Class
 import Control.Monad.State
 import Control.Monad.State.Class
 import Control.Monad.Eff
+import Control.Monad.Eff.Ref
+import Control.Reactive.Timer
 import Control.Lens hiding ((.=))
 import Data.DOM.Simple.Types (DOM(), DOMEvent())
 import Math (floor, pi)
@@ -24,6 +26,7 @@ import Math (floor, pi)
 import Utils
 import qualified NodeWebSocket as WS
 import qualified BrowserWebSocket as BWS
+import NodeHttp (Http())
 
 instance toJSONMap :: (ToJSON k, ToJSON v) => ToJSON (M.Map k v) where
   toJSON m = JArray $ map toJSON (M.toList m)
@@ -594,32 +597,14 @@ execGameUpdateM :: forall a.
   Game -> GameUpdateM a -> Tuple Game [GameUpdate]
 execGameUpdateM game action = snd $ runGameUpdateM game action
 
-type Connection =
-  { wsConn :: WS.Connection
-  , pId :: PlayerId
-  , name :: String
-  }
+
+foreign import data Process :: !
 
 type ServerState =
   { gameState :: GameState
   , connections :: [Connection]
   , callbacks :: ServerCallbacks
   }
-
-
-type ServerCallback a = forall e.
-  a -> ServerState
-  -> Eff (trace :: Trace, ws :: WS.WebSocket | e) ServerState
-
-newtype ServerCallbacks
-  = ServerCallbacks
-    { step :: ServerCallback {}
-    , onMessage :: ServerCallback {msg::String, pId::PlayerId}
-    , onNewPlayer :: ServerCallback {pId::PlayerId}
-    , onClose :: ServerCallback {pId::PlayerId}
-    }
-
-unwrapServerCallbacks (ServerCallbacks sc) = sc
 
 data GameState
   = WaitingForPlayers GameStateWaitingForPlayers
@@ -628,26 +613,31 @@ data GameState
 type GameStateWaitingForPlayers = M.Map PlayerId Boolean
 type GameStateInProgress = { game :: Game, input :: Input }
 
-type ClientCallback a = forall e.
-  a -> ClientState
-  -> Eff
-    (trace :: Trace, ws :: BWS.WebSocket, canvas :: Canvas, dom :: DOM | e)
-    ClientState
+type Connection =
+  { wsConn :: WS.Connection
+  , pId :: PlayerId
+  , name :: String
+  }
 
-newtype ClientCallbacks
-  = ClientCallbacks
-    { onMessage :: ClientCallback {msg::String}
-    , onKeyDown :: ClientCallback {event::DOMEvent}
-    , render :: ClientCallback {ctx::RenderingContext}
+newtype ServerCallbacks
+  = ServerCallbacks
+    { step        :: ServerCallback {}
+    , onMessage   :: ServerCallback {msg::String, pId::PlayerId}
+    , onNewPlayer :: ServerCallback {pId::PlayerId}
+    , onClose     :: ServerCallback {pId::PlayerId}
     }
 
-unwrapClientCallbacks (ClientCallbacks cc) = cc
+unwrapServerCallbacks (ServerCallbacks sc) = sc
 
-type ClientStateInProgress
-  = { game :: Game
-    , prevGame :: Game
-    , redrawMap :: Boolean
-    }
+type ServerCallback a =
+  a -> ServerState
+  -> Eff ( trace :: Trace
+         , ws :: WS.WebSocket
+         , ref :: Ref
+         , timer :: Timer
+         , http :: Http
+         , process :: Process)
+         ServerState
 
 type ClientState
   = { socket :: BWS.Socket
@@ -659,6 +649,27 @@ type ClientState
 data ClientGameState
   = CWaitingForPlayers Boolean
   | CInProgress ClientStateInProgress
+
+type ClientStateInProgress
+  = { game :: Game
+    , prevGame :: Game
+    , redrawMap :: Boolean
+    }
+
+newtype ClientCallbacks
+  = ClientCallbacks
+    { onMessage :: ClientCallback {msg::String}
+    , onKeyDown :: ClientCallback {event::DOMEvent}
+    , render :: ClientCallback {ctx::RenderingContext}
+    }
+
+unwrapClientCallbacks (ClientCallbacks cc) = cc
+
+type ClientCallback a = forall e.
+  a -> ClientState
+  -> Eff
+    (trace :: Trace, ws :: BWS.WebSocket, canvas :: Canvas, dom :: DOM | e)
+    ClientState
 
 type RenderingContext =
   { foreground :: Context2D

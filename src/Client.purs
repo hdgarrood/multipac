@@ -5,6 +5,7 @@ import Data.Maybe
 import qualified Data.Either as E
 import Data.JSON
 import Data.Tuple
+import Data.Foldable (for_, foldr)
 import Data.Array (length)
 import qualified Data.Map as M
 import qualified Data.String as S
@@ -114,9 +115,9 @@ inProgressCallbacks = ClientCallbacks
         E.Left err -> do
           trace $ "failed to parse message from server: " <> err
           return state
-        E.Right update -> do
+        E.Right updates -> do
           let g = state ^. gameInProgress
-          let game' = applyGameUpdate update g.game
+          let game' = foldr applyGameUpdate g.game (updates :: [GameUpdate])
           let newGameState = CInProgress (g { game = game'
                                             , prevGame = g.game })
           return $ state { gameState = newGameState }
