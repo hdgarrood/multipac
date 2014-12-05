@@ -81,16 +81,15 @@ getPlayerId socket cont =
       E.Left err -> trace err
 
 
--- callbacks
 render args state = do
   case state ^. gameState of
     CInProgress g -> do
       R.render args.ctx g.game state.playerId g.redrawMap
       return $ state { gameState = CInProgress (g { redrawMap = false }) }
 
-    CWaitingForPlayers g -> do
-      R.renderWaiting args.ctx g.ready state.playerId
-      return state
+    CWaitingForPlayers sw -> do
+      R.renderWaiting args.ctx sw state.playerId
+      return $ state { gameState = CWaitingForPlayers sw { backgroundCleared = true }}
 
 onKeyDown args state = do
   case state ^. gameState of

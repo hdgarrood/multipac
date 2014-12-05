@@ -477,16 +477,16 @@ render ctx game pId redrawMap = do
 
 renderWaiting :: forall e.
   RenderingContext
-  -> Boolean
+  -> ClientStateWaiting
   -> PlayerId
   -> Eff (canvas :: Canvas | e) Unit
-renderWaiting ctx ready pId = do
-  runCanvasM ctx.background $
-    clearCanvas
+renderWaiting ctx sw pId = do
+  when (not sw.backgroundCleared) $
+    runCanvasM ctx.background clearCanvas
 
   runCanvasM ctx.foreground $ do
     clearCanvas
-    renderWaitingMessage ready
+    renderWaitingMessage sw.ready
     renderYourPlayer pId
 
 setTextStyle = do
