@@ -34,6 +34,8 @@ applyGameUpdate u =
       items .. at iId %~ applyItemUpdate x
     ChangedCountdown x ->
       setCountdown x
+    GameEnded ->
+      id
   where
   setCountdown x game = game {countdown = x}
 
@@ -84,6 +86,10 @@ eat :: ItemId -> GameUpdateM Unit
 eat iId =
   applyGameUpdateM (GUIU iId Eaten)
 
+endGame :: GameUpdateM Unit
+endGame =
+  applyGameUpdateM GameEnded
+
 initialGame :: Game
 initialGame =
   { map: levelmap
@@ -122,6 +128,7 @@ doLogic = do
       eachPlayer updateDirection
       eachPlayer movePlayer
       eachPlayer eatItems
+      checkForGameEnd
 
 decrementOrNothing x =
   let x' = x - 1
@@ -147,6 +154,11 @@ eatItems pId p = do
   whenJust (lookupItemByPosition (p ^. pPosition) g) $ \iId -> do
     eat iId
     changeScore pId (p ^. pScore + 1)
+
+checkForGameEnd :: GameUpdateM Unit
+checkForGameEnd = do
+  g <- getGame
+  when (isEnded g) endGame
 
 tryChangeDirection :: PlayerId -> Player -> Direction -> GameUpdateM Unit
 tryChangeDirection pId p d = do
@@ -190,6 +202,9 @@ makeGame pIds =
 
 inCountdown :: Game -> Boolean
 inCountdown g = isJust g.countdown
+
+isEnded :: Game -> Boolean
+isEnded g = M.isEmpty g.items
 
 -- TODO: performance
 lookupItemByPosition :: Position -> Game -> Maybe ItemId
