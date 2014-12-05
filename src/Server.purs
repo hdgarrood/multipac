@@ -149,6 +149,7 @@ onMessage args state = do
         E.Left err -> do
           trace $ "failed to parse message: " <> err
           return state
+
     WaitingForPlayers m -> do
       case (eitherDecode args.msg :: E.Either String Boolean) of
          E.Right isReady -> do
