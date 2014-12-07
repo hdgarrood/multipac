@@ -3,7 +3,7 @@ module Game where
 import Data.Tuple
 import Data.Maybe
 import Data.Maybe.Unsafe (fromJust)
-import Data.Array ((!!), range, filter)
+import Data.Array ((!!), range, filter, length)
 import qualified Data.Map as M
 import Data.Foldable
 import Control.Alt
@@ -17,6 +17,10 @@ import Types
 import LevelMap
 import Utils
 
+
+minPlayers = 2
+
+
 -- update signalling
 
 player :: PlayerId -> TraversalP Game Player
@@ -28,16 +32,21 @@ item iId = items .. at iId .. _Just
 applyGameUpdate :: GameUpdate -> Game -> Game
 applyGameUpdate u =
   case u of
+    GUPU pId PlayerLeft ->
+      removePlayer pId
     GUPU pId x ->
       player pId %~ applyPlayerUpdate x
     GUIU iId x ->
       items .. at iId %~ applyItemUpdate x
     ChangedCountdown x ->
       setCountdown x
-    GameEnded ->
+    GameEnded _ ->
       id
   where
   setCountdown x game = game {countdown = x}
+
+removePlayer :: PlayerId -> Game -> Game
+removePlayer pId = players .. at pId .~ Nothing
 
 applyPlayerUpdate :: PlayerUpdate -> Player -> Player
 applyPlayerUpdate u =
@@ -86,9 +95,9 @@ eat :: ItemId -> GameUpdateM Unit
 eat iId =
   applyGameUpdateM (GUIU iId Eaten)
 
-endGame :: GameUpdateM Unit
+endGame :: GameEndReason -> GameUpdateM Unit
 endGame =
-  applyGameUpdateM GameEnded
+  applyGameUpdateM <<< GameEnded
 
 initialGame :: Game
 initialGame =
@@ -158,7 +167,7 @@ eatItems pId p = do
 checkForGameEnd :: GameUpdateM Unit
 checkForGameEnd = do
   g <- getGame
-  when (isEnded g) endGame
+  whenJust (checkEnded g) endGame
 
 tryChangeDirection :: PlayerId -> Player -> Direction -> GameUpdateM Unit
 tryChangeDirection pId p d = do
@@ -203,8 +212,13 @@ makeGame pIds =
 inCountdown :: Game -> Boolean
 inCountdown g = isJust g.countdown
 
-isEnded :: Game -> Boolean
-isEnded g = M.isEmpty g.items
+checkEnded :: Game -> Maybe GameEndReason
+checkEnded g
+  | M.isEmpty g.items                         = Just Completed
+  | length (M.values g.players) < minPlayers  = Just TooManyPlayersDisconnected
+  | otherwise                                 = Nothing
+
+isEnded = isJust <<< checkEnded
 
 -- TODO: performance
 lookupItemByPosition :: Position -> Game -> Maybe ItemId

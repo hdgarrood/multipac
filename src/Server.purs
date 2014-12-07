@@ -131,7 +131,6 @@ step args state = do
         else
           return state
       where
-      minPlayers = 2
       readyToStart m =
         let ps = M.values m
         in length ps >= minPlayers && all id ps
@@ -167,7 +166,18 @@ onClose args state = do
   let conns = filter (\c -> (args.pId::PlayerId) /= c.pId) state.connections
   let s' = state { connections = conns }
   trace $ "closed connection for " <> show args.pId
-  return s'
+
+  let gs = s' ^. gameState
+  gs' <- case gs of
+          InProgress g -> do
+            let game' = removePlayer args.pId g.game
+            let update = GUPU args.pId PlayerLeft
+            sendUpdates s' [update]
+            return $ InProgress $ g { game = game' }
+          WaitingForPlayers m ->
+            return $ WaitingForPlayers $ M.delete args.pId m
+
+  return s' { gameState = gs' }
 
 
 sendUpdates :: forall e a. (ToJSON a) =>

@@ -449,6 +449,7 @@ data PlayerUpdate
   | ChangedPosition Position
   | ChangedScore Number
   | ChangedNomIndex Number
+  | PlayerLeft
 
 instance showPlayerUpdate :: Show PlayerUpdate where
   show (ChangedDirection x) =
@@ -466,6 +467,7 @@ instance fromJSONPlayerUpdate :: FromJSON PlayerUpdate where
        [JString "cid", x] -> ChangedIntendedDirection <$> parseJSON x
        [JString "cs", x] -> ChangedScore <$> parseJSON x
        [JString "cni", x] -> ChangedNomIndex <$> parseJSON x
+       [JString "left"] -> return PlayerLeft
 
   parseJSON val = failJsonParse val "PlayerUpdate"
 
@@ -477,6 +479,7 @@ instance toJSONPlayerUpdate :: ToJSON PlayerUpdate where
       ChangedIntendedDirection d -> [JString "cid", toJSON d]
       ChangedScore x             -> [JString "cs", toJSON x]
       ChangedNomIndex x          -> [JString "cni", toJSON x]
+      PlayerLeft                 -> [JString "left"]
 
 
 data ItemUpdate
@@ -492,17 +495,34 @@ instance fromJSONItemUpdate :: FromJSON ItemUpdate where
 instance toJSONItemUpdate :: ToJSON ItemUpdate where
   toJSON u = JArray [JString "iu"]
 
+data GameEndReason
+  = Completed
+  | TooManyPlayersDisconnected
+
+instance showGameEndReason :: Show GameEndReason where
+  show Completed = "Completed"
+  show TooManyPlayersDisconnected = "TooManyPlayersDisconnected"
+
+instance toJSONGameEndReason :: ToJSON GameEndReason where
+  toJSON Completed = JString "cmpl"
+  toJSON TooManyPlayersDisconnected = JString "tmpd"
+
+instance fromJSONGameEndReason :: FromJSON GameEndReason where
+  parseJSON (JString "cmpl") = return Completed
+  parseJSON (JString "tmpd") = return TooManyPlayersDisconnected
+  parseJSON v = failJsonParse v "GameEndReason"
+
 data GameUpdate
   = GUPU PlayerId PlayerUpdate
   | GUIU ItemId ItemUpdate
   | ChangedCountdown (Maybe Number)
-  | GameEnded
+  | GameEnded GameEndReason
 
 instance showGameUpdate :: Show GameUpdate where
   show (GUPU pId u) = "GUPU (" <> show pId <> ") (" <> show u <> ")"
   show (GUIU iId u) = "GUIU (" <> show iId <> ") (" <> show u <> ")"
   show (ChangedCountdown x) = "ChangedCountdown " <> show x
-  show GameEnded = "GameEnded"
+  show (GameEnded x) = "GameEnded " <> show x
 
 instance fromJSONGameUpdate :: FromJSON GameUpdate where
   parseJSON (JArray arr) =
@@ -513,7 +533,8 @@ instance fromJSONGameUpdate :: FromJSON GameUpdate where
         GUIU <$> parseJSON iId <*> parseJSON iUpd
       [JString "ccd", x] ->
         ChangedCountdown <$> parseJSON x
-      [JString "ged"] -> return GameEnded
+      [JString "ged", r] ->
+        GameEnded <$> parseJSON r
       _ -> failJsonParse arr "GameUpdate"
   parseJSON val = failJsonParse val "GameUpdate"
 
@@ -524,8 +545,8 @@ instance toJSONGameUpdate :: ToJSON GameUpdate where
     JArray [JString "guiu", toJSON iId, toJSON iUpd]
   toJSON (ChangedCountdown x) =
     JArray [JString "ccd", toJSON x]
-  toJSON GameEnded =
-    JArray [JString "ged"]
+  toJSON (GameEnded r) =
+    JArray [JString "ged", toJSON r]
 
 {-
 a ConnectingResponse is sent to the client just after establishing a
