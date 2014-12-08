@@ -21,27 +21,21 @@ import qualified NodeHttp as Http
 import Types
 import Game
 import Utils
+import ServerState
 
-initialState :: ServerState
-initialState =
-  { gameState: WaitingForPlayers M.empty
-  , connections: []
-  }
-
-stepsPerSecond = 30
+initialState :: GameState
+initialState = WaitingForPlayers M.empty
 
 main = do
-  refState <- newRef initialState
+  refSrv <- newRef (mkServer initialState)
   port <- portOrDefault 8080
   httpServer <- createHttpServer
-  wsServer <- createWebSocketServer refState
+  wsServer <- startServer serverCallbacks refSrv
 
   WS.mount wsServer httpServer
   Http.listen httpServer port
   trace $ "listening on " <> show port <> "..."
 
-  void $ interval (1000 / stepsPerSecond) $
-    runCallback refState step {}
 
 createHttpServer =
   Http.createServer $ \req res -> do
@@ -54,57 +48,7 @@ createHttpServer =
     reply res
 
 
-createWebSocketServer refState = do
-  server <- WS.mkServer
-  WS.onRequest server $ \req -> do
-    trace "got a request"
-    let playerName = S.drop 1 (WS.resourceUrl req).search
-
-    if S.null playerName
-      then WS.reject req
-      else do
-        conn <- WS.accept req
-        maybePId <- tryAddPlayer conn refState playerName
-
-        case maybePId of
-          Just pId -> do
-            trace $ "opened connection for player " <>
-                        show pId <> ": " <> playerName
-            runCallback refState onNewPlayer {pId:pId}
-
-            WS.onMessage conn $ \msg ->
-              runCallback refState onMessage {msg:msg, pId:pId}
-            WS.onClose   conn $ \close ->
-              runCallback refState onClose {pId:pId}
-          Nothing -> do
-            trace "rejecting connection, no player ids available"
-            WS.close conn
-
-  return server
-
-
-runCallback refState callback args = do
-  state <- readRef refState
-  state' <- callback args state
-  writeRef refState state'
-
-
-tryAddPlayer conn refState name = do
-  state <- readRef refState
-  case getNextPlayerId state of
-    Just pId -> do
-      let state' = state { connections =
-                            state.connections <>
-                              [{ pId: pId, wsConn: conn, name: name }] }
-      writeRef refState state'
-      return (Just pId)
-    Nothing ->
-      return Nothing
-
-
-getNextPlayerId state =
-  let playerIdsInUse = map (\c -> c.pId) state.connections
-  in  head $ allPlayerIds \\ playerIdsInUse
+serverCallbacks =
 
 step args state = do
   case state ^. gameState of
