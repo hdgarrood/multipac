@@ -74,7 +74,7 @@ step = do
 
     WaitingForPlayers m -> do
       when (readyToStart m) do
-        tracePM "all players are ready; starting game"
+        -- tracePM "all players are ready; starting game"
         let game = makeGame (M.keys m)
         sendUpdate $ SOWaiting $ GameStarting game
         put $ InProgress { game: game, input: M.empty }
@@ -83,14 +83,6 @@ step = do
         let ps = M.values m
         in length ps >= minPlayers && all id ps
 
-
-matchMessage :: forall m a b. (Monad m, ToJSON a) =>
-  (a -> Maybe b) -> a -> (b -> m Unit) -> m Unit
-matchMessage f msg action =
-  maybe
-    (tracePM ("error: received message for the wrong state: " <> encode msg))
-    action
-    (f msg)
 
 matchInProgress :: ServerIncomingMessage -> (Direction -> SM Unit) -> SM Unit
 matchInProgress = matchMessage asInProgressMessage
@@ -109,8 +101,8 @@ onMessage msg pId = do
 
     WaitingForPlayers m -> do
       matchWaiting msg $ \isReady -> do
-        tracePM $ "updated ready state for " <> show pId <>
-                    ": " <> show isReady
+        -- tracePM $ "updated ready state for " <> show pId <>
+        --          ": " <> show isReady
         let m' = M.insert pId isReady m
         put $ WaitingForPlayers m'
 

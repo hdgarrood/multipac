@@ -80,7 +80,8 @@ getPlayerId socket cont =
   where
   callback msg =
     case eitherDecode msg of
-      E.Right (YourPlayerIdIs pId) -> trace $ show pId >> cont pId
+      E.Right [SOConnecting (YourPlayerIdIs pId)] ->
+        trace $ show pId >> cont pId
       E.Left err -> trace err
 
 
@@ -94,12 +95,15 @@ render args state = do
       R.renderWaiting args.ctx sw state.playerId
       return $ state { gameState = CWaitingForPlayers sw { backgroundCleared = true }}
 
+enc :: ServerIncomingMessage -> String
+enc = encode
+
 onKeyDown args state = do
   case state ^. gameState of
     CInProgress _ -> do
       code <- keyCode (args.event::DOMEvent)
       whenJust (directionFromKeyCode code) $ \direction ->
-        WS.send state.socket (encode direction)
+        WS.send state.socket (enc (SIInProgress direction))
       return state
 
     CWaitingForPlayers g -> do
@@ -107,10 +111,20 @@ onKeyDown args state = do
       if code == keyCodeSpace
         then do
           let ready' = not g.ready
-          WS.send state.socket (encode ready')
+          WS.send state.socket (enc (SIWaiting ready'))
           return $ state { gameState = CWaitingForPlayers $ g { ready = ready' } }
         else
           return state
+
+
+matchMessage' :: forall a m c. (Monad m) => a -> Maybe c -> (c -> m a) -> m a
+matchMessage' state mmsg action =
+  case mmsg of
+       Just r -> action r
+       Nothing -> do
+         tracePM "wrong kind of message for this state"
+         return state
+
 
 onMessage args state = do
   case state ^. gameState of
@@ -119,23 +133,25 @@ onMessage args state = do
         E.Left err -> do
           trace $ "failed to parse message from server: " <> err
           return state
-        E.Right updates -> do
-          let game' = foldr applyGameUpdate g.game (updates :: [GameUpdate])
-          if isEnded game'
-            then do
-              let newGameState = mkWaitingState (Just game')
-              return $ state { gameState = newGameState }
-            else do
-              let newGameState = CInProgress (g { game = game'
-                                                , prevGame = g.game })
-              return $ state { gameState = newGameState }
+        E.Right msg ->
+          matchMessage' state (asInProgressMessageO msg) $ \updates -> do
+            let game' = foldr applyGameUpdate g.game (updates :: [GameUpdate])
+            if isEnded game'
+              then do
+                let newGameState = mkWaitingState (Just game')
+                return $ state { gameState = newGameState }
+              else do
+                let newGameState = CInProgress (g { game = game'
+                                                  , prevGame = g.game })
+                return $ state { gameState = newGameState }
 
     CWaitingForPlayers g -> do
       case eitherDecode args.msg of
         E.Left err -> do
           trace $ "failed to parse message from server: " <> err
           return state
-        E.Right update ->
+        E.Right msg ->
+          matchMessage' state (asWaitingMessageO msg) $ \update -> do
           case update of
             GameStarting game -> do
               let gip = { game: game, prevGame: game, redrawMap: true }

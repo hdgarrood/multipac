@@ -635,10 +635,33 @@ data ServerOutgoingMessage
   | SOInProgress [GameUpdate]
   | SOConnecting ConnectingResponse
 
+asWaitingMessageO :: ServerOutgoingMessage -> Maybe WaitingUpdate
+asWaitingMessageO (SOWaiting x) = Just x
+asWaitingMessageO _ = Nothing
+
+asInProgressMessageO :: ServerOutgoingMessage -> Maybe [GameUpdate]
+asInProgressMessageO (SOInProgress x) = Just x
+asInProgressMessageO _ = Nothing
+
+asConnectingMessageO :: ServerOutgoingMessage -> Maybe ConnectingResponse
+asConnectingMessageO (SOConnecting x) = Just x
+asConnectingMessageO _ = Nothing
+
 instance toJSONServerOutgoingMessage :: ToJSON ServerOutgoingMessage where
   toJSON (SOWaiting u)    = JArray [JString "out", JString "wait", toJSON u]
   toJSON (SOInProgress u) = JArray [JString "out", JString "iprg", toJSON u]
   toJSON (SOConnecting u) = JArray [JString "out", JString "conn", toJSON u]
+
+instance fromJSONServerOutgoingMessage :: FromJSON ServerOutgoingMessage where
+  parseJSON (JArray [JString "out", JString type_, data_]) =
+    case type_ of
+      "wait" -> SOWaiting <$> parseJSON data_
+      "iprg" -> SOInProgress <$> parseJSON data_
+      "conn" -> SOConnecting <$> parseJSON data_
+      _      -> failJsonParse [JString "in", JString type_, data_] $
+                  "ServerOutgoingMessage"
+
+  parseJSON v = failJsonParse v "ServerOutgoingMessage"
 
 data ServerIncomingMessage
   = SIWaiting ReadyState
@@ -665,6 +688,15 @@ asWaitingMessage _ = Nothing
 asInProgressMessage :: ServerIncomingMessage -> Maybe Direction
 asInProgressMessage (SIInProgress d) = Just d
 asInProgressMessage _ = Nothing
+
+matchMessage :: forall m a b. (Monad m, ToJSON a) =>
+  (a -> Maybe b) -> a -> (b -> m Unit) -> m Unit
+matchMessage f msg action =
+  maybe
+    (tracePM ("error: received message for the wrong state: " <> encode msg))
+    action
+    (f msg)
+
 
 type ClientState
   = { socket :: BWS.Socket

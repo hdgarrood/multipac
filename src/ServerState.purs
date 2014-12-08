@@ -4,12 +4,13 @@ import Debug.Trace (Trace(), trace)
 import Data.Maybe
 import Data.Tuple (fst, snd)
 import Data.Foldable (for_)
-import Data.Array (head, filter, (\\))
+import Data.Array (head, null, filter, (\\))
 import qualified Data.Either as E
 import qualified Data.String as S
 import qualified Data.Map as M
 import Data.Monoid (Monoid, mempty)
 import Data.JSON (ToJSON, FromJSON, encode, eitherDecode)
+import Control.Monad (when)
 import Control.Monad.State (State(), runState)
 import Control.Monad.Writer.Trans (WriterT(), runWriterT)
 import Control.Monad.Writer.Class (MonadWriter, tell)
@@ -112,7 +113,8 @@ sendAllMessages :: forall e st outg. (ToJSON outg) =>
 sendAllMessages srv sm = do
   for_ srv.connections $ \conn -> 
     let msgs = messagesFor conn.pId sm
-    in WS.send conn.wsConn (encode msgs)
+    in when (not (null msgs)) $
+      WS.send conn.wsConn (encode msgs)
 
 sendUpdate :: forall m outg. (Monad m, MonadWriter (SendMessages outg) m) =>
   outg -> m Unit
