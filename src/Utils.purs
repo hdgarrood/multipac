@@ -6,6 +6,7 @@ import Data.Maybe
 import Data.Tuple
 import Data.Array
 import Data.Either
+import Data.JSON (decode)
 import qualified Data.Map as M
 import Data.Traversable (sequence)
 import Data.Monoid.All
@@ -116,3 +117,57 @@ unionWith :: forall k v. (Ord k) => (v -> v -> v) -> M.Map k v -> M.Map k v -> M
 unionWith f m1 m2 = foldl go m2 (M.toList m1)
  where
  go m (Tuple k v) = M.alter (Just <<< maybe v (f v)) k m
+
+
+
+foreign import data Process :: !
+
+foreign import chdir
+  """
+  function chdir(path) {
+    return function() {
+      process.chdir(path)
+    }
+  }
+  """ :: forall e. String -> Eff (process :: Process | e) Unit
+
+foreign import getEnvImpl
+  """
+  function getEnvImpl(just, nothing, key) {
+    return function() {
+      var v = process.env[key]
+      return v ? just(v) : nothing
+    }
+  }
+  """ :: forall e a.
+  Fn3
+    (a -> Maybe a)
+    (Maybe a)
+    String
+    (Eff (process :: Process | e) (Maybe String))
+
+getEnv :: forall e.
+  String -> Eff (process :: Process | e) (Maybe String)
+getEnv key =
+  runFn3 getEnvImpl Just Nothing key
+
+parseNumber :: String -> Maybe Number
+parseNumber = decode
+
+portOrDefault :: forall e.
+  Number -> Eff (process :: Process | e) Number
+portOrDefault default = do
+  port <- getEnv "PORT"
+  return $ fromMaybe default (port >>= parseNumber)
+
+foreign import traceP
+  """
+  function traceP(message) {
+    return function(value) {
+      console.log(message);
+      return value;
+    }
+  }""" :: forall a. String -> a -> a
+
+tracePM :: forall m. (Monad m) => String -> m Unit
+tracePM msg = traceP msg $ return unit

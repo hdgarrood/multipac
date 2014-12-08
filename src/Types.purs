@@ -618,14 +618,8 @@ execGameUpdateM :: forall a.
   Game -> GameUpdateM a -> Tuple Game [GameUpdate]
 execGameUpdateM game action = snd $ runGameUpdateM game action
 
-foreign import data Process :: !
-
-gameState = lens (\s -> s.gameState) (\s x -> s { gameState = x })
-
-type ServerState =
-  { gameState :: GameState
-  , connections :: [Connection]
-  }
+input_ = lens (\s -> s.input) (\s x -> s { input = x })
+game_ = lens (\s -> s.game) (\s x -> s { game = x })
 
 data GameState
   = WaitingForPlayers GameStateWaitingForPlayers
@@ -634,11 +628,43 @@ data GameState
 type GameStateWaitingForPlayers = M.Map PlayerId Boolean
 type GameStateInProgress = { game :: Game, input :: Input }
 
-type Connection =
-  { wsConn :: WS.Connection
-  , pId :: PlayerId
-  , name :: String
-  }
+type ReadyState = Boolean
+
+data ServerOutgoingMessage
+  = SOWaiting WaitingUpdate
+  | SOInProgress [GameUpdate]
+  | SOConnecting ConnectingResponse
+
+instance toJSONServerOutgoingMessage :: ToJSON ServerOutgoingMessage where
+  toJSON (SOWaiting u)    = JArray [JString "out", JString "wait", toJSON u]
+  toJSON (SOInProgress u) = JArray [JString "out", JString "iprg", toJSON u]
+  toJSON (SOConnecting u) = JArray [JString "out", JString "conn", toJSON u]
+
+data ServerIncomingMessage
+  = SIWaiting ReadyState
+  | SIInProgress Direction
+
+instance toJSONServerIncomingMessage :: ToJSON ServerIncomingMessage where
+  toJSON (SIWaiting u)    = JArray [JString "in", JString "wait", toJSON u]
+  toJSON (SIInProgress u) = JArray [JString "in", JString "iprg", toJSON u]
+
+instance fromJSONServerIncomingMessage :: FromJSON ServerIncomingMessage where
+  parseJSON (JArray [JString "in", JString type_, data_]) =
+    case type_ of
+      "wait" -> SIWaiting <$> parseJSON data_
+      "iprg" -> SIInProgress <$> parseJSON data_
+      _      -> failJsonParse [JString "in", JString type_, data_] $
+                  "ServerIncomingMessage"
+
+  parseJSON v = failJsonParse v "ServerIncomingMessage"
+
+asWaitingMessage :: ServerIncomingMessage -> Maybe ReadyState
+asWaitingMessage (SIWaiting r) = Just r
+asWaitingMessage _ = Nothing
+
+asInProgressMessage :: ServerIncomingMessage -> Maybe Direction
+asInProgressMessage (SIInProgress d) = Just d
+asInProgressMessage _ = Nothing
 
 type ClientState
   = { socket :: BWS.Socket

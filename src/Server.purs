@@ -11,10 +11,11 @@ import qualified Data.Either as E
 import qualified Data.Map as M
 import Data.Foldable (for_, all, find)
 import Control.Monad
+import Control.Monad.State.Class (get, put, modify)
 import Control.Monad.Eff
 import Control.Monad.Eff.Ref
 import Control.Reactive.Timer
-import Control.Lens (lens, (^.), (%~), (.~), at, LensP())
+import Control.Lens (lens, (^.), (%~), (.~), (%=), at, LensP())
 
 import qualified NodeWebSocket as WS
 import qualified NodeHttp as Http
@@ -49,128 +50,84 @@ createHttpServer =
 
 
 serverCallbacks =
+  { step: step
+  , onMessage: onMessage
+  , onNewPlayer: onNewPlayer
+  , onClose: onClose
+  }
 
-step args state = do
-  case state ^. gameState of
+type SM a = ServerM GameState ServerOutgoingMessage a
+
+step :: SM Unit
+step = do
+  state <- get
+  case state of
     InProgress g -> do
       let r = stepGame g.input g.game
       let game' = fst r
       let updates = snd r
-      let newState =
-            if isEnded game'
+      sendUpdate $ SOInProgress updates
+
+      put $ if isEnded game'
               then WaitingForPlayers M.empty
               else InProgress { game: game', input: M.empty }
 
-      sendUpdates state updates
-      return $ state { gameState = newState }
-
     WaitingForPlayers m -> do
-      if readyToStart m
-        then do
-          trace "all players are ready; starting game"
-          let game = makeGame (M.keys m)
-          sendUpdates state $ GameStarting game
-          let newState = InProgress { game: game, input: M.empty }
-          return $ state { gameState = newState }
-        else
-          return state
+      when (readyToStart m) do
+        tracePM "all players are ready; starting game"
+        let game = makeGame (M.keys m)
+        sendUpdate $ SOWaiting $ GameStarting game
+        put $ InProgress { game: game, input: M.empty }
       where
       readyToStart m =
         let ps = M.values m
         in length ps >= minPlayers && all id ps
 
-onMessage args state = do
-  case state ^. gameState of
+
+matchMessage :: forall m a b. (Monad m, ToJSON a) =>
+  (a -> Maybe b) -> a -> (b -> m Unit) -> m Unit
+matchMessage f msg action =
+  maybe
+    (tracePM ("error: received message for the wrong state: " <> encode msg))
+    action
+    (f msg)
+
+matchInProgress :: ServerIncomingMessage -> (Direction -> SM Unit) -> SM Unit
+matchInProgress = matchMessage asInProgressMessage
+
+matchWaiting :: ServerIncomingMessage -> (Boolean -> SM Unit) -> SM Unit
+matchWaiting = matchMessage asWaitingMessage
+
+onMessage :: ServerIncomingMessage -> PlayerId -> SM Unit
+onMessage msg pId = do
+  state <- get
+  case state of
     InProgress g ->
-      case (eitherDecode args.msg :: E.Either String Direction) of
-        E.Right newDir -> do
-          let newInput = M.insert args.pId (Just newDir) g.input
-          return $ state
-              { gameState = InProgress { game: g.game, input: newInput }}
-        E.Left err -> do
-          trace $ "failed to parse message: " <> err
-          return state
+      matchInProgress msg $ \newDir -> do
+        let g' = g # input_ %~ M.insert pId (Just newDir)
+        put $ InProgress g'
 
     WaitingForPlayers m -> do
-      case (eitherDecode args.msg :: E.Either String Boolean) of
-         E.Right isReady -> do
-           trace $ "updated ready state for " <> show args.pId <>
-                     ": " <> show isReady
-           let m' = M.insert args.pId isReady m
-           return $ state { gameState = WaitingForPlayers m' }
-         E.Left err -> do
-           trace $ "failed to parse message: " <> err
-           return state
+      matchWaiting msg $ \isReady -> do
+        tracePM $ "updated ready state for " <> show pId <>
+                    ": " <> show isReady
+        let m' = M.insert pId isReady m
+        put $ WaitingForPlayers m'
 
-onNewPlayer args state = do
-  sendUpdateTo state args.pId (YourPlayerIdIs args.pId)
-  return state
+onNewPlayer :: PlayerId -> SM Unit
+onNewPlayer pId =
+  sendUpdateTo pId $ SOConnecting $ YourPlayerIdIs pId
 
-onClose args state = do
-  let conns = filter (\c -> (args.pId::PlayerId) /= c.pId) state.connections
-  let s' = state { connections = conns }
-  trace $ "closed connection for " <> show args.pId
+onClose :: PlayerId -> SM Unit
+onClose pId = do
+  state <- get
+  case state of
+    InProgress g -> do
+      sendUpdate $ SOInProgress [GUPU pId PlayerLeft]
+      let g' = g # game_ %~ removePlayer pId
+      put $ InProgress g'
 
-  let gs = s' ^. gameState
-  gs' <- case gs of
-          InProgress g -> do
-            let game' = removePlayer args.pId g.game
-            let update = GUPU args.pId PlayerLeft
-            sendUpdates s' [update]
-            return $ InProgress $ g { game = game' }
-          WaitingForPlayers m ->
-            return $ WaitingForPlayers $ M.delete args.pId m
+    WaitingForPlayers m -> do
+      let m' = M.delete pId m
+      put $ WaitingForPlayers m'
 
-  return s' { gameState = gs' }
-
-
-sendUpdates :: forall e a. (ToJSON a) =>
-  ServerState -> a -> Eff (ws :: WS.WebSocket | e) Unit
-sendUpdates state updates = do
-  for_ state.connections $ \c ->
-    WS.send c.wsConn $ encode updates
-
-sendUpdateTo :: forall e a. (ToJSON a) =>
-  ServerState -> PlayerId -> a -> Eff (ws :: WS.WebSocket | e) Unit
-sendUpdateTo state pId update = do
-  let mConn = find (\c -> c.pId == pId) state.connections
-  whenJust mConn $ \conn ->
-    WS.send conn.wsConn $ encode update
-
-foreign import chdir
-  """
-  function chdir(path) {
-    return function() {
-      process.chdir(path)
-    }
-  }
-  """ :: forall e. String -> Eff (process :: Process | e) Unit
-
-foreign import getEnvImpl
-  """
-  function getEnvImpl(just, nothing, key) {
-    return function() {
-      var v = process.env[key]
-      return v ? just(v) : nothing
-    }
-  }
-  """ :: forall e a.
-  Fn3
-    (a -> Maybe a)
-    (Maybe a)
-    String
-    (Eff (process :: Process | e) (Maybe String))
-
-getEnv :: forall e.
-  String -> Eff (process :: Process | e) (Maybe String)
-getEnv key =
-  runFn3 getEnvImpl Just Nothing key
-
-parseNumber :: String -> Maybe Number
-parseNumber = decode
-
-portOrDefault :: forall e.
-  Number -> Eff (process :: Process | e) Number
-portOrDefault default = do
-  port <- getEnv "PORT"
-  return $ fromMaybe default (port >>= parseNumber)

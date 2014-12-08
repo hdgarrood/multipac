@@ -12,13 +12,14 @@ import Data.Monoid (Monoid, mempty)
 import Data.JSON (ToJSON, FromJSON, encode, eitherDecode)
 import Control.Monad.State (State(), runState)
 import Control.Monad.Writer.Trans (WriterT(), runWriterT)
+import Control.Monad.Writer.Class (MonadWriter, tell)
 import Control.Monad.Eff (Eff())
 import Control.Monad.Eff.Ref (newRef, readRef, writeRef, modifyRef, Ref(),
                               RefVal())
 import Control.Reactive.Timer (Timer(), interval)
 import Control.Lens (lens, (^.), (%~), (.~), at, LensP())
 
-import Types hiding (ServerState(), Connection())
+import Types
 import qualified NodeWebSocket as WS
 import Utils (unionWith)
 
@@ -97,7 +98,7 @@ runCallback :: forall st outg args e. (ToJSON outg) =>
 runCallback refSrv callback = do
   srv <- readRef refSrv
   let res = runServerM srv.state callback
-  sendAll srv res.messages
+  sendAllMessages srv res.messages
   writeRef refSrv $ srv { state = res.nextState }
 
 
@@ -105,13 +106,27 @@ messagesFor :: forall outg. PlayerId -> SendMessages outg -> [outg]
 messagesFor pId (SendMessages sm) =
   sm.toAll <> fromMaybe [] (M.lookup pId sm.toOne)
 
-sendAll :: forall e st outg. (ToJSON outg) =>
+sendAllMessages :: forall e st outg. (ToJSON outg) =>
   Server st -> SendMessages outg
   -> Eff (ws :: WS.WebSocket | e) Unit
-sendAll srv sm = do
+sendAllMessages srv sm = do
   for_ srv.connections $ \conn -> 
     let msgs = messagesFor conn.pId sm
     in WS.send conn.wsConn (encode msgs)
+
+sendUpdate :: forall m outg. (Monad m, MonadWriter (SendMessages outg) m) =>
+  outg -> m Unit
+sendUpdate m = sendUpdates [m]
+
+sendUpdates :: forall m outg. (Monad m, MonadWriter (SendMessages outg) m) =>
+  [outg] -> m Unit
+sendUpdates ms =
+  tell $ SendMessages { toAll: ms, toOne: M.empty }
+
+sendUpdateTo :: forall m outg. (Monad m, MonadWriter (SendMessages outg) m) =>
+  PlayerId -> outg -> m Unit
+sendUpdateTo pId m =
+  tell $ SendMessages { toAll: [], toOne: M.insert pId [m] M.empty }
 
 stepsPerSecond = 30
 

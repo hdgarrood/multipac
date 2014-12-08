@@ -24,6 +24,9 @@ import Game
 import Types
 import Utils
 
+
+gameState = lens (\s -> s.gameState) (\s x -> s { gameState = x })
+
 foreign import host
   """
   function host(location) {
