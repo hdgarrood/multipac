@@ -80,7 +80,7 @@ getPlayerId socket cont =
   where
   callback msg =
     case eitherDecode msg of
-      E.Right [SOConnecting (YourPlayerIdIs pId)] ->
+      E.Right (SOConnecting (YourPlayerIdIs pId)) ->
         trace $ show pId >> cont pId
       E.Left err -> trace err
 

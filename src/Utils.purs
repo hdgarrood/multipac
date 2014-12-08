@@ -169,5 +169,6 @@ foreign import traceP
     }
   }""" :: forall a. String -> a -> a
 
+-- This only works in Eff monads
 tracePM :: forall m. (Monad m) => String -> m Unit
 tracePM msg = traceP msg $ return unit

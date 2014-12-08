@@ -131,11 +131,12 @@ instance showBlock :: Show Block where
   show Empty = "Empty"
 
 instance toJSONBlock :: ToJSON Block where
-  toJSON b = JString (show b)
+  toJSON Wall = JNumber 1
+  toJSON Empty = JNumber 2
 
 instance fromJSONBlock :: FromJSON Block where
-  parseJSON (JString "Wall") = return Wall
-  parseJSON (JString "Empty") = return Empty
+  parseJSON (JNumber 1) = return Wall
+  parseJSON (JNumber 2) = return Empty
   parseJSON v = failJsonParse v "Block"
 
 -- A fixed size two-dimensional array of blocks.
@@ -693,7 +694,7 @@ matchMessage :: forall m a b. (Monad m, ToJSON a) =>
   (a -> Maybe b) -> a -> (b -> m Unit) -> m Unit
 matchMessage f msg action =
   maybe
-    (tracePM ("error: received message for the wrong state: " <> encode msg))
+    (return unit) -- tracePM ("error: received message for the wrong state: " <> encode msg))
     action
     (f msg)
 

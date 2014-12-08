@@ -95,7 +95,7 @@ mkServer initialState =
 
 runCallback :: forall st outg args e. (ToJSON outg) =>
   RefVal (Server st) -> ServerM st outg Unit 
-  -> Eff (ref :: Ref, ws :: WS.WebSocket | e) Unit
+  -> Eff (ServerEffects e) Unit
 runCallback refSrv callback = do
   srv <- readRef refSrv
   let res = runServerM srv.state callback
@@ -109,12 +109,14 @@ messagesFor pId (SendMessages sm) =
 
 sendAllMessages :: forall e st outg. (ToJSON outg) =>
   Server st -> SendMessages outg
-  -> Eff (ws :: WS.WebSocket | e) Unit
+  -> Eff (ServerEffects e) Unit
 sendAllMessages srv sm = do
   for_ srv.connections $ \conn -> 
     let msgs = messagesFor conn.pId sm
-    in when (not (null msgs)) $
-      WS.send conn.wsConn (encode msgs)
+    in when (not (null msgs)) $ do
+      -- TODO: send as array. Need client implementation too though.
+      for_ msgs $ \msg ->
+        WS.send conn.wsConn (encode msg)
 
 sendUpdate :: forall m outg. (Monad m, MonadWriter (SendMessages outg) m) =>
   outg -> m Unit
