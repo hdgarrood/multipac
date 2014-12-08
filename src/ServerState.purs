@@ -77,8 +77,8 @@ type ServerMResult st outg a =
   , result    :: a
   }
 
-runServerM :: forall st fromsrv a.
-  st -> ServerM st fromsrv a -> ServerMResult st fromsrv a
+runServerM :: forall st outg a.
+  st -> ServerM st outg a -> ServerMResult st outg a
 runServerM state action =
   let r1 = runWriterT action
       r2 = runState r1 state
