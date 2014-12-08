@@ -9,7 +9,7 @@ import Data.Either
 import qualified Data.Map as M
 import Data.Traversable (sequence)
 import Data.Monoid.All
-import Data.Foldable (Foldable, for_, foldMap, foldr)
+import Data.Foldable (Foldable, for_, foldMap, foldr, foldl)
 import Prelude.Unsafe (unsafeIndex)
 import Control.Monad.Eff
 
@@ -111,3 +111,8 @@ deleteWhere pred map =
     if pred k v
        then M.delete k m
        else m
+
+unionWith :: forall k v. (Ord k) => (v -> v -> v) -> M.Map k v -> M.Map k v -> M.Map k v
+unionWith f m1 m2 = foldl go m2 (M.toList m1)
+ where
+ go m (Tuple k v) = M.alter (Just <<< maybe v (f v)) k m
