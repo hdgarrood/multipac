@@ -6,3 +6,4 @@ bin/
 output/
 dist/
 static/js/
+server.log
