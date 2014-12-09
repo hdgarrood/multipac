@@ -22,7 +22,7 @@ import qualified NodeHttp as Http
 import Types
 import Game
 import Utils
-import ServerState
+import BaseServer
 
 initialState :: GameState
 initialState = WaitingForPlayers M.empty

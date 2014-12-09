@@ -45,6 +45,9 @@ applyGameUpdate u =
   where
   setCountdown x game = game {countdown = x}
 
+applyGameUpdates :: [GameUpdate] -> Game -> Game
+applyGameUpdates updates game = foldr applyGameUpdate game updates
+
 removePlayer :: PlayerId -> Game -> Game
 removePlayer pId = players .. at pId .~ Nothing
 
