@@ -31,6 +31,8 @@ styles =
     [ "${backgroundColor}" ~ backgroundColor
     , "${backgroundColorLighter}" ~ backgroundColorLighter
     , "${fontColor}" ~ fontColor
+    , "${fontColor}" ~ fontColor
+    , "${fontColor}" ~ fontColor
     , "${fontName}" ~ fontName
     , "${canvasSize}" ~ (show canvasSize)
     , "${canvasSize}" ~ (show canvasSize)
@@ -65,6 +67,31 @@ rawStyles = """
 
   h1 {
     text-align: center;
+  }
+
+  div, p {
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  input {
+    border: 5px solid ${fontColor};
+    -webkit-box-shadow:
+      inset 0 0 8px  rgba(0,0,0,0.1),
+            0 0 16px rgba(0,0,0,0.1);
+    -moz-box-shadow:
+      inset 0 0 8px  rgba(0,0,0,0.1),
+            0 0 16px rgba(0,0,0,0.1);
+     box-shadow:
+      inset 0 0 8px  rgba(0,0,0,0.1),
+            0 0 16px rgba(0,0,0,0.1);
+    padding: 10px;
+    background: rgba(255,255,255,0.3);
+    margin: 0 0 10px 0;
+    font-size: 150%;
+    color: ${fontColor};
+    width: 300px;
   }
 
   #game {
