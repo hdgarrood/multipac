@@ -71,12 +71,17 @@ promptScreenName msg cont = do
 popupPromptInput msg val cont = do
   containerEl <- q' "#prompt"
   showElement (containerEl :: HTMLElement)
+
+  messageEl <- q' "#prompt-message"
+  setInnerHTML msg (messageEl :: HTMLElement)
+
   inputEl <- q' "#prompt-input"
-  setValue val inputEl
+  setValue val (inputEl :: HTMLElement)
+
   addKeyboardEventListener
     KeydownEvent
     (handleKeydown containerEl inputEl)
-    (inputEl :: HTMLElement)
+    inputEl
   where
   handleKeydown cEl iEl event = do
     code <- keyCode (event :: DOMEvent)

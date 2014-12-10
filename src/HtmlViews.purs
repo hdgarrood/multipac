@@ -162,7 +162,7 @@ indexDoc =
         h1 $ text "multipac"
 
         div ! id "prompt" $ do
-          p $ text ""
+          p ! id "prompt-message" $ text ""
           input ! id "prompt-input" ! type' "text"
 
         div ! id "waiting-message" $ text ""
