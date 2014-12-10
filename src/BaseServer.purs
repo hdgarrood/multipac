@@ -2,18 +2,19 @@ module BaseServer where
 
 import Debug.Trace (Trace(), trace)
 import Data.Maybe
-import Data.Tuple (fst, snd)
-import Data.Foldable (for_)
+import Data.Tuple
+import Data.Foldable (for_, find)
 import Data.Array (head, null, filter, (\\))
 import qualified Data.Either as E
 import qualified Data.String as S
 import qualified Data.Map as M
 import Data.Monoid (Monoid, mempty)
-import Data.JSON (ToJSON, FromJSON, encode, eitherDecode)
+import Data.JSON
 import Control.Monad (when)
-import Control.Monad.State (State(), runState)
-import Control.Monad.Writer.Trans (WriterT(), runWriterT)
-import Control.Monad.Writer.Class (MonadWriter, tell)
+import Control.Monad.RWS
+import Control.Monad.RWS.Class
+import qualified Control.Monad.Writer.Class as W
+import qualified Control.Monad.Reader.Class as R
 import Control.Monad.Eff (Eff())
 import Control.Monad.Eff.Ref (newRef, readRef, writeRef, modifyRef, Ref(),
                               RefVal())
@@ -21,6 +22,7 @@ import Control.Reactive.Timer (Timer(), interval)
 import Control.Lens (lens, (^.), (%~), (.~), at, LensP())
 
 import Types
+import BaseCommon
 import qualified NodeWebSocket as WS
 import Utils (unionWith)
 
@@ -31,11 +33,25 @@ type Server st =
 
 connections = lens (\s -> s.connections) (\s x -> s { connections = x })
 
-type Connection =
-  { wsConn :: WS.Connection
-  , pId :: PlayerId
-  , name :: String
-  }
+newtype Connection =
+  Connection
+    { wsConn :: WS.Connection
+    , pId :: PlayerId
+    , name :: String
+    }
+
+cWsConn = lens
+  (\(Connection c) -> c.wsConn)
+  (\(Connection c) x -> Connection $ c { wsConn = x })
+
+
+cPId = lens
+  (\(Connection c) -> c.pId)
+  (\(Connection c) x -> Connection $ c { pId = x })
+
+cName = lens
+  (\(Connection c) -> c.name)
+  (\(Connection c) x -> Connection $ c { name = x })
 
 type ServerCallbacks st inc outg =
   { step        :: ServerM st outg Unit
@@ -59,17 +75,8 @@ instance semigroupSendMsgs :: Semigroup (SendMessages outg) where
 instance monoidSendMsgs :: Monoid (SendMessages outg) where
   mempty = SendMessages { toAll: [], toOne: M.empty }
 
-{-
-Monad for server callbacks to run in. Rather than allowing Eff actions, we
-just provide Writer and State as an interface to ask the server to do things.
-This keeps all the game-specific server code pure! Hooray!
-
-Note that, since you will usually want to send a bunch of outgoing messages at
-a time, the type of message you're sending will end up being `[outg]` rather
-than `outg`, so that's the type you should attempt to parse on the client.
--}
 type ServerM st outg a =
-  WriterT (SendMessages outg) (State st) a
+  RWS [Connection] (SendMessages outg) st a
 
 type ServerMResult st outg a =
   { nextState :: st
@@ -78,13 +85,12 @@ type ServerMResult st outg a =
   }
 
 runServerM :: forall st outg a.
-  st -> ServerM st outg a -> ServerMResult st outg a
-runServerM state action =
-  let r1 = runWriterT action
-      r2 = runState r1 state
-  in { nextState: snd r2
-     , messages: snd (fst r2)
-     , result: fst (fst r2)
+  [Connection] -> st -> ServerM st outg a -> ServerMResult st outg a
+runServerM conns state action =
+  let r = runRWS action conns state
+  in { nextState: r.state
+     , messages:  r.log
+     , result:    r.result
      }
 
 mkServer :: forall st. st -> Server st
@@ -94,14 +100,13 @@ mkServer initialState =
   }
 
 runCallback :: forall st outg args e. (ToJSON outg) =>
-  RefVal (Server st) -> ServerM st outg Unit 
+  RefVal (Server st) -> ServerM st outg Unit
   -> Eff (ServerEffects e) Unit
 runCallback refSrv callback = do
   srv <- readRef refSrv
-  let res = runServerM srv.state callback
+  let res = runServerM srv.connections srv.state callback
   sendAllMessages srv res.messages
   writeRef refSrv $ srv { state = res.nextState }
-
 
 messagesFor :: forall outg. PlayerId -> SendMessages outg -> [outg]
 messagesFor pId (SendMessages sm) =
@@ -111,26 +116,32 @@ sendAllMessages :: forall e st outg. (ToJSON outg) =>
   Server st -> SendMessages outg
   -> Eff (ServerEffects e) Unit
 sendAllMessages srv sm = do
-  for_ srv.connections $ \conn -> 
-    let msgs = messagesFor conn.pId sm
+  for_ srv.connections $ \conn ->
+    let msgs = messagesFor (conn ^. cPId) sm
     in when (not (null msgs)) $ do
-      -- TODO: send as array. Need client implementation too though.
       for_ msgs $ \msg ->
-        WS.send conn.wsConn (encode msg)
+        WS.send (conn ^. cWsConn) (encode msg)
 
-sendUpdate :: forall m outg. (Monad m, MonadWriter (SendMessages outg) m) =>
+sendUpdate :: forall m outg. (Monad m, W.MonadWriter (SendMessages outg) m) =>
   outg -> m Unit
 sendUpdate m = sendUpdates [m]
 
-sendUpdates :: forall m outg. (Monad m, MonadWriter (SendMessages outg) m) =>
+sendUpdates :: forall m outg. (Monad m, W.MonadWriter (SendMessages outg) m) =>
   [outg] -> m Unit
 sendUpdates ms =
-  tell $ SendMessages { toAll: ms, toOne: M.empty }
+  W.tell $ SendMessages { toAll: ms, toOne: M.empty }
 
-sendUpdateTo :: forall m outg. (Monad m, MonadWriter (SendMessages outg) m) =>
+sendUpdateTo :: forall m outg. (Monad m, W.MonadWriter (SendMessages outg) m) =>
   PlayerId -> outg -> m Unit
 sendUpdateTo pId m =
-  tell $ SendMessages { toAll: [], toOne: M.insert pId [m] M.empty }
+  W.tell $ SendMessages { toAll: [], toOne: M.insert pId [m] M.empty }
+
+getPlayerName :: forall m. (Monad m, R.MonadReader [Connection] m) =>
+  PlayerId -> m (Maybe String)
+getPlayerName pId =
+  let f conns = (\c -> c ^. cName) <$>
+                    find (\c -> c ^. cPId == pId) (conns :: [Connection])
+  in f <$> R.ask
 
 stepsPerSecond = 30
 
@@ -157,7 +168,8 @@ startServer cs refSrv = do
           Just pId -> do
             trace $ "opened connection for player " <>
                         show pId <> ": " <> playerName
-            runCallback refSrv $ cs.onNewPlayer pId 
+            handleNewPlayer refSrv pId playerName
+            runCallback refSrv $ cs.onNewPlayer pId
 
             WS.onMessage conn $ \msg ->
               case eitherDecode msg of
@@ -182,7 +194,9 @@ tryAddPlayer conn refSrv name = do
   case getNextPlayerId srv of
     Just pId -> do
       let srv' = srv { connections = srv.connections <>
-                              [{ pId: pId, wsConn: conn, name: name }] }
+                              [Connection { pId: pId
+                                          , wsConn: conn
+                                          , name: name }] }
       writeRef refSrv srv'
       return (Just pId)
     Nothing ->
@@ -190,12 +204,22 @@ tryAddPlayer conn refSrv name = do
 
 getNextPlayerId :: forall st. Server st -> Maybe PlayerId
 getNextPlayerId srv =
-  let playerIdsInUse = (\c -> c.pId) <$> srv.connections
+  let playerIdsInUse = (\c -> c ^. cPId) <$> srv.connections
   in  head $ allPlayerIds \\ playerIdsInUse
+
+
+handleNewPlayer :: forall st e.
+  RefVal (Server st) -> PlayerId -> String -> Eff (ServerEffects e) Unit
+handleNewPlayer refSrv pId playerName = do
+  let msg = NewPlayer pId playerName
+  trace $ "new player connected, sending: " <> encode msg
+  let msgs = SendMessages { toAll: [msg], toOne: M.empty }
+  srv <- readRef refSrv
+  sendAllMessages srv msgs
 
 
 closeConnection :: forall st e.
   RefVal (Server st) -> PlayerId -> Eff (ServerEffects e) Unit
 closeConnection refSrv pId = do
-  modifyRef refSrv $ connections %~ filter (\c -> pId /= c.pId)
+  modifyRef refSrv $ connections %~ filter (\c -> pId /= c ^. cPId)
   trace $ "closed connection for " <> show pId

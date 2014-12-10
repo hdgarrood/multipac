@@ -15,7 +15,7 @@ import Control.Monad.State.Class (get, put, modify)
 import Control.Monad.Eff
 import Control.Monad.Eff.Ref
 import Control.Reactive.Timer
-import Control.Lens (lens, (^.), (%~), (.~), (%=), at, LensP())
+import Control.Lens (lens, (^.), (%~), (.~), (%=), at, LensP(), (~))
 
 import qualified NodeWebSocket as WS
 import qualified NodeHttp as Http
@@ -113,6 +113,9 @@ onNewPlayer pId = do
     WaitingForPlayers m -> do
       let m' = M.insert pId false m
       put $ WaitingForPlayers m'
+      playerName <- getPlayerName pId
+      whenJust playerName $ \name ->
+        sendUpdate $ SONewPlayer (pId ~ name)
     _ -> return unit
 
 

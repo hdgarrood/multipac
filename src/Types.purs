@@ -706,7 +706,18 @@ matchMessage f msg action =
   maybe (return unit) action (f msg)
 
 data ClientState
-  = CState PlayerNames ClientGameState
+  = ClientState
+    { playerNames :: M.Map PlayerId String
+    , gameState   :: ClientGameState
+    }
+
+gameState = lens
+  (\(ClientState s) -> s.gameState)
+  (\(ClientState s) x -> ClientState $ s { gameState = x })
+
+playerNames = lens
+  (\(ClientState s) -> s.playerNames)
+  (\(ClientState s) x -> ClientState $ s { playerNames = x })
 
 type PlayerNames = M.Map PlayerId String
 

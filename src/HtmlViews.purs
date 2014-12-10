@@ -180,7 +180,7 @@ waitingMessageDoc sw pId = do
         let cl' = "player-" <> show pId'
         p ! className cl' $ text (show pId')
         whenJust ready $ \ready' ->
-          p $ text $ "ready: " <> (if ready' then "yes" else "no")
+          p $ text $ if ready' then "ready!" else "not ready"
 
 
 scoresTable :: PlayerId -> Game -> Markup
