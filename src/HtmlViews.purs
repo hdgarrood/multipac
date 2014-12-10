@@ -25,6 +25,7 @@ styles =
     , "$fontColor" ~ fontColor
     , "$fontName" ~ fontName
     , "$canvasSize" ~ (show canvasSize)
+    , "$canvasSize" ~ (show canvasSize)
     ] $ """
   #background {
     position: absolute;
@@ -39,6 +40,14 @@ styles =
   #waiting-message {
     position: absolute;
     z-index: 2;
+    width: $canvasSizepx;
+  }
+
+  #waiting-message p {
+    text-align: center;
+    font-size: 140%;
+    margin-left: 0 auto;
+    margin-right: 0 auto;
   }
 
   body {
