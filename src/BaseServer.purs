@@ -140,12 +140,10 @@ sendUpdateTo :: forall m outg. (Monad m, W.MonadWriter (SendMessages outg) m) =>
 sendUpdateTo pId m =
   W.tell $ SendMessages { toAll: [], toOne: M.insert pId [m] M.empty }
 
-getPlayerName :: forall m. (Monad m, R.MonadReader [Connection] m) =>
-  PlayerId -> m (Maybe String)
-getPlayerName pId =
-  let f conns = (\c -> c ^. cName) <$>
-                    find (\c -> c ^. cPId == pId) (conns :: [Connection])
-  in f <$> R.ask
+askPlayers :: forall m. (Monad m, R.MonadReader [Connection] m) =>
+  m (M.Map PlayerId String)
+askPlayers =
+  connectionsToPlayersMap <$> R.ask
 
 stepsPerSecond = 30
 

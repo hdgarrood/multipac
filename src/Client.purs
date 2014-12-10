@@ -5,6 +5,7 @@ import Data.Maybe
 import Data.Maybe.Unsafe (fromJust)
 import qualified Data.Either as E
 import Data.JSON (eitherDecode, encode)
+import Data.Tuple
 import qualified Data.String as S
 import qualified Data.Map as M
 import Data.DOM.Simple.Events hiding (view)
@@ -20,7 +21,7 @@ import Control.Monad.Eff
 import Control.Monad.Eff.Ref
 import Control.Monad.RWS.Class
 import Control.Monad.State.Class
-import Control.Lens (lens, (.~), (..), (^.))
+import Control.Lens (lens, (.~), (..), (^.), (~))
 import Control.Reactive.Timer
 
 import qualified BrowserWebSocket as WS
@@ -197,9 +198,15 @@ putWaitingState prevGame =
   put $ CWaitingForPlayers
           { prevGame: prevGame
           , backgroundCleared: false
-          , readyStates: M.empty
+          , readyStates: getStates prevGame
           , cachedHtml: ""
           }
+  where
+  getStates mg =
+    case mg of
+      Just g -> M.fromList $
+        (\(Tuple pId _) -> pId ~ false) <$> (M.toList (g ^. players))
+      Nothing -> M.empty
 
 
 directionFromKeyCode :: Number -> Maybe Direction
