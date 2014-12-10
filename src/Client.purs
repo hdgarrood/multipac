@@ -62,7 +62,14 @@ start name = do
   socket <- WS.mkWebSocket $ "ws://" <> h <> "/?" <> name
 
   getPlayerId socket $ \pId -> do
-    refCln <- newRef $ mkInitialState socket pId
+    let initialState = mkInitialState socket pId
+
+    -- perform the initial render
+    case initialState.state of
+      CWaitingForPlayers sw -> renderWaiting sw pId
+      _ -> return unit
+
+    refCln <- newRef initialState
     startClient callbacks refCln
 
 getPlayerId socket cont =
@@ -70,8 +77,7 @@ getPlayerId socket cont =
   where
   callback msg =
     case eitherDecode msg of
-      E.Right (SOConnecting (YourPlayerIdIs pId)) ->
-        trace $ show pId >> cont pId
+      E.Right (SOConnecting (YourPlayerIdIs pId)) -> cont pId
       E.Left err -> trace err
 
 -- CALLBACKS
@@ -91,14 +97,13 @@ render ctx pId = do
       put $ CInProgress (g # redrawMap .~ false)
 
     CWaitingForPlayers sw -> do
-      lift..lift $ renderWaiting sw pId
       when (not (sw ^. backgroundCleared)) $ do
         lift..lift $ R.clearBoth ctx
         put $ CWaitingForPlayers (sw # backgroundCleared .~ true)
 
 
-onKeyDown :: forall e. DOMEvent -> CM e Unit
-onKeyDown event = do
+onKeyDown :: forall e. PlayerId -> DOMEvent -> CM e Unit
+onKeyDown pId event = do
   state <- get
   code <- lift .. lift $ keyCode event
 
@@ -107,13 +112,13 @@ onKeyDown event = do
       whenJust (directionFromKeyCode code) $ \direction ->
         sendUpdate (SIInProgress direction)
 
-    CWaitingForPlayers g -> do
+    CWaitingForPlayers sw -> do
       when (code == keyCodeSpace) do
-        let ready' = not g.ready
+        let ready' = not sw.ready
         sendUpdate (SIWaiting ready')
-        let g' = g # ready .~ ready'
-        put $ CWaitingForPlayers g'
-
+        let sw' = sw # ready .~ ready'
+        put $ CWaitingForPlayers sw'
+        lift..lift $ renderWaiting sw' pId
 
 type CM e a = ClientM ClientGameState ServerIncomingMessage e a
 

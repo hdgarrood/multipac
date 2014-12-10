@@ -28,7 +28,7 @@ type Client st =
 
 type ClientCallbacks st inc outg e =
   { onMessage     :: inc -> ClientM st outg e Unit
-  , onKeyDown     :: DOMEvent -> ClientM st outg e Unit
+  , onKeyDown     :: PlayerId -> DOMEvent -> ClientM st outg e Unit
   , render        :: PlayerId -> ClientM st outg e Unit
   }
 
@@ -95,7 +95,8 @@ startClient cs refCln = do
 
   addKeyboardEventListener
     KeydownEvent
-    (runCallback refCln <<< cs.onKeyDown)
+    (\event -> readRef refCln >>= \cln ->
+                  runCallback refCln (cs.onKeyDown cln.playerId event))
     globalWindow
 
   void $ startAnimationLoop $ do
