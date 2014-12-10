@@ -159,8 +159,8 @@ waitingMessageDoc sw pId = do
   whenJust sw.prevGame (scoresTable pId)
   let message =
       if sw ^. ready
-         then "Waiting for other players..." ~ "ready: ✓"
-         else "Press SPACE when you're ready" ~ "ready: ✕"
+         then "Waiting for other players..." ~ "ready: yes"
+         else "Press SPACE when you're ready" ~ "ready: no"
   p $ text (fst message)
   p $ text (snd message)
   p $ text $ "You are: " <> show pId

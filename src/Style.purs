@@ -4,8 +4,8 @@ import Math (floor)
 import LevelMap (mapSize, tileSize)
 import Types (PlayerId(..))
 
-fontName = "Righteous"
-fontUrl = "https://fonts.googleapis.com/css?family=" <> fontName
+fontName = "Exo"
+fontUrl = "https://fonts.googleapis.com/css?family=Exo:700"
 
 backgroundColor        = "hsl(240, 20%, 25%)"
 backgroundColorLighter = "hsl(240, 20%, 32%)"
