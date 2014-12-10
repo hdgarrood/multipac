@@ -23,6 +23,7 @@ import Types
 import Game
 import Utils
 import BaseServer
+import IndexHtml (indexHtml)
 
 initialState :: GameState
 initialState = WaitingForPlayers M.empty
@@ -43,8 +44,8 @@ createHttpServer =
     let path = (Http.getUrl req).pathname
     let reply =
       case path of
-          "/"           -> Http.sendFile "static/index.html"
-          "/js/game.js" -> Http.sendFile "static/js/game.js"
+          "/"           -> Http.sendHtml indexHtml
+          "/js/game.js" -> Http.sendFile "dist/game.js"
           _             -> Http.send404
     reply res
 

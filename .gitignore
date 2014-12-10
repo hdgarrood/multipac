@@ -5,5 +5,4 @@ bower_components/
 bin/
 output/
 dist/
-static/js/
 server.log

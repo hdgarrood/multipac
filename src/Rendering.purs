@@ -21,6 +21,7 @@ import Types
 import CanvasM
 import Utils
 import Game
+import Style
 
 
 pxPerTile = 35
@@ -33,19 +34,6 @@ littleDotRadius = pxPerBlock
 cornerSize = floor (pxPerTile / 3)
 cornerMid = floor (cornerSize / 2)
 cornerRadius = cornerMid
-
-
-fontColour = "#dfd1a5"
-backgroundColour = "#34344e"
-tileColour = "hsl(200, 80%, 40%)"
-
-littleDotFillStyle = "#eecccc"
-
-fillStyleFor :: PlayerId -> String
-fillStyleFor P1 = "hsl(0, 100%, 60%)"
-fillStyleFor P2 = "hsl(90, 100%, 60%)"
-fillStyleFor P3 = "hsl(180, 100%, 60%)"
-fillStyleFor P4 = "hsl(270, 100%, 60%)"
 
 halfBlock :: Number
 halfBlock = floor (pxPerBlock / 2)
@@ -105,48 +93,8 @@ setupRenderingById elId =
 
 clearBackground :: forall e. CanvasM e Unit
 clearBackground = do
-  setFillStyle backgroundColour
+  setFillStyle backgroundColor
   fillRect {x: 0, y: 0, h: canvasSize, w: canvasSize}
-
-foreign import renderMapDebugFFI
-  """
-  function renderMapDebugFFI(isEmpty, getBlockRect, getTileRect, ctx, map) {
-    return function() {
-      ctx.strokeStyle = 'hsl(40, 70%, 50%)'
-      var t = map.tiles
-      for (var i = 0; i < t.length; i++) {
-        for (var j = 0; j < t[i].length; j++) {
-          var r = getTileRect(i)(j)
-          ctx.strokeRect(r.x, r.y, r.w, r.h)
-        }
-      }
-
-      ctx.fillStyle = 'hsl(320, 20%, 10%)'
-      var b = map.blocks
-      for (var i = 0; i < b.length; i++) {
-        for (var j = 0; j < b[i].length; j++) {
-          if (isEmpty(b[i][j])) {
-            var r = getBlockRect(i)(j)
-            ctx.fillRect(r.x, r.y, r.w, r.h)
-          }
-        }
-      }
-    }
-  }
-  """ :: forall e.
-  Fn5
-    (Block -> Boolean)
-    (Number -> Number -> Rectangle)
-    (Number -> Number -> Rectangle)
-    Context2D
-    LevelMap
-    (Eff (canvas :: Canvas | e) Unit)
-
-renderMapDebug :: forall e. LevelMap -> CanvasM e Unit
-renderMapDebug map = do
-  clearBackground
-  liftC $ \ctx ->
-    runFn5 renderMapDebugFFI (not .. isWall) getRectAt' getTileRectAt' ctx map
 
 data CornerType
   = CRO -- rounded outer
@@ -170,7 +118,7 @@ toBasic _ = E
 
 renderMap :: forall e. LevelMap -> CanvasM e Unit
 renderMap map = do
-  setStrokeStyle tileColour
+  setStrokeStyle tileColor
 
   let tileIndices = range 0 (tilesAlongSide - 1)
   let getTile i j = map.tiles !! i >>= (\r -> r !! j)
@@ -332,7 +280,7 @@ renderPlayer :: forall e.
   -> Player
   -> CanvasM e Unit
 renderPlayer pId player = do
-  setFillStyle (fillStyleFor pId)
+  setFillStyle $ playerColor pId
   let r = playerRenderParameters player
   let centre = getCentredRectAt (player ^. pPosition)
   beginPath
@@ -384,7 +332,7 @@ renderItems game =
 renderItem :: forall e. Item -> CanvasM e Unit
 renderItem item = do
   let centre = getCentredRectAt (item ^. iPosition)
-  setFillStyle littleDotFillStyle
+  setFillStyle littleDotColor
   beginPath
   arc { x: centre.x
       , y: centre.y
@@ -409,12 +357,16 @@ renderCountdown game pId = do
     renderReminderArrow game pId
 
 
+setFontSize :: forall e. Number -> CanvasM e Unit
+setFontSize x =
+  setFont $ show x <> "pt " <> fontName
+
+
 renderCounter cd = do
-  let pt = pxPerTile * 3
-  setFont $ show pt <> "pt Ubuntu"
+  setFontSize $ pxPerTile * 3
   setTextAlign AlignCenter
   setLineWidth 3
-  setFillStyle fontColour
+  setFillStyle fontColor
   setStrokeStyle "black"
   let text = show (ceil (cd / 30))
   let x = halfCanvas
@@ -465,8 +417,7 @@ render :: forall e.
   -> Eff (canvas :: Canvas | e) Unit
 render ctx game pId redrawMap = do
   when redrawMap $ do
-    runCanvasM ctx.background $ do
-      when debug $ renderMapDebug game.map
+    runCanvasM ctx.background $
       renderMap game.map
 
   runCanvasM ctx.foreground $ do
@@ -490,9 +441,8 @@ renderWaiting ctx sw pId = do
     renderYourPlayer pId
 
 setTextStyle = do
-  let pt = floor (0.6 * pxPerTile)
-  setFont $ show pt <> "pt Ubuntu"
-  setFillStyle fontColour
+  setFontSize $ floor (0.6 * pxPerTile)
+  setFillStyle fontColor
 
 renderWaitingMessage :: forall e.  Boolean -> CanvasM e Unit
 renderWaitingMessage ready = do
@@ -517,6 +467,3 @@ renderYourPlayer pId = do
   fillText message (x-d) y
   renderPlayer pId (mkPlayer $ Position { x:120, y:122 })
 
-
-debug :: Boolean
-debug = false

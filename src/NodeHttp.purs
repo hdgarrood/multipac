@@ -71,6 +71,19 @@ sendFile :: forall e.
 sendFile path res =
   runFn3 sendFileImpl path res (fromMaybe "text/plain" <<< detectMime)
 
+foreign import sendHtmlImpl
+  """
+  function sendHtmlImpl(html, res) {
+    return function() {
+      res.writeHead(200, { 'Content-Type': 'text/html' })
+      res.write(html)
+      res.end()
+    }
+  }""" :: forall e. Fn2 String Response (Eff (http :: Http | e) Unit)
+
+sendHtml :: forall e. String -> Response -> Eff (http :: Http | e) Unit
+sendHtml html res = runFn2 sendHtmlImpl html res
+
 -- detect the most likely mime type for a given filename
 detectMime :: String -> Maybe String
 detectMime str = do
