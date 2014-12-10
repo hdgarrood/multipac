@@ -2,7 +2,7 @@ module HtmlViews where
 
 import Data.Foldable (foldr)
 import Prelude hiding (id)
-import Control.Lens ((~))
+import Control.Lens ((~), (^.))
 import Data.Tuple
 import Data.String (replace)
 import Text.Smolder.HTML
@@ -13,6 +13,7 @@ import Text.Smolder.Markup (text, (!), Markup())
 import Text.Smolder.Renderer.String (render)
 
 import Utils ((>>), fmap)
+import Types
 import Style
 
 replaceAll :: [Tuple String String] -> String -> String
@@ -33,6 +34,11 @@ styles =
   #foreground {
     position: absolute;
     z-index: 1;
+  }
+
+  #waiting-message {
+    position: absolute;
+    z-index: 2;
   }
 
   body {
@@ -63,7 +69,18 @@ indexDoc =
     body $ do
       div ! id "game" $ do
         h1 $ text "multipac"
+        div ! id "waiting-message" $ text ""
         canvas ! id "foreground" $ text ""
         canvas ! id "background" $ text ""
 
 indexHtml = render indexDoc
+
+waitingMessage :: ClientStateWaiting -> PlayerId -> String
+waitingMessage sw pId = render $ do
+  let message =
+      if sw ^. ready
+         then "Waiting for other players..." ~ "ready: ✓"
+         else "Press SPACE when you're ready" ~ "ready: ✕"
+  p $ text (fst message)
+  p $ text (snd message)
+  p $ text $ "You are: " <> show pId

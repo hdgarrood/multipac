@@ -725,3 +725,17 @@ type RenderingContext =
   { foreground :: Context2D
   , background :: Context2D
   }
+
+
+
+redrawMap = lens
+  (\s -> s.redrawMap)
+  (\s x -> s { redrawMap = x })
+
+backgroundCleared = lens
+  (\s -> s.backgroundCleared)
+  (\s x -> s { backgroundCleared = x })
+
+ready = lens
+  (\s -> s.ready)
+  (\s x -> s { ready = x })

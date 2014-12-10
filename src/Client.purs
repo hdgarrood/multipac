@@ -7,7 +7,9 @@ import Data.JSON (eitherDecode)
 import qualified Data.String as S
 import Data.DOM.Simple.Events hiding (view)
 import Data.DOM.Simple.Types (DOM(), DOMEvent(), DOMLocation())
-import Data.DOM.Simple.Window (globalWindow, location)
+import Data.DOM.Simple.Window (globalWindow, location, document)
+import Data.DOM.Simple.Element (setInnerHTML, querySelector, setAttribute)
+import Data.DOM.Simple.Document ()
 import Control.Monad
 import Control.Monad.Trans (lift)
 import Control.Monad.Eff
@@ -17,6 +19,7 @@ import Control.Lens (lens, (.~), (..), (^.))
 
 import qualified BrowserWebSocket as WS
 import qualified Rendering as R
+import qualified HtmlViews as V
 import BaseClient
 import Game
 import Types
@@ -71,20 +74,6 @@ getPlayerId socket cont =
         trace $ show pId >> cont pId
       E.Left err -> trace err
 
--- LENSES
-
-redrawMap = lens
-  (\s -> s.redrawMap)
-  (\s x -> s { redrawMap = x })
-
-backgroundCleared = lens
-  (\s -> s.backgroundCleared)
-  (\s x -> s { backgroundCleared = x })
-
-ready = lens
-  (\s -> s.ready)
-  (\s x -> s { ready = x })
-
 -- CALLBACKS
 mkCallbacks =
   R.setupRendering <#> \ctx ->
@@ -104,7 +93,7 @@ render ctx pId = do
     CWaitingForPlayers sw -> do
       lift..lift $ renderWaiting sw pId
       when (not (sw ^. backgroundCleared)) $ do
-        lift..lift $ R.clearBackgroundWaiting ctx
+        lift..lift $ R.clearBoth ctx
         put $ CWaitingForPlayers (sw # backgroundCleared .~ true)
 
 
@@ -142,16 +131,20 @@ onMessage msg = do
     CInProgress g ->
       matchInProgress msg $ \updates ->
         let game' = applyGameUpdates updates g.game
-        in put $ if isEnded game'
-                  then mkWaitingState $ Just game'
-                  else CInProgress (g { game = game'
-                                      , prevGame = g.game })
+        in if isEnded game'
+            then do
+              lift..lift $ showWaitingMessageDiv
+              put $ mkWaitingState $ Just game'
+            else do
+              put $ CInProgress (g { game = game'
+                                   , prevGame = g.game })
 
     CWaitingForPlayers g -> do
       matchWaiting msg $ \update -> do
         case update of
           GameStarting game -> do
             let gip = { game: game, prevGame: game, redrawMap: true }
+            lift..lift $ hideWaitingMessageDiv
             put $ CInProgress gip
 
 
@@ -173,6 +166,18 @@ directionFromKeyCode code =
 
 keyCodeSpace = 32
 
-renderWaiting :: forall e. ClientStateWaiting -> PlayerId -> Eff e Unit
+setWaitingDivStyle s = do
+  el <- q "#waiting-message"
+  whenJust el $ setAttribute "style" s
+
+showWaitingMessageDiv = setWaitingDivStyle "display: block;"
+hideWaitingMessageDiv = setWaitingDivStyle "display: none;"
+
+q sel = document globalWindow >>= querySelector sel
+
+renderWaiting :: forall e.
+  ClientStateWaiting -> PlayerId -> Eff (dom :: DOM | e) Unit
 renderWaiting sw pId = do
-  return unit
+  let html = V.waitingMessage sw pId
+  el <- q "#waiting-message"
+  whenJust el $ setInnerHTML html
