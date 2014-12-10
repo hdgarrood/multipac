@@ -1,4 +1,4 @@
-module IndexHtml where
+module HtmlViews where
 
 import Data.Foldable (foldr)
 import Prelude hiding (id)

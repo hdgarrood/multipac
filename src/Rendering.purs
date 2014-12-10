@@ -407,19 +407,11 @@ render ctx game pId redrawMap = do
     renderPlayers game
     renderCountdown game pId
 
-renderWaiting :: forall e.
+clearBackgroundWaiting :: forall e.
   RenderingContext
-  -> ClientStateWaiting
-  -> PlayerId
   -> Eff (canvas :: Canvas | e) Unit
-renderWaiting ctx sw pId = do
-  when (not sw.backgroundCleared) $
-    runCanvasM ctx.background clearCanvas
-
-  runCanvasM ctx.foreground $ do
-    clearCanvas
-    renderWaitingMessage sw.ready
-    renderYourPlayer pId
+clearBackgroundWaiting ctx =
+  runCanvasM ctx.background clearCanvas
 
 setTextStyle = do
   setFontSize $ floor (0.6 * pxPerTile)

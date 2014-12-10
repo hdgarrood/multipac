@@ -4,10 +4,6 @@ import Debug.Trace (trace)
 import Data.Maybe
 import qualified Data.Either as E
 import Data.JSON (eitherDecode)
-{-- import Data.Tuple --}
-{-- import Data.Foldable (for_, foldr) --}
-{-- import Data.Array (length) --}
-{-- import qualified Data.Map as M --}
 import qualified Data.String as S
 import Data.DOM.Simple.Events hiding (view)
 import Data.DOM.Simple.Types (DOM(), DOMEvent(), DOMLocation())
@@ -17,8 +13,7 @@ import Control.Monad.Trans (lift)
 import Control.Monad.Eff
 import Control.Monad.State.Class
 import Control.Monad.Eff.Ref (newRef)
-{-- import Control.Reactive.Timer --}
-import Control.Lens (lens, (.~), (..))
+import Control.Lens (lens, (.~), (..), (^.))
 
 import qualified BrowserWebSocket as WS
 import qualified Rendering as R
@@ -107,8 +102,10 @@ render ctx pId = do
       put $ CInProgress (g # redrawMap .~ false)
 
     CWaitingForPlayers sw -> do
-      lift..lift $ R.renderWaiting ctx sw pId
-      put $ CWaitingForPlayers (sw # backgroundCleared .~ true)
+      lift..lift $ renderWaiting sw pId
+      when (not (sw ^. backgroundCleared)) $ do
+        lift..lift $ R.clearBackgroundWaiting ctx
+        put $ CWaitingForPlayers (sw # backgroundCleared .~ true)
 
 
 onKeyDown :: forall e. DOMEvent -> CM e Unit
@@ -175,3 +172,7 @@ directionFromKeyCode code =
     _  -> Nothing
 
 keyCodeSpace = 32
+
+renderWaiting :: forall e. ClientStateWaiting -> PlayerId -> Eff e Unit
+renderWaiting sw pId = do
+  return unit

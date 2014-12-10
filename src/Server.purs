@@ -23,7 +23,7 @@ import Types
 import Game
 import Utils
 import BaseServer
-import IndexHtml (indexHtml)
+import HtmlViews (indexHtml)
 
 initialState :: GameState
 initialState = WaitingForPlayers M.empty
