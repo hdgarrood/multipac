@@ -24,22 +24,9 @@ import Game
 import Style
 
 
-pxPerTile = 35
-pxPerBlock = pxPerTile / tileSize
-
-playerRadius = floor (pxPerTile / 2.2)
-littleDotRadius = pxPerBlock
-
--- parameters for corners of tiles
-cornerSize = floor (pxPerTile / 3)
-cornerMid = floor (cornerSize / 2)
-cornerRadius = cornerMid
-
-halfBlock :: Number
-halfBlock = floor (pxPerBlock / 2)
-
-halfPxPerTile :: Number
+halfBlock     = floor (pxPerBlock / 2)
 halfPxPerTile = floor (pxPerTile / 2)
+halfCanvas    = floor (canvasSize / 2)
 
 scaleRect :: Number -> Position -> Rectangle
 scaleRect scale (Position p) =
@@ -64,12 +51,6 @@ getTileRectAt = scaleRect pxPerTile
 
 getTileRectAt' :: Number -> Number -> Rectangle
 getTileRectAt' x y = getTileRectAt (Position {x: x, y: y})
-
--- the height and width of the canvas
-canvasSize :: Number
-canvasSize = pxPerBlock * LevelMap.mapSize
-
-halfCanvas = floor (canvasSize / 2)
 
 setupRendering :: forall e. Eff (canvas :: Canvas | e) RenderingContext
 setupRendering = do

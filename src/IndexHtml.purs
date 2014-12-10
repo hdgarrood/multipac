@@ -2,6 +2,9 @@ module IndexHtml where
 
 import Data.Foldable (foldr)
 import Prelude hiding (id)
+import Control.Lens ((~))
+import Data.Tuple
+import Data.String (replace)
 import Text.Smolder.HTML
   (html, head, meta, script, style, body, div, h1, canvas, title, link, p)
 import Text.Smolder.HTML.Attributes
@@ -9,10 +12,19 @@ import Text.Smolder.HTML.Attributes
 import Text.Smolder.Markup (text, (!), Markup())
 import Text.Smolder.Renderer.String (render)
 
-import Utils ((>>))
+import Utils ((>>), fmap)
+import Style
+
+replaceAll :: [Tuple String String] -> String -> String
+replaceAll = fmap (uncurry replace) >>> foldr (>>>) Prelude.id
 
 styles =
-  """
+  replaceAll
+    [ "$backgroundColor" ~ backgroundColor
+    , "$fontColor" ~ fontColor
+    , "$fontName" ~ fontName
+    , "$canvasSize" ~ (show canvasSize)
+    ] $ """
   #background {
     position: absolute;
     z-index: 0;
@@ -21,13 +33,12 @@ styles =
   #foreground {
     position: absolute;
     z-index: 1;
-    margin: 0 auto;
   }
 
   body {
-    background-color: #34344e;
-    color: #dfd1a5;
-    font-family: "Raleway", sans-serif;
+    background-color: $backgroundColor;
+    color: $fontColor;
+    font-family: $fontName, sans-serif;
   }
 
   h1 {
@@ -36,11 +47,9 @@ styles =
 
   #game {
     margin: 0 auto;
-    width: 561px; /* FIXME: this should be set during setupRendering */
+    width: $canvasSizepx;
   }
   """
-
-fontUrl = "https://fonts.googleapis.com/css?family=Raleway"
 
 indexDoc =
   html ! lang "en" $ do
