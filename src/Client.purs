@@ -64,11 +64,6 @@ start name = do
   getPlayerId socket $ \pId -> do
     let initialState = mkInitialState socket pId
 
-    -- perform the initial render
-    case initialState.state of
-      CWaitingForPlayers sw -> renderWaiting sw pId
-      _ -> return unit
-
     refCln <- newRef initialState
     startClient callbacks refCln
 
@@ -101,6 +96,13 @@ render ctx pId = do
         lift..lift $ R.clearBoth ctx
         put $ CWaitingForPlayers (sw # backgroundCleared .~ true)
 
+      let html = V.waitingMessage sw pId
+      when (sw.cachedHtml /= html) $ do
+        lift..lift $ do
+          el <- q "#waiting-message"
+          whenJust el $ setInnerHTML html
+        put $ CWaitingForPlayers (sw # cachedHtml .~ html)
+
 
 onKeyDown :: forall e. PlayerId -> DOMEvent -> CM e Unit
 onKeyDown pId event = do
@@ -118,7 +120,6 @@ onKeyDown pId event = do
         sendUpdate (SIWaiting ready')
         let sw' = sw # ready .~ ready'
         put $ CWaitingForPlayers sw'
-        lift..lift $ renderWaiting sw' pId
 
 type CM e a = ClientM ClientGameState ServerIncomingMessage e a
 
@@ -158,6 +159,7 @@ mkWaitingState prevGame =
     { prevGame: prevGame
     , backgroundCleared: false
     , ready: false
+    , cachedHtml: ""
     }
 
 directionFromKeyCode :: Number -> Maybe Direction
@@ -179,10 +181,3 @@ showWaitingMessageDiv = setWaitingDivStyle "display: block;"
 hideWaitingMessageDiv = setWaitingDivStyle "display: none;"
 
 q sel = document globalWindow >>= querySelector sel
-
-renderWaiting :: forall e.
-  ClientStateWaiting -> PlayerId -> Eff (dom :: DOM | e) Unit
-renderWaiting sw pId = do
-  let html = V.waitingMessage sw pId
-  el <- q "#waiting-message"
-  whenJust el $ setInnerHTML html

@@ -7,10 +7,11 @@ import Types (PlayerId(..))
 fontName = "Righteous"
 fontUrl = "https://fonts.googleapis.com/css?family=" <> fontName
 
-backgroundColor = "#34344e"
-fontColor = "#dfd1a5"
-tileColor = "hsl(200, 80%, 40%)"
-littleDotColor = "#eecccc"
+backgroundColor        = "hsl(240, 20%, 25%)"
+backgroundColorLighter = "hsl(240, 20%, 32%)"
+fontColor              = "#dfd1a5"
+tileColor              = "hsl(200, 80%, 40%)"
+littleDotColor         = "#eecccc"
 
 playerColor :: PlayerId -> String
 playerColor pId =

@@ -698,21 +698,15 @@ matchMessage f msg action =
     action
     (f msg)
 
-
-type ClientState
-  = { socket :: BWS.Socket
-    , gameState :: ClientGameState
-    , playerId :: PlayerId
-    }
-
 data ClientGameState
   = CWaitingForPlayers ClientStateWaiting
   | CInProgress        ClientStateInProgress
 
 type ClientStateWaiting
-  = { prevGame :: Maybe Game
+  = { prevGame          :: Maybe Game
     , backgroundCleared :: Boolean
-    , ready :: Boolean
+    , ready             :: Boolean
+    , cachedHtml        :: String
     }
 
 type ClientStateInProgress
@@ -726,8 +720,6 @@ type RenderingContext =
   , background :: Context2D
   }
 
-
-
 redrawMap = lens
   (\s -> s.redrawMap)
   (\s x -> s { redrawMap = x })
@@ -739,3 +731,7 @@ backgroundCleared = lens
 ready = lens
   (\s -> s.ready)
   (\s x -> s { ready = x })
+
+cachedHtml = lens
+  (\s -> s.cachedHtml)
+  (\s x -> s { cachedHtml = x })

@@ -3,7 +3,7 @@ module Game where
 import Data.Tuple
 import Data.Maybe
 import Data.Maybe.Unsafe (fromJust)
-import Data.Array ((!!), range, filter, length)
+import Data.Array ((!!), range, filter, length, take)
 import qualified Data.Map as M
 import Data.Foldable
 import Control.Alt
@@ -106,7 +106,7 @@ initialGame :: Game
 initialGame =
   { map: levelmap
   , players: M.fromList $ f <$> starts
-  , items:   M.fromList $ zipNumbers $ makeItems levelmap (snd <$> starts)
+  , items:   M.fromList $ take 1 $ zipNumbers $ makeItems levelmap (snd <$> starts)
   , countdown: Just 90
   }
   where
