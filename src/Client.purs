@@ -11,7 +11,7 @@ import Data.DOM.Simple.Events hiding (view)
 import Data.DOM.Simple.Types (DOM(), DOMEvent(), DOMLocation(), HTMLElement())
 import Data.DOM.Simple.Window (globalWindow, location, document)
 import Data.DOM.Simple.Element
-  (setInnerHTML, querySelector, setAttribute, value, setValue)
+  (setInnerHTML, querySelector, setAttribute, value, setValue, focus)
 import Data.DOM.Simple.Events
   (keyCode, addKeyboardEventListener, KeyboardEventType(..))
 import Data.DOM.Simple.Document ()
@@ -38,6 +38,14 @@ foreign import host
     return location.host;
   }
   """ :: DOMLocation -> String
+
+foreign import selectElement """
+  function selectElement(el) {
+    return function() {
+      el.select()
+    }
+  }
+""" :: forall e. HTMLElement -> Eff (dom :: DOM | e) Unit
 
 initialState =
   CWaitingForPlayers
@@ -77,6 +85,9 @@ popupPromptInput msg val cont = do
 
   inputEl <- q' "#prompt-input"
   setValue val (inputEl :: HTMLElement)
+
+  focus inputEl
+  selectElement inputEl
 
   addKeyboardEventListener
     KeydownEvent

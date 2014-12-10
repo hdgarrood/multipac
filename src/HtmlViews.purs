@@ -34,6 +34,7 @@ styles =
     , "${fontName}" ~ fontName
     , "${canvasSize}" ~ (show canvasSize)
     , "${canvasSize}" ~ (show canvasSize)
+    , "${canvasSize}" ~ (show canvasSize)
     ] $ rawStyles <> playerColorStyles
 
 rawStyles = """
@@ -82,6 +83,8 @@ rawStyles = """
     z-index: 3;
     margin: 0 auto;
     text-align: center;
+    width: ${canvasSize}px;
+    font-size: 145%;
   }
 
   #waiting-message p {
