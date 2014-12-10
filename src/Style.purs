@@ -4,7 +4,7 @@ import Math (floor)
 import LevelMap (mapSize, tileSize)
 import Types (PlayerId(..))
 
-fontName = "Raleway"
+fontName = "Righteous"
 fontUrl = "https://fonts.googleapis.com/css?family=" <> fontName
 
 backgroundColor = "#34344e"
