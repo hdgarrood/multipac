@@ -160,7 +160,7 @@ startServer cs refSrv = do
 
   WS.onRequest server $ \req -> do
     trace "got a request"
-    let playerName = S.drop 1 (WS.resourceUrl req).search
+    let playerName = decodeUriComponent (S.drop 1 (WS.resourceUrl req).search)
 
     if S.null playerName
       then WS.reject req
@@ -232,3 +232,9 @@ closeConnection :: forall st e.
 closeConnection refSrv pId = do
   modifyRef refSrv $ connections %~ filter (\c -> pId /= c ^. cPId)
   trace $ "closed connection for " <> show pId
+
+foreign import decodeUriComponent """
+  function decodeUriComponent(string) {
+    return global.decodeURIComponent(string)
+  }
+""" :: String -> String
