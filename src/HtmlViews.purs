@@ -7,7 +7,7 @@ import Control.Monad (when)
 import Data.Tuple
 import Data.Maybe
 import Data.String (replace, joinWith)
-import Data.Array (sortBy, reverse, map)
+import Data.Array (sortBy, reverse, map, catMaybes)
 import Data.Function (on)
 import qualified Data.Map as M
 import Text.Smolder.HTML
@@ -169,8 +169,8 @@ waitingMessage sw pId ps = render $ waitingMessageDoc sw pId ps
 
 waitingMessageDoc ::
   ClientStateWaiting -> PlayerId -> M.Map PlayerId String -> Markup
-waitingMessageDoc sw pId ps = do
-  whenJust sw.prevGame (scoresTable pId)
+waitingMessageDoc sw pId playersMap = do
+  whenJust sw.prevGame (scoresTable pId playersMap)
 
   let r = fromMaybe false $ M.lookup pId sw.readyStates
   p $ text $ if r
@@ -193,26 +193,38 @@ waitingMessageDoc sw pId ps = do
   where
   getPlayerInfo pId'' = do
     ready <- M.lookup pId'' sw.readyStates
-    name <- M.lookup pId'' ps
+    name <- M.lookup pId'' playersMap
     return $ { ready: ready, name: name }
 
+type PlayerScoreInfo
+  = { score :: Number
+    , name  :: String
+    , pId   :: PlayerId
+    }
 
-scoresTable :: PlayerId -> Game -> Markup
-scoresTable pId game =
+scoresTable :: PlayerId -> M.Map PlayerId String -> Game -> Markup
+scoresTable pId playersMap game =
   div ! className "scores clearfix" $ do
     h2 ! className "scores-header" $ text "scores"
     div ! className "scores-table" $ do
-      let ps = M.toList (game ^. players)
-      let sortedPs = reverse $ sortBy (compare `on` score) ps
-      for_ sortedPs $ \(Tuple pId' p) -> do
-        let cl = "scores-row" <> (if pId' == pId then " is-you" else "")
+      for_ (sortedPlayerInfos game) $ \info -> do
+        let cl = "scores-row" <> (if info.pId == pId then " is-you" else "")
         div ! className cl $ do
-          scoresCellDiv ["cell-thin", "player-" <> show pId'] (show pId')
-          scoresCellDiv ["cell-wide"] "name here"
-          scoresCellDiv ["cell-thin", "score"] (show (p ^. pScore))
+          scoresCellDiv ["cell-thin", "player-" <> show info.pId] (show info.pId)
+          scoresCellDiv ["cell-wide"] info.name
+          scoresCellDiv ["cell-thin", "score"] (show info.score)
   where
-  score (Tuple _ p) = p ^. pScore
+  sortedPlayerInfos game =
+      let allPlayers = M.toList (game ^. players)
+          infos = catMaybes $ map getPlayerInfo allPlayers
+      in reverse $ sortBy (compare `on` score) infos
+
+  getPlayerInfo (Tuple pId'' p) = do
+    name <- M.lookup pId'' playersMap
+    return $ { score: p ^. pScore, name: name, pId: pId'' }
+
+  score i = i.score
+
   scoresCellDiv classes innerText =
     div ! className (joinWith " " $ ["scores-cell"] <> classes) $
       text innerText
-
