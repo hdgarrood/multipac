@@ -96,7 +96,8 @@ render ctx = do
         liftEff $ R.clearBoth ctx
         putGameState $ CWaitingForPlayers (sw # backgroundCleared .~ true)
 
-      let html = V.waitingMessage sw pId
+      players <- askPlayers
+      let html = V.waitingMessage sw pId players
       when (sw.cachedHtml /= html) $ do
         liftEff $ do
           el <- q "#waiting-message"

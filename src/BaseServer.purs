@@ -4,7 +4,7 @@ import Debug.Trace (Trace(), trace)
 import Data.Maybe
 import Data.Tuple
 import Data.Foldable (for_, find)
-import Data.Array (head, null, filter, (\\))
+import Data.Array (map, head, null, filter, (\\))
 import qualified Data.Either as E
 import qualified Data.String as S
 import qualified Data.Map as M
@@ -52,6 +52,10 @@ cPId = lens
 cName = lens
   (\(Connection c) -> c.name)
   (\(Connection c) x -> Connection $ c { name = x })
+
+connectionsToPlayersMap :: [Connection] -> M.Map PlayerId String
+connectionsToPlayersMap =
+  map (\(Connection c) -> Tuple c.pId c.name) >>> M.fromList
 
 type ServerCallbacks st inc outg =
   { step        :: ServerM st outg Unit
@@ -168,7 +172,7 @@ startServer cs refSrv = do
           Just pId -> do
             trace $ "opened connection for player " <>
                         show pId <> ": " <> playerName
-            handleNewPlayer refSrv pId playerName
+            handleNewPlayer refSrv pId
             runCallback refSrv $ cs.onNewPlayer pId
 
             WS.onMessage conn $ \msg ->
@@ -209,12 +213,17 @@ getNextPlayerId srv =
 
 
 handleNewPlayer :: forall st e.
-  RefVal (Server st) -> PlayerId -> String -> Eff (ServerEffects e) Unit
-handleNewPlayer refSrv pId playerName = do
-  let msg = NewPlayer pId playerName
-  trace $ "new player connected, sending: " <> encode msg
-  let msgs = SendMessages { toAll: [msg], toOne: M.empty }
+  RefVal (Server st) -> PlayerId -> Eff (ServerEffects e) Unit
+handleNewPlayer refSrv pId = do
   srv <- readRef refSrv
+  let playersMap = connectionsToPlayersMap srv.connections
+  let msgAll = NewPlayer playersMap
+  let msgOne = YourPlayerIdIs pId
+  let msgs = SendMessages { toAll: [msgAll]
+                          , toOne: M.singleton pId [msgOne]
+                          }
+  trace $ "new player connected, sending to all: " <> encode msgAll
+  trace $ "                      sending to one: " <> encode msgOne
   sendAllMessages srv msgs
 
 

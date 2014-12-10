@@ -107,15 +107,11 @@ onMessage msg pId = do
 
 onNewPlayer :: PlayerId -> SM Unit
 onNewPlayer pId = do
-  sendUpdateTo pId $ SOConnecting $ YourPlayerIdIs pId
   state <- get
   case state of
     WaitingForPlayers m -> do
       let m' = M.insert pId false m
       put $ WaitingForPlayers m'
-      playerName <- getPlayerName pId
-      whenJust playerName $ \name ->
-        sendUpdate $ SONewPlayer (pId ~ name)
     _ -> return unit
 
 

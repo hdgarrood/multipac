@@ -127,12 +127,14 @@ startClient :: forall st inc outg e. (FromJSON inc, ToJSON outg) =>
   st -> ClientCallbacks st inc outg e -> String -> String
   -> Eff (ClientEffects e) Unit
 startClient initialState cs socketUrl playerName =
-  connectSocket socketUrl playerName $ \socket pId msgs -> do
+  connectSocket socketUrl playerName $ \socket pId msgs internals -> do
     trace $ "connected. pId = " <> show pId <> ", msgs = " <> show msgs
     let cln' = mkClient initialState socket pId
     refCln <- newRef cln'
 
     for_ msgs (onMessageCallback refCln)
+    for_ internals (handleInternalMessage refCln)
+
     WS.onMessage socket (onMessageCallback refCln)
 
     addKeyboardEventListener
@@ -158,25 +160,33 @@ handleInternalMessage :: forall st e.
   RefVal (Client st) -> InternalMessage -> Eff (ClientEffects e) Unit
 handleInternalMessage refCln msg = do
   case msg of
-    NewPlayer pId name -> do
-      modifyRef refCln $ \cln ->
-        cln { players = M.insert pId name cln.players }
+    NewPlayer m -> do
+      trace $ "handling NewPlayer internal message: " <> show m
+      modifyRef refCln $ \cln -> cln { players = m }
 
 
 connectSocket :: forall e.
   String -> String
-  -> (WS.Socket -> PlayerId -> [String] -> Eff (ClientEffects e) Unit)
+  -> (WS.Socket -> PlayerId
+                -> [String]
+                -> [InternalMessage]
+                -> Eff (ClientEffects e) Unit)
   -> Eff (ClientEffects e) Unit
 connectSocket url playerName cont = do
   let fullUrl = url <> "?" <> playerName
 
   -- HACK - for messages received before the client is fully operational.
   delayedMsgs <- newRef ([] :: [String])
+  delayedInternals <- newRef ([] :: [InternalMessage])
   sock <- WS.mkWebSocket fullUrl
 
   WS.onMessage sock $ \msg ->
     case eitherDecode msg of
-      E.Right (NewPlayer pId _) -> readRef delayedMsgs >>= cont sock pId
+      E.Right (YourPlayerIdIs pId) -> do
+        delayed <- readRef delayedMsgs
+        internals <- readRef delayedInternals
+        cont sock pId delayed internals
+      E.Right i -> modifyRef delayedInternals $ \arr -> arr <> [i]
       E.Left _ -> modifyRef delayedMsgs $ \arr -> arr <> [msg]
 
 

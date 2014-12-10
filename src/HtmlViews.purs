@@ -158,11 +158,18 @@ indexDoc =
 
 indexHtml = render indexDoc
 
-waitingMessage :: ClientStateWaiting -> PlayerId -> String
-waitingMessage sw pId = render $ waitingMessageDoc sw pId
+type PlayerReadyInfo
+  = { ready :: Boolean
+    , name  :: String
+    }
 
-waitingMessageDoc :: ClientStateWaiting -> PlayerId -> Markup
-waitingMessageDoc sw pId = do
+waitingMessage ::
+  ClientStateWaiting -> PlayerId -> M.Map PlayerId String -> String
+waitingMessage sw pId ps = render $ waitingMessageDoc sw pId ps
+
+waitingMessageDoc ::
+  ClientStateWaiting -> PlayerId -> M.Map PlayerId String -> Markup
+waitingMessageDoc sw pId ps = do
   whenJust sw.prevGame (scoresTable pId)
 
   let r = fromMaybe false $ M.lookup pId sw.readyStates
@@ -172,15 +179,22 @@ waitingMessageDoc sw pId = do
 
   div ! className "clearfix" $
     for_ allPlayerIds $ \pId' -> do
-      let ready = M.lookup pId' sw.readyStates
-      let cl  = "ready-state " <>
+      let mInfo = getPlayerInfo pId'
+      let cl = "ready-state" <>
                     (if pId' == pId then " is-you" else "") <>
-                    (if isJust ready then "" else " not-connected")
+                    (if isJust mInfo then "" else " not-connected")
+
       div ! className cl $ do
         let cl' = "player-" <> show pId'
         p ! className cl' $ text (show pId')
-        whenJust ready $ \ready' ->
-          p $ text $ if ready' then "ready!" else "not ready"
+        whenJust mInfo $ \info -> do
+          p $ text info.name
+          p $ text $ if info.ready then "ready!" else "not ready"
+  where
+  getPlayerInfo pId'' = do
+    ready <- M.lookup pId'' sw.readyStates
+    name <- M.lookup pId'' ps
+    return $ { ready: ready, name: name }
 
 
 scoresTable :: PlayerId -> Game -> Markup

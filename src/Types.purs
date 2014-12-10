@@ -549,23 +549,6 @@ instance toJSONGameUpdate :: ToJSON GameUpdate where
   toJSON (GameEnded r) =
     JArray [JString "ged", toJSON r]
 
-{-
-a ConnectingResponse is sent to the client just after establishing a
-connection, so that the client knows what its PlayerId is.
--}
-
-data ConnectingResponse
-  = YourPlayerIdIs PlayerId
-
-instance toJSONConnectingResponse :: ToJSON ConnectingResponse where
-  toJSON (YourPlayerIdIs pId) =
-    JArray [JString "yourpId", toJSON pId]
-
-instance fromJSONConnectingResponse :: FromJSON ConnectingResponse where
-  parseJSON (JArray [JString "yourpId", pId]) =
-    YourPlayerIdIs <$> parseJSON pId
-  parseJSON v = failJsonParse v "ConnectingResponse"
-
 -- Sent by the server during the waiting stage, ie, after initial connection
 -- but before the game starts
 data WaitingUpdate
@@ -639,8 +622,6 @@ type ReadyState = Boolean
 data ServerOutgoingMessage
   = SOWaiting WaitingUpdate
   | SOInProgress [GameUpdate]
-  | SOConnecting ConnectingResponse
-  | SONewPlayer (Tuple PlayerId String)
 
 asWaitingMessageO :: ServerOutgoingMessage -> Maybe WaitingUpdate
 asWaitingMessageO (SOWaiting x) = Just x
@@ -650,23 +631,15 @@ asInProgressMessageO :: ServerOutgoingMessage -> Maybe [GameUpdate]
 asInProgressMessageO (SOInProgress x) = Just x
 asInProgressMessageO _ = Nothing
 
-asConnectingMessageO :: ServerOutgoingMessage -> Maybe ConnectingResponse
-asConnectingMessageO (SOConnecting x) = Just x
-asConnectingMessageO _ = Nothing
-
 instance toJSONServerOutgoingMessage :: ToJSON ServerOutgoingMessage where
   toJSON (SOWaiting u)    = JArray [JString "out", JString "wait", toJSON u]
   toJSON (SOInProgress u) = JArray [JString "out", JString "iprg", toJSON u]
-  toJSON (SOConnecting u) = JArray [JString "out", JString "conn", toJSON u]
-  toJSON (SONewPlayer u)  = JArray [JString "out", JString "newp", toJSON u]
 
 instance fromJSONServerOutgoingMessage :: FromJSON ServerOutgoingMessage where
   parseJSON (JArray [JString "out", JString type_, data_]) =
     case type_ of
       "wait" -> SOWaiting <$> parseJSON data_
       "iprg" -> SOInProgress <$> parseJSON data_
-      "conn" -> SOConnecting <$> parseJSON data_
-      "newp" -> SONewPlayer <$> parseJSON data_
       _      -> failJsonParse [JString "in", JString type_, data_] $
                   "ServerOutgoingMessage"
 
