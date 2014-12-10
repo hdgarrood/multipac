@@ -106,7 +106,7 @@ initialGame :: Game
 initialGame =
   { map: levelmap
   , players: M.fromList $ f <$> starts
-  , items:   M.fromList $ take 1 $ zipNumbers $ makeItems levelmap (snd <$> starts)
+  , items:   M.fromList $ zipNumbers $ makeItems levelmap (snd <$> starts)
   , countdown: Just 90
   }
   where
