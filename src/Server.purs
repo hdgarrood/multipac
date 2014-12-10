@@ -74,6 +74,7 @@ step = do
               else InProgress { game: game', input: M.empty }
 
     WaitingForPlayers m -> do
+      sendUpdate $ SOWaiting $ NewReadyStates m
       when (readyToStart m) do
         let game = makeGame (M.keys m)
         sendUpdate $ SOWaiting $ GameStarting game
@@ -102,7 +103,6 @@ onMessage msg pId = do
     WaitingForPlayers m -> do
       matchWaiting msg $ \_ -> do
         let m' = M.alter (fmap not) pId m
-        sendUpdate $ SOWaiting $ NewReadyStates m'
         put $ WaitingForPlayers m'
 
 onNewPlayer :: PlayerId -> SM Unit
@@ -112,7 +112,6 @@ onNewPlayer pId = do
   case state of
     WaitingForPlayers m -> do
       let m' = M.insert pId false m
-      sendUpdate $ SOWaiting $ NewReadyStates m'
       put $ WaitingForPlayers m'
     _ -> return unit
 

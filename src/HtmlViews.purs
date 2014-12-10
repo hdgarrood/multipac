@@ -99,7 +99,7 @@ rawStyles = """
     width: 80%;
   }
 
-  .scores-row.is-you {
+  .is-you {
     background-color: ${backgroundColorLighter};
   }
 
@@ -118,6 +118,11 @@ rawStyles = """
 
   .score {
     text-align: center;
+  }
+
+  .ready-state {
+    width: 25%;
+    float: left;
   }
 """
 
@@ -160,16 +165,22 @@ waitingMessageDoc :: ClientStateWaiting -> PlayerId -> Markup
 waitingMessageDoc sw pId = do
   whenJust sw.prevGame (scoresTable pId)
 
-  let isReady = fromMaybe false $ M.lookup pId sw.readyStates
-  when (not isReady) $ do
-    p $ text "Press SPACE when you're ready"
+  let r = fromMaybe false $ M.lookup pId sw.readyStates
+  p $ text $ if r
+               then "Waiting for other players..."
+               else "Press SPACE when you're ready"
 
-  for_ (M.toList sw.readyStates) $ \(Tuple pId' ready) -> do
-    let cl  = "ready-state " <> (if pId' == pId then " is-you" else "")
-    div ! className cl $ do
-      let cl' = "player-" <> show pId'
-      p ! className cl' $ text (show pId')
-      p $ text $ "ready: " <> (if ready then "yes" else "no")
+  div ! className "clearfix" $
+    for_ allPlayerIds $ \pId' -> do
+      let ready = M.lookup pId' sw.readyStates
+      let cl  = "ready-state " <>
+                    (if pId' == pId then " is-you" else "") <>
+                    (if isJust ready then "" else " not-connected")
+      div ! className cl $ do
+        let cl' = "player-" <> show pId'
+        p ! className cl' $ text (show pId')
+        whenJust ready $ \ready' ->
+          p $ text $ "ready: " <> (if ready' then "yes" else "no")
 
 
 scoresTable :: PlayerId -> Game -> Markup
