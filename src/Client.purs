@@ -2,20 +2,24 @@ module Client where
 
 import Debug.Trace (trace)
 import Data.Maybe
+import Data.Maybe.Unsafe (fromJust)
 import qualified Data.Either as E
 import Data.JSON (eitherDecode, encode)
 import qualified Data.String as S
 import qualified Data.Map as M
 import Data.DOM.Simple.Events hiding (view)
-import Data.DOM.Simple.Types (DOM(), DOMEvent(), DOMLocation())
+import Data.DOM.Simple.Types (DOM(), DOMEvent(), DOMLocation(), HTMLElement())
 import Data.DOM.Simple.Window (globalWindow, location, document)
-import Data.DOM.Simple.Element (setInnerHTML, querySelector, setAttribute)
+import Data.DOM.Simple.Element
+  (setInnerHTML, querySelector, setAttribute, value, setValue)
+import Data.DOM.Simple.Events
+  (keyCode, addKeyboardEventListener, KeyboardEventType(..))
 import Data.DOM.Simple.Document ()
 import Control.Monad
 import Control.Monad.Eff
+import Control.Monad.Eff.Ref
 import Control.Monad.RWS.Class
 import Control.Monad.State.Class
-import Control.Monad.Eff.Ref (newRef)
 import Control.Lens (lens, (.~), (..), (^.))
 import Control.Reactive.Timer
 
@@ -26,6 +30,7 @@ import BaseClient
 import Game
 import Types
 import Utils
+import LocalStorage
 
 foreign import host
   """
@@ -34,40 +39,61 @@ foreign import host
   }
   """ :: DOMLocation -> String
 
-foreign import prompt
-  """
-  function prompt(msg) {
-    return function() {
-      return window.prompt(msg);
-    }
-  }""" :: forall e. String -> Eff e String
-
 initialState =
-  ClientState
-    { playerNames: M.empty
-    , gameState: CWaitingForPlayers
-                    { prevGame: Nothing
-                    , backgroundCleared: false
-                    , readyStates: M.empty
-                    , cachedHtml: ""
-                    }
+  CWaitingForPlayers
+    { prevGame: Nothing
+    , backgroundCleared: false
+    , readyStates: M.empty
+    , cachedHtml: ""
     }
 
 main = do
+  startRef <- newRef false
+  loop startRef
+  where
+  loop startRef =
+    promptScreenName "Enter a screen name:" $ \name ->
+      if S.null (S.trim name)
+         then loop startRef
+         else start startRef name
 
-  -- TODO: nicer ui
-  name <- prompt "Enter a screen name:"
-  if S.null name
-     then main
-     else start name
+promptScreenName :: forall e.
+  String -> (String -> Eff (storage :: Storage, dom :: DOM | e) Unit)
+  -> Eff (storage :: Storage, dom :: DOM | e) Unit
+promptScreenName msg cont = do
+  let key = "screenName"
+  mVal <- getStorage key
+  let val = fromMaybe "" mVal
+  popupPromptInput msg val $ \name -> do
+    setStorage "screenName" name
+    cont name
 
+popupPromptInput msg val cont = do
+  containerEl <- q' "#prompt"
+  showElement (containerEl :: HTMLElement)
+  inputEl <- q' "#prompt-input"
+  setValue val inputEl
+  addKeyboardEventListener
+    KeydownEvent
+    (handleKeydown containerEl inputEl)
+    (inputEl :: HTMLElement)
+  where
+  handleKeydown cEl iEl event = do
+    code <- keyCode (event :: DOMEvent)
+    when (code == keyCodeEnter) $ do
+      hideElement cEl
+      value iEl >>= cont
 
-start name = do
-  callbacks <- mkCallbacks
-  h <- host <$> location globalWindow
+start startedRef name = do
+  started <- readRef startedRef
+  when (not started) $ do
+    writeRef startedRef true
 
-  let socketUrl = "ws://" <> h <> "/"
-  startClient initialState callbacks socketUrl name
+    callbacks <- mkCallbacks
+    h <- host <$> location globalWindow
+
+    let socketUrl = "ws://" <> h <> "/"
+    startClient initialState callbacks socketUrl name
 
 
 -- CALLBACKS
@@ -78,23 +104,19 @@ mkCallbacks =
     , onKeyDown: onKeyDown
     }
 
-putGameState :: forall e. ClientGameState -> CM e Unit
-putGameState gs = modify $ \(ClientState s) ->
-                              ClientState $ s { gameState = gs }
-
 render :: forall e. RenderingContext -> CM e Unit
 render ctx = do
   state <- get
   pId <- askPlayerId
-  case state ^. gameState of
+  case state of
     CInProgress g -> do
       liftEff $ R.render ctx g.game pId g.redrawMap
-      putGameState $ CInProgress (g # redrawMap .~ false)
+      put $ CInProgress (g # redrawMap .~ false)
 
     CWaitingForPlayers sw -> do
       when (not (sw ^. backgroundCleared)) $ do
         liftEff $ R.clearBoth ctx
-        putGameState $ CWaitingForPlayers (sw # backgroundCleared .~ true)
+        put $ CWaitingForPlayers (sw # backgroundCleared .~ true)
 
       players <- askPlayers
       let html = V.waitingMessage sw pId players
@@ -102,7 +124,7 @@ render ctx = do
         liftEff $ do
           el <- q "#waiting-message"
           whenJust el $ setInnerHTML html
-        putGameState $ CWaitingForPlayers (sw # cachedHtml .~ html)
+        put $ CWaitingForPlayers (sw # cachedHtml .~ html)
 
 
 onKeyDown :: forall e. DOMEvent -> CM e Unit
@@ -110,7 +132,7 @@ onKeyDown event = do
   state <- get
   code <- liftEff $ keyCode event
 
-  case state ^. gameState of
+  case state of
     CInProgress _ -> do
       whenJust (directionFromKeyCode code) $ \direction ->
         sendUpdate (SIInProgress direction)
@@ -131,7 +153,7 @@ matchWaiting = matchMessage asWaitingMessageO
 
 onMessage msg = do
   state <- get
-  case state ^. gameState of
+  case state of
     CInProgress g ->
       matchInProgress msg $ \updates ->
         let game' = applyGameUpdates updates g.game
@@ -140,7 +162,7 @@ onMessage msg = do
               liftEff $ showWaitingMessageDiv
               putWaitingState $ Just game'
             else do
-              putGameState $ CInProgress (g { game = game'
+              put $ CInProgress (g { game = game'
                                             , prevGame = g.game })
 
     CWaitingForPlayers g -> do
@@ -149,19 +171,19 @@ onMessage msg = do
           GameStarting game -> do
             let gip = { game: game, prevGame: game, redrawMap: true }
             liftEff $ hideWaitingMessageDiv
-            putGameState $ CInProgress gip
+            put $ CInProgress gip
           NewReadyStates m -> do
-            putGameState $ CWaitingForPlayers (g # readyStates .~ m)
+            put $ CWaitingForPlayers (g # readyStates .~ m)
 
 
+putWaitingState :: forall e. Maybe Game -> CM e Unit
 putWaitingState prevGame =
-  putGameState $
-    CWaitingForPlayers
-      { prevGame: prevGame
-      , backgroundCleared: false
-      , readyStates: M.empty
-      , cachedHtml: ""
-      }
+  put $ CWaitingForPlayers
+          { prevGame: prevGame
+          , backgroundCleared: false
+          , readyStates: M.empty
+          , cachedHtml: ""
+          }
 
 
 directionFromKeyCode :: Number -> Maybe Direction
@@ -174,12 +196,18 @@ directionFromKeyCode code =
     _  -> Nothing
 
 keyCodeSpace = 32
-
-setWaitingDivStyle s = do
-  el <- q "#waiting-message"
-  whenJust el $ setAttribute "style" s
-
-showWaitingMessageDiv = setWaitingDivStyle "display: block;"
-hideWaitingMessageDiv = setWaitingDivStyle "display: none;"
+keyCodeEnter = 13
 
 q sel = document globalWindow >>= querySelector sel
+
+q' sel = fromJust <$> q sel
+
+withEl f sel = do
+  el <- q sel
+  whenJust el $ f
+
+showElement el = setAttribute "style" "display: block;" (el :: HTMLElement)
+hideElement el = setAttribute "style" "display: none;" (el :: HTMLElement)
+
+showWaitingMessageDiv = withEl showElement "#waiting-message"
+hideWaitingMessageDiv = withEl hideElement "#waiting-message"

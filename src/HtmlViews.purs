@@ -11,7 +11,8 @@ import Data.Array (sortBy, reverse, map, catMaybes)
 import Data.Function (on)
 import qualified Data.Map as M
 import Text.Smolder.HTML
-  (html, head, meta, script, style, body, div, h1, h2, canvas, title, link, p)
+  (html, head, meta, script, style, body, div, h1, h2, canvas, title, link, p,
+   input)
 import Text.Smolder.HTML.Attributes
   (lang, charset, httpEquiv, content, src, defer, type', id, className, name,
   rel, href)
@@ -74,6 +75,13 @@ rawStyles = """
     position: absolute;
     z-index: 2;
     width: ${canvasSize}px;
+  }
+
+  #prompt {
+    position: absolute;
+    z-index: 3;
+    margin: 0 auto;
+    text-align: center;
   }
 
   #waiting-message p {
@@ -152,7 +160,13 @@ indexDoc =
     body $ do
       div ! id "game" $ do
         h1 $ text "multipac"
+
+        div ! id "prompt" $ do
+          p $ text ""
+          input ! id "prompt-input" ! type' "text"
+
         div ! id "waiting-message" $ text ""
+
         canvas ! id "foreground" $ text ""
         canvas ! id "background" $ text ""
 
