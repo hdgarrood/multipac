@@ -21,9 +21,9 @@ import Types
 import qualified BrowserWebSocket as WS
 
 type Client st =
-  { socket   :: WS.Socket
-  , state    :: st
-  , playerId :: PlayerId
+  { socket      :: WS.Socket
+  , state       :: st
+  , playerId    :: PlayerId
   }
 
 type ClientCallbacks st inc outg e =

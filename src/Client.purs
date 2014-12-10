@@ -3,8 +3,9 @@ module Client where
 import Debug.Trace (trace)
 import Data.Maybe
 import qualified Data.Either as E
-import Data.JSON (eitherDecode)
+import Data.JSON (eitherDecode, encode)
 import qualified Data.String as S
+import qualified Data.Map as M
 import Data.DOM.Simple.Events hiding (view)
 import Data.DOM.Simple.Types (DOM(), DOMEvent(), DOMLocation())
 import Data.DOM.Simple.Window (globalWindow, location, document)
@@ -73,6 +74,7 @@ getPlayerId socket cont =
   callback msg =
     case eitherDecode msg of
       E.Right (SOConnecting (YourPlayerIdIs pId)) -> cont pId
+      E.Right m -> trace $ "received a message too early: " <> encode m
       E.Left err -> trace err
 
 -- CALLBACKS
@@ -116,10 +118,7 @@ onKeyDown pId event = do
 
     CWaitingForPlayers sw -> do
       when (code == keyCodeSpace) do
-        let ready' = not sw.ready
-        sendUpdate (SIWaiting ready')
-        let sw' = sw # ready .~ ready'
-        put $ CWaitingForPlayers sw'
+        sendUpdate SIToggleReadyState
 
 type CM e a = ClientM ClientGameState ServerIncomingMessage e a
 
@@ -152,13 +151,15 @@ onMessage msg = do
             let gip = { game: game, prevGame: game, redrawMap: true }
             lift..lift $ hideWaitingMessageDiv
             put $ CInProgress gip
+          NewReadyStates m -> do
+            put $ CWaitingForPlayers (g # readyStates .~ m)
 
 
 mkWaitingState prevGame =
   CWaitingForPlayers
     { prevGame: prevGame
     , backgroundCleared: false
-    , ready: false
+    , readyStates: M.empty
     , cachedHtml: ""
     }
 

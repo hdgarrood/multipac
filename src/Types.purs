@@ -570,14 +570,19 @@ instance fromJSONConnectingResponse :: FromJSON ConnectingResponse where
 -- but before the game starts
 data WaitingUpdate
   = GameStarting Game
+  | NewReadyStates (M.Map PlayerId Boolean)
 
 instance toJSONWaitingUpdate :: ToJSON WaitingUpdate where
   toJSON (GameStarting game) =
     JArray [JString "starting", toJSON (WrappedGame game)]
+  toJSON (NewReadyStates m) =
+    JArray [JString "readyStates", toJSON m]
 
 instance fromJSONWaitingUpdate :: FromJSON WaitingUpdate where
   parseJSON (JArray [JString "starting", game]) =
     (GameStarting <<< unwrapGame) <$> parseJSON game
+  parseJSON (JArray [JString "readyStates", m]) =
+    NewReadyStates <$> parseJSON m
   parseJSON v = failJsonParse v "WaitingUpdate"
 
 type GameUpdateM a = WriterT [GameUpdate] (State WrappedGame) a
@@ -635,6 +640,7 @@ data ServerOutgoingMessage
   = SOWaiting WaitingUpdate
   | SOInProgress [GameUpdate]
   | SOConnecting ConnectingResponse
+  | SONewPlayer (Tuple PlayerId String)
 
 asWaitingMessageO :: ServerOutgoingMessage -> Maybe WaitingUpdate
 asWaitingMessageO (SOWaiting x) = Just x
@@ -652,6 +658,7 @@ instance toJSONServerOutgoingMessage :: ToJSON ServerOutgoingMessage where
   toJSON (SOWaiting u)    = JArray [JString "out", JString "wait", toJSON u]
   toJSON (SOInProgress u) = JArray [JString "out", JString "iprg", toJSON u]
   toJSON (SOConnecting u) = JArray [JString "out", JString "conn", toJSON u]
+  toJSON (SONewPlayer u)  = JArray [JString "out", JString "newp", toJSON u]
 
 instance fromJSONServerOutgoingMessage :: FromJSON ServerOutgoingMessage where
   parseJSON (JArray [JString "out", JString type_, data_]) =
@@ -659,31 +666,34 @@ instance fromJSONServerOutgoingMessage :: FromJSON ServerOutgoingMessage where
       "wait" -> SOWaiting <$> parseJSON data_
       "iprg" -> SOInProgress <$> parseJSON data_
       "conn" -> SOConnecting <$> parseJSON data_
+      "newp" -> SONewPlayer <$> parseJSON data_
       _      -> failJsonParse [JString "in", JString type_, data_] $
                   "ServerOutgoingMessage"
 
   parseJSON v = failJsonParse v "ServerOutgoingMessage"
 
 data ServerIncomingMessage
-  = SIWaiting ReadyState
+  = SIToggleReadyState
   | SIInProgress Direction
 
 instance toJSONServerIncomingMessage :: ToJSON ServerIncomingMessage where
-  toJSON (SIWaiting u)    = JArray [JString "in", JString "wait", toJSON u]
-  toJSON (SIInProgress u) = JArray [JString "in", JString "iprg", toJSON u]
+  toJSON (SIToggleReadyState) =
+    JArray [JString "in", JString "tors", toJSON unit]
+  toJSON (SIInProgress u) =
+    JArray [JString "in", JString "iprg", toJSON u]
 
 instance fromJSONServerIncomingMessage :: FromJSON ServerIncomingMessage where
   parseJSON (JArray [JString "in", JString type_, data_]) =
     case type_ of
-      "wait" -> SIWaiting <$> parseJSON data_
+      "tors" -> return SIToggleReadyState
       "iprg" -> SIInProgress <$> parseJSON data_
       _      -> failJsonParse [JString "in", JString type_, data_] $
                   "ServerIncomingMessage"
 
   parseJSON v = failJsonParse v "ServerIncomingMessage"
 
-asWaitingMessage :: ServerIncomingMessage -> Maybe ReadyState
-asWaitingMessage (SIWaiting r) = Just r
+asWaitingMessage :: ServerIncomingMessage -> Maybe Unit
+asWaitingMessage (SIToggleReadyState) = Just unit
 asWaitingMessage _ = Nothing
 
 asInProgressMessage :: ServerIncomingMessage -> Maybe Direction
@@ -693,10 +703,12 @@ asInProgressMessage _ = Nothing
 matchMessage :: forall m a b. (Monad m, ToJSON a) =>
   (a -> Maybe b) -> a -> (b -> m Unit) -> m Unit
 matchMessage f msg action =
-  maybe
-    (return unit) -- tracePM ("error: received message for the wrong state: " <> encode msg))
-    action
-    (f msg)
+  maybe (return unit) action (f msg)
+
+data ClientState
+  = CState PlayerNames ClientGameState
+
+type PlayerNames = M.Map PlayerId String
 
 data ClientGameState
   = CWaitingForPlayers ClientStateWaiting
@@ -705,8 +717,8 @@ data ClientGameState
 type ClientStateWaiting
   = { prevGame          :: Maybe Game
     , backgroundCleared :: Boolean
-    , ready             :: Boolean
     , cachedHtml        :: String
+    , readyStates       :: M.Map PlayerId Boolean
     }
 
 type ClientStateInProgress
@@ -728,9 +740,9 @@ backgroundCleared = lens
   (\s -> s.backgroundCleared)
   (\s x -> s { backgroundCleared = x })
 
-ready = lens
-  (\s -> s.ready)
-  (\s x -> s { ready = x })
+readyStates = lens
+  (\s -> s.readyStates)
+  (\s x -> s { readyStates = x })
 
 cachedHtml = lens
   (\s -> s.cachedHtml)

@@ -75,7 +75,6 @@ step = do
 
     WaitingForPlayers m -> do
       when (readyToStart m) do
-        -- tracePM "all players are ready; starting game"
         let game = makeGame (M.keys m)
         sendUpdate $ SOWaiting $ GameStarting game
         put $ InProgress { game: game, input: M.empty }
@@ -88,7 +87,7 @@ step = do
 matchInProgress :: ServerIncomingMessage -> (Direction -> SM Unit) -> SM Unit
 matchInProgress = matchMessage asInProgressMessage
 
-matchWaiting :: ServerIncomingMessage -> (Boolean -> SM Unit) -> SM Unit
+matchWaiting :: ServerIncomingMessage -> (Unit -> SM Unit) -> SM Unit
 matchWaiting = matchMessage asWaitingMessage
 
 onMessage :: ServerIncomingMessage -> PlayerId -> SM Unit
@@ -101,15 +100,22 @@ onMessage msg pId = do
         put $ InProgress g'
 
     WaitingForPlayers m -> do
-      matchWaiting msg $ \isReady -> do
-        -- tracePM $ "updated ready state for " <> show pId <>
-        --          ": " <> show isReady
-        let m' = M.insert pId isReady m
+      matchWaiting msg $ \_ -> do
+        let m' = M.alter (fmap not) pId m
+        sendUpdate $ SOWaiting $ NewReadyStates m'
         put $ WaitingForPlayers m'
 
 onNewPlayer :: PlayerId -> SM Unit
-onNewPlayer pId =
+onNewPlayer pId = do
   sendUpdateTo pId $ SOConnecting $ YourPlayerIdIs pId
+  state <- get
+  case state of
+    WaitingForPlayers m -> do
+      let m' = M.insert pId false m
+      sendUpdate $ SOWaiting $ NewReadyStates m'
+      put $ WaitingForPlayers m'
+    _ -> return unit
+
 
 onClose :: PlayerId -> SM Unit
 onClose pId = do

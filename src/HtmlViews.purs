@@ -3,7 +3,9 @@ module HtmlViews where
 import Data.Foldable (foldr, for_)
 import Prelude hiding (id)
 import Control.Lens ((~), (^.))
+import Control.Monad (when)
 import Data.Tuple
+import Data.Maybe
 import Data.String (replace, joinWith)
 import Data.Array (sortBy, reverse, map)
 import Data.Function (on)
@@ -157,13 +159,18 @@ waitingMessage sw pId = render $ waitingMessageDoc sw pId
 waitingMessageDoc :: ClientStateWaiting -> PlayerId -> Markup
 waitingMessageDoc sw pId = do
   whenJust sw.prevGame (scoresTable pId)
-  let message =
-      if sw ^. ready
-         then "Waiting for other players..." ~ "ready: yes"
-         else "Press SPACE when you're ready" ~ "ready: no"
-  p $ text (fst message)
-  p $ text (snd message)
-  p $ text $ "You are: " <> show pId
+
+  let isReady = fromMaybe false $ M.lookup pId sw.readyStates
+  when (not isReady) $ do
+    p $ text "Press SPACE when you're ready"
+
+  for_ (M.toList sw.readyStates) $ \(Tuple pId' ready) -> do
+    let cl  = "ready-state " <> (if pId' == pId then " is-you" else "")
+    div ! className cl $ do
+      let cl' = "player-" <> show pId'
+      p ! className cl' $ text (show pId')
+      p $ text $ "ready: " <> (if ready then "yes" else "no")
+
 
 scoresTable :: PlayerId -> Game -> Markup
 scoresTable pId game =
