@@ -417,27 +417,3 @@ clearBoth ctx = do
 setTextStyle = do
   setFontSize $ floor (0.6 * pxPerTile)
   setFillStyle fontColor
-
-renderWaitingMessage :: forall e.  Boolean -> CanvasM e Unit
-renderWaitingMessage ready = do
-  setTextStyle
-  setTextAlign AlignCenter
-  let message =
-      if ready
-         then "Waiting for other players..." ~ "ready: ✓"
-         else "Press SPACE when you're ready" ~ "ready: ✕"
-  let x = 20
-  fillText (fst message) halfCanvas (halfCanvas - x)
-  fillText (snd message) halfCanvas (halfCanvas + x)
-
-renderYourPlayer :: forall e. PlayerId -> CanvasM e Unit
-renderYourPlayer pId = do
-  setTextStyle
-  setTextAlign AlignRight
-  let message = "You are: " <> show pId
-  let x = halfCanvas + 40
-  let y = halfCanvas + 100
-  let d = 10
-  fillText message (x-d) y
-  renderPlayer pId (mkPlayer $ Position { x:120, y:122 })
-
