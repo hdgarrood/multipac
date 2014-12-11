@@ -254,7 +254,7 @@ canMoveInDirection pId (Player p) d =
       destIsFree game  = isFree game.map newPosition
       immobilised game = not p.isEaten && isFleeing game
       isFleeing game   = maybe false (\(Tuple pId' count) ->
-                                pId' /= pId && isOdd count) game.rampage
+                                pId' /= pId && count % 3 == 0) game.rampage
       both (Tuple x y) = x && y
   in  both <<< (destIsFree &&& (not <<< immobilised)) <$> getGame
 
