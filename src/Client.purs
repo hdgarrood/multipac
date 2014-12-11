@@ -130,6 +130,12 @@ render ctx = do
       liftEff $ R.render ctx g.game pId g.redrawMap
       put $ CInProgress (g # redrawMap .~ false)
 
+      players <- askPlayers
+      let html = V.simpleScores players g.game
+      when (g.cachedHtml /= html) $ do
+        liftEff $ q' "#scores-container" >>= setInnerHTML html
+        put $ CInProgress (g # cachedHtml .~ html)
+
     CWaitingForPlayers sw -> do
       when (not (sw ^. backgroundCleared)) $ do
         liftEff $ R.clearBoth ctx
@@ -186,7 +192,7 @@ onMessage msg = do
       matchWaiting msg $ \update -> do
         case update of
           GameStarting game -> do
-            let gip = { game: game, prevGame: game, redrawMap: true }
+            let gip = { game: game, prevGame: game, redrawMap: true, cachedHtml: ""}
             liftEff $ hideWaitingMessageDiv
             put $ CInProgress gip
           NewReadyStates m -> do

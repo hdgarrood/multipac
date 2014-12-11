@@ -49,16 +49,6 @@ rawStyles = """
 	height: 0;
   }
 
-  #background {
-    position: absolute;
-    z-index: 0;
-  }
-
-  #foreground {
-    position: absolute;
-    z-index: 1;
-  }
-
   body {
     background-color: ${backgroundColor};
     color: ${fontColor};
@@ -97,9 +87,25 @@ rawStyles = """
     width: ${canvasSize}px;
   }
 
-  #waiting-message {
+  #background {
+    position: absolute;
+    z-index: 0;
+  }
+
+  #foreground {
+    position: absolute;
+    z-index: 1;
+  }
+
+  #scores-container {
     position: absolute;
     z-index: 2;
+    width: ${canvasSize}px;
+  }
+
+  #waiting-message {
+    position: absolute;
+    z-index: 3;
     width: ${canvasSize}px;
   }
 
@@ -135,6 +141,18 @@ rawStyles = """
     width: 80%;
   }
 
+  .simple-scores {
+    width: 80%;
+    margin-left: 10px;
+  }
+
+  .simple-scores .player-P1,
+  .simple-scores .player-P2,
+  .simple-scores .player-P3,
+  .simple-scores .player-P4 {
+    text-align: right;
+  }
+
   .is-you {
     background-color: ${backgroundColorLighter};
   }
@@ -150,6 +168,10 @@ rawStyles = """
 
   .cell-thin {
     width: 20%;
+  }
+
+  .cell-thinnest {
+    width: 11%;
   }
 
   .score {
@@ -197,6 +219,8 @@ indexDoc =
 
         canvas ! id "foreground" $ text ""
         canvas ! id "background" $ text ""
+
+        div ! id "scores-container" $ text ""
 
 indexHtml = render indexDoc
 
@@ -257,16 +281,40 @@ scoresTable pId playersMap game =
           scoresCellDiv ["cell-thin", "score"] (show info.score)
   where
   sortedPlayerInfos game =
-      let allPlayers = M.toList (game ^. players)
-          infos = catMaybes $ map getPlayerInfo allPlayers
-      in reverse $ sortBy (compare `on` score) infos
-
-  getPlayerInfo (Tuple pId'' p) = do
-    name <- M.lookup pId'' playersMap
-    return $ { score: p ^. pScore, name: name, pId: pId'' }
+    reverse $ sortBy (compare `on` score) (playerInfos game playersMap)
 
   score i = i.score
 
+  scoresCellDiv classes innerText =
+    div ! className (joinWith " " $ ["scores-cell"] <> classes) $
+      text innerText
+
+
+playerInfos game playersMap =
+  catMaybes $ map (getPlayerInfo playersMap) allPlayers
+  where
+  allPlayers = M.toList (game ^. players)
+
+
+getPlayerInfo ::
+  M.Map PlayerId String -> Tuple PlayerId Player -> Maybe PlayerScoreInfo
+getPlayerInfo playersMap (Tuple pId'' p) = do
+  name <- M.lookup pId'' playersMap
+  return $ { score: p ^. pScore, name: name, pId: pId'' }
+
+
+simpleScores :: M.Map PlayerId String -> Game -> String
+simpleScores m game =
+  render $ simpleScoresMarkup m game
+
+simpleScoresMarkup :: M.Map PlayerId String -> Game -> Markup
+simpleScoresMarkup playersMap game = do
+  div ! className "simple-scores" $ do
+    for_ (playerInfos game playersMap) $ \info -> do
+      scoresCellDiv ["cell-thinnest", "player-" <> show info.pId] (show info.pId)
+      scoresCellDiv ["cell-thinnest", "score"] (show info.score)
+
+  where
   scoresCellDiv classes innerText =
     div ! className (joinWith " " $ ["scores-cell"] <> classes) $
       text innerText

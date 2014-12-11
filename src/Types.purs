@@ -713,6 +713,7 @@ type ClientStateInProgress
   = { game :: Game
     , prevGame :: Game
     , redrawMap :: Boolean
+    , cachedHtml :: String
     }
 
 type RenderingContext =

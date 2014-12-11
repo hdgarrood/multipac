@@ -217,7 +217,7 @@ eatOtherPlayers pId p = do
     eachPlayer $ \pId' p' ->
       when (pId' /= pId) $ do
         let q = quadrance (p ^. pPosition) (p' ^. pPosition)
-        when (q <= minEatingQuadrance) $
+        when (q <= minEatingQuadrance) $ do
           changeIsEaten pId' true
           changeScore pId $ p ^. pScore + p' ^. pScore
           changeScore pId' 0
