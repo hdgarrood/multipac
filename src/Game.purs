@@ -177,6 +177,10 @@ movePlayer pId p =
       changePosition pId $ moveInDirection dir (p ^. pPosition)
       changeNomIndex pId $ ((p ^. pNomIndex) + 1) % nomIndexMax
 
+isRampage :: PlayerId -> GameUpdateM Boolean
+isRampage pId =
+  (\g -> maybe false (fst >>> (==) pId) g.rampage) <$> getGame
+
 eatItems :: PlayerId -> Player -> GameUpdateM Unit
 eatItems pId p = do
   g <- getGame
