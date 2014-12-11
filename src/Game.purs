@@ -6,6 +6,7 @@ import Data.Maybe.Unsafe (fromJust)
 import Data.Array ((!!), range, filter, length, take)
 import qualified Data.Map as M
 import Data.Foldable
+import Control.Arrow
 import Control.Alt
 import Control.Monad
 import Control.Monad.Reader.Class
@@ -20,6 +21,10 @@ import Utils
 
 minPlayers = 2
 rampageLength = 300
+
+-- minimum squared distance that a player needs to be from another player in
+-- order to eat them, in blocks.
+minEatingQuadrance = 16
 
 -- update signalling
 
@@ -156,6 +161,7 @@ doLogic = do
       eachPlayer updateDirection
       eachPlayer movePlayer
       eachPlayer eatItems
+      eachPlayer eatOtherPlayers
       decrementRampageCounter
       checkForGameEnd
 
@@ -172,7 +178,7 @@ updateDirection pId p =
 movePlayer :: PlayerId -> Player -> GameUpdateM Unit
 movePlayer pId p =
   whenJust (p ^. pDirection) $ \dir -> do
-    ok <- canMoveInDirection p dir
+    ok <- canMoveInDirection pId p dir
     when ok $ do
       changePosition pId $ moveInDirection dir (p ^. pPosition)
       changeNomIndex pId $ ((p ^. pNomIndex) + 1) % nomIndexMax
@@ -195,6 +201,16 @@ eatItems pId p = do
           changeScore pId (p ^. pScore + 5)
           startRampage pId
 
+eatOtherPlayers :: PlayerId -> Player -> GameUpdateM Unit
+eatOtherPlayers pId p = do
+  ok <- isRampage pId
+  when ok $ do
+    eachPlayer $ \pId' p' ->
+      when (pId' /= pId) $ do
+        let q = quadrance (p ^. pPosition) (p' ^. pPosition)
+        when (q <= minEatingQuadrance) $
+          tracePM $ show pId <> " ATE " <> show pId'
+
 decrementRampageCounter :: GameUpdateM Unit
 decrementRampageCounter = do
   g <- getGame
@@ -212,16 +228,20 @@ checkForGameEnd = do
 
 tryChangeDirection :: PlayerId -> Player -> Direction -> GameUpdateM Unit
 tryChangeDirection pId p d = do
-  ok <- canMoveInDirection p d
+  ok <- canMoveInDirection pId p d
   when ok $ do
     changeDirection pId (Just d)
     changeIntendedDirection pId Nothing
 
-canMoveInDirection :: Player -> Direction -> GameUpdateM Boolean
-canMoveInDirection (Player p) d =
+canMoveInDirection :: PlayerId -> Player -> Direction -> GameUpdateM Boolean
+canMoveInDirection pId (Player p) d =
   let newPosition = moveInDirection d p.position
-      canMove game = isFree game.map newPosition
-  in  canMove <$> getGame
+      destIsFree game = isFree game.map newPosition
+      immobilised game =
+          maybe false (\(Tuple pId' count) ->
+                          pId' /= pId && isOdd count) game.rampage
+      both (Tuple x y) = x && y
+  in  both <<< (destIsFree &&& (not <<< immobilised)) <$> getGame
 
 moveInDirection :: Direction -> Position -> Position
 moveInDirection d p = add p (dirToPos d)
@@ -231,9 +251,6 @@ isFree levelmap pos =
   let block = getBlockAt pos levelmap
   in  maybe false (not <<< isWall) block
 
--- Prepare items on a map
--- * put a little dot in every free space
--- * put a big dot in every given space
 makeItems :: LevelMap -> [Position] -> [Position] -> [Item]
 makeItems levelmap excludes bigDotPositions =
   littleDots <> bigDots

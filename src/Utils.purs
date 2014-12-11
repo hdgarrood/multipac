@@ -169,6 +169,14 @@ foreign import traceP
     }
   }""" :: forall a. String -> a -> a
 
--- This only works in Eff monads
+-- This doesn't seem to actually work.
 tracePM :: forall m. (Monad m) => String -> m Unit
-tracePM msg = traceP msg $ return unit
+tracePM msg = return (traceP msg unit)
+
+isEven :: Number -> Boolean
+isEven n = isInteger (n / 2)
+  where
+  isInteger m = m | 0 == m
+
+isOdd :: Number -> Boolean
+isOdd = not <<< isEven

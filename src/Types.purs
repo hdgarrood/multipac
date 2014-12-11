@@ -229,6 +229,10 @@ add (Position p) (Position q) = Position {x: p.x + q.x, y: p.y + q.y}
 scalePos :: Number -> Position -> Position
 scalePos s (Position p) = Position {x: s * p.x, y: s * p.y}
 
+quadrance :: Position -> Position -> Number
+quadrance (Position p) (Position q) =
+  ((p.x - q.x) ^ 2) + ((p.y - q.y) ^ 2)
+
 data GameObject = GOPlayer Player | GOItem Item
 
 instance showGameObject :: Show GameObject where
