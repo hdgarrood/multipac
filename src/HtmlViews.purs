@@ -70,9 +70,7 @@ rawStyles = """
   }
 
   div, p {
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    overflow: hidden;
+    word-wrap: break-word;
   }
 
   input {
