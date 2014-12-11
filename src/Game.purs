@@ -122,20 +122,21 @@ initialGame :: Game
 initialGame =
   { map: levelmap
   , players: M.fromList $ f <$> starts
-  , items:   M.fromList $ zipNumbers $ makeItems levelmap excludes bigDots
+  , items:   M.fromList $ zipNumbers $ makeItems levelmap safeZone bigDots
   , countdown: Just 90
   , rampage: Nothing
+  , safeZone: safeZone
   }
   where
   levelmap = basicMap2
   f (Tuple pId position) = Tuple pId (mkPlayer position)
   starts =
-    [ P1 ~ tilePositionToBlock (Position {x:5, y:7})
+    [ P1 ~ tilePositionToBlock (Position {x:7, y:7})
     , P2 ~ tilePositionToBlock (Position {x:9, y:7})
     , P3 ~ tilePositionToBlock (Position {x:7, y:8})
     , P4 ~ tilePositionToBlock (Position {x:9, y:8})
     ]
-  excludes = do
+  safeZone = do
     x <- [7,8,9]
     y <- [6,7,8,9]
     return (tilePositionToBlock (Position {x:x, y:y}))
@@ -167,6 +168,7 @@ doLogic = do
       eachPlayer movePlayer
       eachPlayer eatItems
       eachPlayer eatOtherPlayers
+      eachPlayer unEatSelf
       decrementRampageCounter
       checkForGameEnd
 
@@ -250,6 +252,15 @@ canMoveInDirection pId (Player p) d =
       both (Tuple x y) = x && y
   in  both <<< (destIsFree &&& (not <<< immobilised)) <$> getGame
 
+unEatSelf :: PlayerId -> Player -> GameUpdateM Unit
+unEatSelf pId p = do
+  g <- getGame
+  when (p ^. pIsEaten && inSafeZone g (p ^. pPosition)) $ do
+    changeIsEaten pId false
+
+inSafeZone :: Game -> Position -> Boolean
+inSafeZone g pos = pos `elem` g.safeZone
+
 moveInDirection :: Direction -> Position -> Position
 moveInDirection d p = add p (dirToPos d)
 
@@ -259,7 +270,7 @@ isFree levelmap pos =
   in  maybe false (not <<< isWall) block
 
 makeItems :: LevelMap -> [Position] -> [Position] -> [Item]
-makeItems levelmap excludes bigDotPositions =
+makeItems levelmap safeZone bigDotPositions =
   littleDots <> bigDots
   where
   littleDots = do
@@ -274,7 +285,7 @@ makeItems levelmap excludes bigDotPositions =
 
   shouldHaveLittleDot pos =
     isFree levelmap pos &&
-      not (elem pos excludes) &&
+      not (elem pos safeZone) &&
       not (elem pos bigDotPositions)
 
   bigDots =

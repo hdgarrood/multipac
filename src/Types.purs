@@ -41,6 +41,7 @@ type Game = { map :: LevelMap
             , items   :: M.Map ItemId Item
             , countdown :: Maybe Number
             , rampage :: Maybe (Tuple PlayerId Number)
+            , safeZone :: [Position]
             }
 newtype WrappedGame = WrappedGame Game
 
@@ -54,6 +55,7 @@ instance toJSONWrappedGame :: ToJSON WrappedGame where
            , "items" .= toJSON game.items
            , "countdown" .= toJSON game.countdown
            , "rampage" .= toJSON game.rampage
+           , "safeZone" .= toJSON game.safeZone
            ]
 
 instance fromJSONWrappedGame :: FromJSON WrappedGame where
@@ -63,7 +65,14 @@ instance fromJSONWrappedGame :: FromJSON WrappedGame where
     i <- obj .: "items"
     c <- obj .:? "countdown"
     r <- obj .:? "rampage"
-    return $ WrappedGame {map:m, players:p, items:i, countdown:c, rampage:r}
+    s <- obj .: "safeZone"
+    return $ WrappedGame { map:m
+                         , players:p
+                         , items:i
+                         , countdown:c
+                         , rampage:r
+                         , safeZone:s
+                         }
 
 data PlayerId = P1 | P2 | P3 | P4
 
@@ -112,7 +121,11 @@ instance toJSONPlayerId :: ToJSON PlayerId where
 
 type ItemId = Number
 
-type LevelMap = {blocks :: [[Block]], tiles :: [[Tile]]}
+type LevelMap =
+    { blocks   :: [[Block]]
+    , tiles    :: [[Tile]]
+    }
+
 newtype WrappedLevelMap = WrappedLevelMap LevelMap
 
 instance toJSONWrappedLevelMap :: ToJSON WrappedLevelMap where
