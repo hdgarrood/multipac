@@ -57,6 +57,7 @@ initialState =
     }
 
 main = do
+  hideSimpleScoresDiv
   startRef <- newRef false
   loop startRef
   where
@@ -182,7 +183,9 @@ onMessage msg = do
         let game' = applyGameUpdates updates g.game
         in if isEnded game'
             then do
-              liftEff $ showWaitingMessageDiv
+              liftEff $ do
+                showWaitingMessageDiv
+                hideSimpleScoresDiv
               putWaitingState $ Just game'
             else do
               put $ CInProgress (g { game = game'
@@ -193,7 +196,9 @@ onMessage msg = do
         case update of
           GameStarting game -> do
             let gip = { game: game, prevGame: game, redrawMap: true, cachedHtml: ""}
-            liftEff $ hideWaitingMessageDiv
+            liftEff $ do
+              hideWaitingMessageDiv
+              showSimpleScoresDiv
             put $ CInProgress gip
           NewReadyStates m -> do
             put $ CWaitingForPlayers (g # readyStates .~ m)
@@ -240,3 +245,6 @@ hideElement el = setAttribute "style" "display: none;" (el :: HTMLElement)
 
 showWaitingMessageDiv = withEl showElement "#waiting-message"
 hideWaitingMessageDiv = withEl hideElement "#waiting-message"
+
+showSimpleScoresDiv = withEl showElement "#scores-container"
+hideSimpleScoresDiv = withEl hideElement "#scores-container"

@@ -110,7 +110,6 @@ rawStyles = """
   }
 
   #prompt {
-    position: absolute;
     z-index: 3;
     margin: 0 auto;
     text-align: center;
