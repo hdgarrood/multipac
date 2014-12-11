@@ -235,10 +235,6 @@ quadrance (Position p) (Position q) =
 
 data GameObject = GOPlayer Player | GOItem Item
 
-instance showGameObject :: Show GameObject where
-  show (GOPlayer p) = "GOPlayer (" <> show p <> ")"
-  show (GOItem i)   = "GOItem (" <> show i <> ")"
-
 newtype Player
   = Player
       { position :: Position
@@ -246,6 +242,7 @@ newtype Player
       , intendedDirection :: Maybe Direction
       , score :: Number
       , nomIndex :: Number
+      , isEaten :: Boolean
       }
 
 instance toJSONPlayer :: ToJSON Player where
@@ -256,23 +253,26 @@ instance toJSONPlayer :: ToJSON Player where
            , toJSON p.intendedDirection
            , toJSON p.score
            , toJSON p.nomIndex
+           , toJSON p.isEaten
            ]
 
 instance fromJSONPlayer :: FromJSON Player where
   parseJSON (JArray arr) =
     case arr of
-      [JString "Player", pos, dir, intdir, sc, idx] -> do
+      [JString "Player", pos, dir, intdir, sc, idx, etn] -> do
         p <- parseJSON pos
         d <- parseJSON dir
         i <- parseJSON intdir
         s <- parseJSON sc
         x <- parseJSON idx
+        e <- parseJSON etn
         return $ Player
                   { position: p
                   , direction: d
                   , intendedDirection: i
                   , score: s
                   , nomIndex: x
+                  , isEaten: e
                   }
       _ -> failJsonParse arr "Player"
   parseJSON val = failJsonParse val "Player"
@@ -287,15 +287,8 @@ mkPlayer pos =
          , intendedDirection: Nothing
          , score: 0
          , nomIndex: floor (nomIndexMax / 2)
+         , isEaten: false
          }
-
-instance showPlayer :: Show Player where
-  show (Player p) =
-    showRecord "Player"
-      [ "position" .:: p.position
-      , "direction" .:: p.direction
-      , "intendedDirection" .:: p.intendedDirection
-      ]
 
 players :: forall r a. LensP { players :: a | r } a
 players = lens (\o -> o.players) (\o x -> o { players = x })
@@ -327,6 +320,11 @@ pNomIndex :: LensP Player Number
 pNomIndex = lens
   (\(Player p) -> p.nomIndex)
   (\(Player p) s -> Player $ p { nomIndex = s })
+
+pIsEaten :: LensP Player Boolean
+pIsEaten = lens
+  (\(Player p) -> p.isEaten)
+  (\(Player p) s -> Player $ p { isEaten = s })
 
 eachPlayer' :: forall f. (Applicative f) =>
   Game -> (PlayerId -> Player -> f Unit) -> f Unit
