@@ -215,7 +215,7 @@ eatOtherPlayers pId p = do
   ok <- isRampage pId
   when ok $ do
     eachPlayer $ \pId' p' ->
-      when (pId' /= pId) $ do
+      when (pId' /= pId && not (p' ^. pIsEaten)) $ do
         let q = quadrance (p ^. pPosition) (p' ^. pPosition)
         when (q <= minEatingQuadrance) $ do
           changeIsEaten pId' true
