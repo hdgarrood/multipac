@@ -21,7 +21,7 @@ import Control.Monad.Eff.Ref
 import Control.Reactive.Timer
 import Control.Lens hiding ((.=))
 import Data.DOM.Simple.Types (DOM(), DOMEvent())
-import Math (floor, pi)
+import Math (floor, pi, pow)
 
 import Utils
 import qualified NodeWebSocket as WS
@@ -231,7 +231,7 @@ scalePos s (Position p) = Position {x: s * p.x, y: s * p.y}
 
 quadrance :: Position -> Position -> Number
 quadrance (Position p) (Position q) =
-  ((p.x - q.x) ^ 2) + ((p.y - q.y) ^ 2)
+  ((p.x - q.x) `pow` 2) + ((p.y - q.y) `pow` 2)
 
 data GameObject = GOPlayer Player | GOItem Item
 
@@ -455,6 +455,7 @@ data PlayerUpdate
   | ChangedPosition Position
   | ChangedScore Number
   | ChangedNomIndex Number
+  | ChangedIsEaten Boolean
   | PlayerLeft
 
 instance showPlayerUpdate :: Show PlayerUpdate where
@@ -473,6 +474,7 @@ instance fromJSONPlayerUpdate :: FromJSON PlayerUpdate where
        [JString "cid", x] -> ChangedIntendedDirection <$> parseJSON x
        [JString "cs", x] -> ChangedScore <$> parseJSON x
        [JString "cni", x] -> ChangedNomIndex <$> parseJSON x
+       [JString "iseat", x] -> ChangedIsEaten <$> parseJSON x
        [JString "left"] -> return PlayerLeft
 
   parseJSON val = failJsonParse val "PlayerUpdate"
@@ -485,6 +487,7 @@ instance toJSONPlayerUpdate :: ToJSON PlayerUpdate where
       ChangedIntendedDirection d -> [JString "cid", toJSON d]
       ChangedScore x             -> [JString "cs", toJSON x]
       ChangedNomIndex x          -> [JString "cni", toJSON x]
+      ChangedIsEaten x           -> [JString "iseat", toJSON x]
       PlayerLeft                 -> [JString "left"]
 
 

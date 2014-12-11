@@ -24,7 +24,7 @@ rampageLength = 300
 
 -- minimum squared distance that a player needs to be from another player in
 -- order to eat them, in blocks.
-minEatingQuadrance = 16
+minEatingQuadrance = 4
 
 -- update signalling
 
@@ -66,6 +66,7 @@ applyPlayerUpdate u =
     (ChangedIntendedDirection d) -> pIntendedDirection .~ d
     (ChangedScore s) -> pScore .~ s
     (ChangedNomIndex a) -> pNomIndex .~ a
+    (ChangedIsEaten x) -> pIsEaten .~ x
 
 applyItemUpdate :: ItemUpdate -> Maybe Item -> Maybe Item
 applyItemUpdate u =
@@ -105,6 +106,10 @@ eat :: ItemId -> GameUpdateM Unit
 eat iId =
   applyGameUpdateM (GUIU iId Eaten)
 
+changeIsEaten :: PlayerId -> Boolean -> GameUpdateM Unit
+changeIsEaten pId x =
+  applyGameUpdateM (GUPU pId (ChangedIsEaten x))
+
 endGame :: GameEndReason -> GameUpdateM Unit
 endGame =
   applyGameUpdateM <<< GameEnded
@@ -125,7 +130,7 @@ initialGame =
   levelmap = basicMap2
   f (Tuple pId position) = Tuple pId (mkPlayer position)
   starts =
-    [ P1 ~ tilePositionToBlock (Position {x:7, y:7})
+    [ P1 ~ tilePositionToBlock (Position {x:5, y:7})
     , P2 ~ tilePositionToBlock (Position {x:9, y:7})
     , P3 ~ tilePositionToBlock (Position {x:7, y:8})
     , P4 ~ tilePositionToBlock (Position {x:9, y:8})
@@ -190,16 +195,18 @@ isRampage pId =
 eatItems :: PlayerId -> Player -> GameUpdateM Unit
 eatItems pId p = do
   g <- getGame
-  whenJust (lookupItemByPosition (p ^. pPosition) g) $ \(Tuple iId item) -> do
-    case item ^. iType of
-      LittleDot -> do
-        eat iId
-        changeScore pId (p ^. pScore + 1)
-      BigDot ->
-        when (not (isJust g.rampage)) $ do
+  when (not (p ^. pIsEaten)) $ do
+    let mItem = lookupItemByPosition (p ^. pPosition) g
+    whenJust mItem $ \(Tuple iId item) -> do
+      case item ^. iType of
+        LittleDot -> do
           eat iId
-          changeScore pId (p ^. pScore + 5)
-          startRampage pId
+          changeScore pId (p ^. pScore + 1)
+        BigDot ->
+          when (not (isJust g.rampage)) $ do
+            eat iId
+            changeScore pId (p ^. pScore + 5)
+            startRampage pId
 
 eatOtherPlayers :: PlayerId -> Player -> GameUpdateM Unit
 eatOtherPlayers pId p = do
@@ -209,7 +216,7 @@ eatOtherPlayers pId p = do
       when (pId' /= pId) $ do
         let q = quadrance (p ^. pPosition) (p' ^. pPosition)
         when (q <= minEatingQuadrance) $
-          tracePM $ show pId <> " ATE " <> show pId'
+          changeIsEaten pId' true
 
 decrementRampageCounter :: GameUpdateM Unit
 decrementRampageCounter = do
@@ -236,10 +243,10 @@ tryChangeDirection pId p d = do
 canMoveInDirection :: PlayerId -> Player -> Direction -> GameUpdateM Boolean
 canMoveInDirection pId (Player p) d =
   let newPosition = moveInDirection d p.position
-      destIsFree game = isFree game.map newPosition
-      immobilised game =
-          maybe false (\(Tuple pId' count) ->
-                          pId' /= pId && isOdd count) game.rampage
+      destIsFree game  = isFree game.map newPosition
+      immobilised game = not p.isEaten && isFleeing game
+      isFleeing game   = maybe false (\(Tuple pId' count) ->
+                                pId' /= pId && isOdd count) game.rampage
       both (Tuple x y) = x && y
   in  both <<< (destIsFree &&& (not <<< immobilised)) <$> getGame
 
