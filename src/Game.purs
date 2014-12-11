@@ -156,6 +156,7 @@ doLogic = do
       eachPlayer updateDirection
       eachPlayer movePlayer
       eachPlayer eatItems
+      decrementRampageCounter
       checkForGameEnd
 
 decrementOrNothing x =
@@ -189,6 +190,12 @@ eatItems pId p = do
           eat iId
           changeScore pId (p ^. pScore + 5)
           startRampage pId
+
+decrementRampageCounter :: GameUpdateM Unit
+decrementRampageCounter = do
+  g <- getGame
+  whenJust g.rampage $ \(Tuple pId counter) ->
+    changeRampage (Tuple pId <$> decrementOrNothing counter)
 
 startRampage :: PlayerId -> GameUpdateM Unit
 startRampage pId =
