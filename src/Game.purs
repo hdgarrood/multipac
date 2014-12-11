@@ -219,8 +219,12 @@ eatOtherPlayers pId p = do
         let q = quadrance (p ^. pPosition) (p' ^. pPosition)
         when (q <= minEatingQuadrance) $ do
           changeIsEaten pId' true
-          changeScore pId $ p ^. pScore + p' ^. pScore
-          changeScore pId' 0
+          takeHalfPoints pId p pId' p'
+  where
+  takeHalfPoints pId p pId' p' = do
+    let delta = floor (p' ^. pScore / 2)
+    changeScore pId $ p ^. pScore + delta
+    changeScore pId' $ p' ^. pScore - delta
 
 decrementRampageCounter :: GameUpdateM Unit
 decrementRampageCounter = do
