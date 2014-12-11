@@ -313,13 +313,13 @@ renderItems game =
 renderItem :: forall e. Item -> CanvasM e Unit
 renderItem item = do
   let centre = getCentredRectAt (item ^. iPosition)
-  setFillStyle littleDotColor
+  setFillStyle dotColor
   beginPath
   arc { x: centre.x
       , y: centre.y
       , start: 0
       , end: 2 * pi
-      , r: littleDotRadius
+      , r: dotRadiusFor (item ^. iType)
       }
   fill
 

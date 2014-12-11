@@ -19,7 +19,7 @@ import Utils
 
 
 minPlayers = 2
-
+rampageLength = 300
 
 -- update signalling
 
@@ -42,6 +42,8 @@ applyGameUpdate u =
       setCountdown x
     GameEnded _ ->
       id
+    ChangedRampage r ->
+      \g -> g { rampage = r }
   where
   setCountdown x game = game {countdown = x}
 
@@ -102,12 +104,17 @@ endGame :: GameEndReason -> GameUpdateM Unit
 endGame =
   applyGameUpdateM <<< GameEnded
 
+changeRampage :: Maybe (Tuple PlayerId Number) -> GameUpdateM Unit
+changeRampage =
+  applyGameUpdateM <<< ChangedRampage
+
 initialGame :: Game
 initialGame =
   { map: levelmap
   , players: M.fromList $ f <$> starts
-  , items:   M.fromList $ zipNumbers $ makeItems levelmap (snd <$> starts)
+  , items:   M.fromList $ zipNumbers $ makeItems levelmap excludes bigDots
   , countdown: Just 90
+  , rampage: Nothing
   }
   where
   levelmap = basicMap2
@@ -118,6 +125,15 @@ initialGame =
     , P3 ~ tilePositionToBlock (Position {x:7, y:8})
     , P4 ~ tilePositionToBlock (Position {x:9, y:8})
     ]
+  excludes = do
+    x <- [7,8,9]
+    y <- [6,7,8,9]
+    return (tilePositionToBlock (Position {x:x, y:y}))
+  bigDots = do
+    x <- [3, tilesAlongSide - 4]
+    y <- [3, tilesAlongSide - 4]
+    return (tilePositionToBlock (Position {x:x, y:y}))
+
 
 stepGame :: Input -> Game -> Tuple Game [GameUpdate]
 stepGame input game =
@@ -163,9 +179,20 @@ movePlayer pId p =
 eatItems :: PlayerId -> Player -> GameUpdateM Unit
 eatItems pId p = do
   g <- getGame
-  whenJust (lookupItemByPosition (p ^. pPosition) g) $ \iId -> do
-    eat iId
-    changeScore pId (p ^. pScore + 1)
+  whenJust (lookupItemByPosition (p ^. pPosition) g) $ \(Tuple iId item) -> do
+    case item ^. iType of
+      LittleDot -> do
+        eat iId
+        changeScore pId (p ^. pScore + 1)
+      BigDot ->
+        when (not (isJust g.rampage)) $ do
+          eat iId
+          changeScore pId (p ^. pScore + 5)
+          startRampage pId
+
+startRampage :: PlayerId -> GameUpdateM Unit
+startRampage pId =
+  changeRampage $ Just $ pId ~ rampageLength
 
 checkForGameEnd :: GameUpdateM Unit
 checkForGameEnd = do
@@ -195,16 +222,28 @@ isFree levelmap pos =
 
 -- Prepare items on a map
 -- * put a little dot in every free space
-makeItems :: LevelMap -> [Position] -> [Item]
-makeItems levelmap excludes =
-  Tuple <$> r <*> r >>= \(Tuple x y) ->
-    let pos = tilePositionToBlock (Position {x: x, y: y})
-    in if shouldHaveDot pos
-         then [Item { itemType: LittleDot, position: pos }]
-         else []
+-- * put a big dot in every given space
+makeItems :: LevelMap -> [Position] -> [Position] -> [Item]
+makeItems levelmap excludes bigDotPositions =
+  littleDots <> bigDots
   where
+  littleDots = do
+    x <- r
+    y <- r
+    let pos = tilePositionToBlock (Position {x: x, y: y})
+    if shouldHaveLittleDot pos
+      then [Item { itemType: LittleDot, position: pos }]
+      else []
+
   r = range 0 (tilesAlongSide - 1)
-  shouldHaveDot pos = isFree levelmap pos && not (elem pos excludes)
+
+  shouldHaveLittleDot pos =
+    isFree levelmap pos &&
+      not (elem pos excludes) &&
+      not (elem pos bigDotPositions)
+
+  bigDots =
+    (\pos -> Item { itemType: BigDot, position: pos }) <$> bigDotPositions
 
 makeGame :: [PlayerId] -> Game
 makeGame pIds =
@@ -224,8 +263,9 @@ checkEnded g
 isEnded = isJust <<< checkEnded
 
 -- TODO: performance
-lookupItemByPosition :: Position -> Game -> Maybe ItemId
+lookupItemByPosition :: Position -> Game -> Maybe (Tuple ItemId Item)
 lookupItemByPosition pos g =
   case filter (\i -> (i ^. _2 ^. iPosition) == pos) (M.toList g.items) of
-      [i] -> Just (i ^. _1)
-      _   -> Nothing
+      [i] -> Just i
+      []  -> Nothing
+      x   -> error $ "lookupItemByPosition: items stacked: " <> show x

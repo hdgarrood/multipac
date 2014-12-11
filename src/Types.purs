@@ -40,6 +40,7 @@ type Game = { map :: LevelMap
             , players :: M.Map PlayerId Player
             , items   :: M.Map ItemId Item
             , countdown :: Maybe Number
+            , rampage :: Maybe (Tuple PlayerId Number)
             }
 newtype WrappedGame = WrappedGame Game
 
@@ -52,6 +53,7 @@ instance toJSONWrappedGame :: ToJSON WrappedGame where
            , "players" .= toJSON game.players
            , "items" .= toJSON game.items
            , "countdown" .= toJSON game.countdown
+           , "rampage" .= toJSON game.rampage
            ]
 
 instance fromJSONWrappedGame :: FromJSON WrappedGame where
@@ -60,7 +62,8 @@ instance fromJSONWrappedGame :: FromJSON WrappedGame where
     p <- obj .: "players"
     i <- obj .: "items"
     c <- obj .:? "countdown"
-    return $ WrappedGame {map:m, players:p, items:i, countdown:c}
+    r <- obj .:? "rampage"
+    return $ WrappedGame {map:m, players:p, items:i, countdown:c, rampage:r}
 
 data PlayerId = P1 | P2 | P3 | P4
 
@@ -518,12 +521,7 @@ data GameUpdate
   | GUIU ItemId ItemUpdate
   | ChangedCountdown (Maybe Number)
   | GameEnded GameEndReason
-
-instance showGameUpdate :: Show GameUpdate where
-  show (GUPU pId u) = "GUPU (" <> show pId <> ") (" <> show u <> ")"
-  show (GUIU iId u) = "GUIU (" <> show iId <> ") (" <> show u <> ")"
-  show (ChangedCountdown x) = "ChangedCountdown " <> show x
-  show (GameEnded x) = "GameEnded " <> show x
+  | ChangedRampage (Maybe (Tuple PlayerId Number))
 
 instance fromJSONGameUpdate :: FromJSON GameUpdate where
   parseJSON (JArray arr) =
@@ -536,6 +534,8 @@ instance fromJSONGameUpdate :: FromJSON GameUpdate where
         ChangedCountdown <$> parseJSON x
       [JString "ged", r] ->
         GameEnded <$> parseJSON r
+      [JString "crp", r] ->
+        ChangedRampage <$> parseJSON r
       _ -> failJsonParse arr "GameUpdate"
   parseJSON val = failJsonParse val "GameUpdate"
 
@@ -548,6 +548,8 @@ instance toJSONGameUpdate :: ToJSON GameUpdate where
     JArray [JString "ccd", toJSON x]
   toJSON (GameEnded r) =
     JArray [JString "ged", toJSON r]
+  toJSON (ChangedRampage r) =
+    JArray [JString "crp", toJSON r]
 
 -- Sent by the server during the waiting stage, ie, after initial connection
 -- but before the game starts
