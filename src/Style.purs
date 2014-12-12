@@ -13,6 +13,7 @@ fontColor              = "#dfd1a5"
 tileColor              = "hsl(200, 80%, 40%)"
 dotColor               = "#eecccc"
 rampagePlayerColor     = "hsl(55, 90%, 60%)"
+fleeingFlashColor      = "hsl(160, 100%, 60%)"
 
 playerColor :: PlayerId -> String
 playerColor pId =

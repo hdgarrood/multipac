@@ -11,6 +11,7 @@ import Graphics.Canvas
   (getContext2D, setCanvasHeight, setCanvasWidth, Rectangle(), Arc(),
   Context2D(), Canvas(), getCanvasElementById, TextAlign(..), LineCap(..))
 import Control.Monad.Eff
+import Control.Arrow
 import Control.Monad (when)
 import Control.Monad.Reader.Class (reader)
 import Control.Lens ((^.), (..), (~), (^?))
@@ -258,11 +259,12 @@ renderEdges es =
 
 renderPlayer :: forall e.
   (PlayerId -> Boolean)
+  -> (PlayerId -> Boolean)
   -> PlayerId
   -> Player
   -> CanvasM e Unit
-renderPlayer isRampaging pId player = do
-  setFillStyle $ playerColor pId
+renderPlayer isRampaging isFleeing pId player = do
+  setFillStyle $ if isFleeing pId then fleeingFlashColor else playerColor pId
   let r = playerRenderParameters player
   let centre = getCentredRectAt (player ^. pPosition)
   beginPath
@@ -346,8 +348,25 @@ renderPlayers game = do
                 Rampaging pId _ -> (==) pId
                 _ -> const false)
             game.rampage
+  let isFleeing =
+      maybe (const false)
+            (\r -> case r of
+                Rampaging pId ctr ->
+                  \pId' -> pId /= pId' && elem ctr flashCounts
+                _ ->
+                  const false)
+            game.rampage
 
-  eachPlayer' game (renderPlayer isRampaging)
+  eachPlayer' game (renderPlayer isRampaging isFleeing)
+
+  where
+  flashCounts = concatMap (uncurry range) flashes
+
+  initial = rampageLength ~ (rampageLength - step)
+  f = (\x -> x - (2 * step))
+  step = 10
+  flashes = iterateN 5 initial (f *** f)
+
 
 clearCanvas :: forall e. CanvasM e Unit
 clearCanvas =
