@@ -46,6 +46,8 @@ type ClientCallbacks st inc outg e =
   { onMessage     :: inc -> ClientM st outg e Unit
   , onKeyDown     :: DOMEvent -> ClientM st outg e Unit
   , render        :: ClientM st outg e Unit
+  , onError       :: ClientM st outg e Unit
+  , onClose       :: ClientM st outg e Unit
   }
 
 type ClientM st outg e a =
@@ -136,6 +138,8 @@ startClient initialState cs socketUrl playerName =
     for_ internals (handleInternalMessage refCln)
 
     WS.onMessage socket (onMessageCallback refCln)
+    WS.onError   socket (runCallback refCln cs.onError)
+    WS.onClose   socket (runCallback refCln cs.onClose)
 
     addKeyboardEventListener
       KeydownEvent
@@ -144,7 +148,7 @@ startClient initialState cs socketUrl playerName =
 
     void $ startAnimationLoop $ do
       c <- readRef refCln
-      runCallback refCln $ cs.render
+      runCallback refCln cs.render
 
   where
   onMessageCallback ref msg =

@@ -44,6 +44,47 @@ onMessage :: forall e a.
 onMessage socket callback =
   runFn2 onMessageImpl socket callback
 
+
+foreign import onErrorImpl
+  """
+  function onErrorImpl(socket, callback) {
+    return function() {
+      socket.onerror = callback
+    }
+  }
+  """ :: forall e a.
+  Fn2
+    Socket
+    (Eff (ws :: WebSocket | e) a)
+    (Eff (ws :: WebSocket | e) Unit)
+
+onError :: forall e a.
+  Socket
+  -> (Eff (ws :: WebSocket | e) a)
+  -> (Eff (ws :: WebSocket | e) Unit)
+onError socket callback =
+  runFn2 onErrorImpl socket callback
+
+foreign import onCloseImpl
+  """
+  function onCloseImpl(socket, callback) {
+    return function() {
+      socket.onclose = callback
+    }
+  }
+  """ :: forall e a.
+  Fn2
+    Socket
+    (Eff (ws :: WebSocket | e) a)
+    (Eff (ws :: WebSocket | e) Unit)
+
+onClose :: forall e a.
+  Socket
+  -> (Eff (ws :: WebSocket | e) a)
+  -> (Eff (ws :: WebSocket | e) Unit)
+onClose socket callback =
+  runFn2 onCloseImpl socket callback
+
 foreign import sendImpl
   """
   function sendImpl(socket, message) {

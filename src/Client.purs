@@ -120,6 +120,8 @@ mkCallbacks =
     { render: render ctx
     , onMessage: onMessage
     , onKeyDown: onKeyDown
+    , onError: onError
+    , onClose: onClose
     }
 
 render :: forall e. RenderingContext -> CM e Unit
@@ -195,13 +197,27 @@ onMessage msg = do
       matchWaiting msg $ \update -> do
         case update of
           GameStarting game -> do
-            let gip = { game: game, prevGame: game, redrawMap: true, cachedHtml: ""}
             liftEff $ do
               hideWaitingMessageDiv
               showSimpleScoresDiv
-            put $ CInProgress gip
+            put $ CInProgress $ startNewGame game
           NewReadyStates m -> do
             put $ CWaitingForPlayers (g # readyStates .~ m)
+
+
+startNewGame game =
+  { game: game
+  , prevGame: game
+  , redrawMap: true
+  , cachedHtml: ""
+  }
+
+
+onError = liftEff $ do
+  withEl showElement "#error"
+  withEl showElement "#error-overlay"
+
+onClose = onError
 
 
 putWaitingState :: forall e. Maybe Game -> CM e Unit

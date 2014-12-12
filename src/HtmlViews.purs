@@ -12,7 +12,7 @@ import Data.Function (on)
 import qualified Data.Map as M
 import Text.Smolder.HTML
   (html, head, meta, script, style, body, div, h1, h2, canvas, title, link, p,
-   input)
+   input, a)
 import Text.Smolder.HTML.Attributes
   (lang, charset, httpEquiv, content, src, defer, type', id, className, name,
   rel, href)
@@ -29,11 +29,15 @@ replaceAll = fmap (uncurry replace) >>> foldr (>>>) Prelude.id
 styles =
   replaceAll
     [ "${backgroundColor}" ~ backgroundColor
+    , "${backgroundColor}" ~ backgroundColor
     , "${backgroundColorLighter}" ~ backgroundColorLighter
     , "${fontColor}" ~ fontColor
     , "${fontColor}" ~ fontColor
     , "${fontColor}" ~ fontColor
     , "${fontName}" ~ fontName
+    , "${tileColor}" ~ tileColor
+    , "${canvasSize}" ~ (show canvasSize)
+    , "${canvasSize}" ~ (show canvasSize)
     , "${canvasSize}" ~ (show canvasSize)
     , "${canvasSize}" ~ (show canvasSize)
     , "${canvasSize}" ~ (show canvasSize)
@@ -53,14 +57,20 @@ rawStyles = """
     background-color: ${backgroundColor};
     color: ${fontColor};
     font: normal 100% ${fontName}, sans-serif;
+    margin: 0;
   }
 
   h1 {
+    padding-top: 1em;
     text-align: center;
   }
 
   div, p {
     word-wrap: break-word;
+  }
+
+  a, a:visited {
+    color: ${tileColor};
   }
 
   input {
@@ -122,6 +132,38 @@ rawStyles = """
     font-size: 140%;
     margin-left: 0 auto;
     margin-right: 0 auto;
+  }
+
+  #error {
+    position: fixed;
+    top: 25%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 101;
+
+    width: ${canvasSize}px;
+    background-color: ${backgroundColor};
+    display: none;
+
+    border: 1px solid;
+    border-radius: 10px;
+  }
+
+  #error-overlay {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    display: none;
+    z-index: 100;
+    background-color: rgba(0,0,0, 0.5);
+  }
+
+  #error h2 {
+    text-align: center;
+  }
+
+  #error p {
+    padding: 0 4em 0 4em;
   }
 
   .scores {
@@ -207,6 +249,7 @@ indexDoc =
       style ! type' "text/css" $ text styles
 
     body $ do
+      div ! id "error-overlay" $ text ""
       div ! id "game" $ do
         h1 $ text "multipac"
 
@@ -218,6 +261,14 @@ indexDoc =
 
         canvas ! id "foreground" $ text ""
         canvas ! id "background" $ text ""
+
+        div ! id "error" $ do
+          h2 $ text "disconnected"
+          p $ do
+            text "something went wrong and I couldn't contact the server. "
+            text "Please "
+            a ! href "" $ text "refresh the page"
+            text " to reconnect."
 
         div ! id "scores-container" $ text ""
 
