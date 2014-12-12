@@ -257,10 +257,11 @@ renderEdges es =
       stroke
 
 renderPlayer :: forall e.
-  PlayerId
+  (PlayerId -> Boolean)
+  -> PlayerId
   -> Player
   -> CanvasM e Unit
-renderPlayer pId player = do
+renderPlayer isRampaging pId player = do
   setFillStyle $ playerColor pId
   let r = playerRenderParameters player
   let centre = getCentredRectAt (player ^. pPosition)
@@ -269,6 +270,11 @@ renderPlayer pId player = do
   arc r.arc
   lineTo r.start.x r.start.y
   fill
+
+  when (isRampaging pId) $ do
+    setLineWidth 2
+    setStrokeStyle rampagePlayerColor
+    stroke
 
 playerRenderParameters player =
   let centre = getCentredRectAt (player ^. pPosition)
@@ -333,8 +339,15 @@ renderItem rampaging item = do
     fill
 
 renderPlayers :: forall e. Game -> CanvasM e Unit
-renderPlayers game =
-  eachPlayer' game renderPlayer
+renderPlayers game = do
+  let isRampaging =
+      maybe (const false)
+            (\r -> case r of
+                Rampaging pId _ -> (==) pId
+                _ -> const false)
+            game.rampage
+
+  eachPlayer' game (renderPlayer isRampaging)
 
 clearCanvas :: forall e. CanvasM e Unit
 clearCanvas =

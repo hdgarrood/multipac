@@ -12,6 +12,7 @@ backgroundColorLighter = "hsl(240, 20%, 32%)"
 fontColor              = "#dfd1a5"
 tileColor              = "hsl(200, 80%, 40%)"
 dotColor               = "#eecccc"
+rampagePlayerColor     = "hsl(55, 90%, 60%)"
 
 playerColor :: PlayerId -> String
 playerColor pId =
