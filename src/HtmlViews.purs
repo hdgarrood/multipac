@@ -28,7 +28,8 @@ replaceAll = fmap (uncurry replace) >>> foldr (>>>) Prelude.id
 
 styles =
   replaceAll
-    [ "${backgroundColor}" ~ backgroundColor
+    [ "${linkColor}" ~ linkColor
+    , "${backgroundColor}" ~ backgroundColor
     , "${backgroundColor}" ~ backgroundColor
     , "${backgroundColorLighter}" ~ backgroundColorLighter
     , "${fontColor}" ~ fontColor
@@ -70,7 +71,7 @@ rawStyles = """
   }
 
   a, a:visited {
-    color: ${tileColor};
+    color: ${linkColor};
   }
 
   input {
