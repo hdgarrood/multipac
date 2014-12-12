@@ -261,7 +261,7 @@ renderPlayer :: forall e.
   -> Player
   -> CanvasM e Unit
 renderPlayer pId player = do
-  setFillStyle $ if isRespawning player then "grey" else playerColor pId
+  setFillStyle $ playerColor pId
   let r = playerRenderParameters player
   let centre = getCentredRectAt (player ^. pPosition)
   beginPath
@@ -278,10 +278,17 @@ playerRenderParameters player =
       index = player ^. pNomIndex
       half = floor (nomIndexMax / 2)
       maxAngle = pi / 2
+      halfAngle = maxAngle / 2
       multiplier = nomIndexMax / maxAngle
-      delta = multiplier * (if index <= half
-                                then index
-                                else (nomIndexMax - index)) + 0.001
+      delta =
+        case player ^. pRespawnCounter of
+          Just ctr ->
+            halfAngle + ((1 - (ctr / respawnLength)) * (pi - halfAngle))
+          Nothing ->
+            multiplier * (if index <= half
+                            then index
+                            else (nomIndexMax - index)) + 0.001
+
 
       op = dirToPos $ opposite direction
       start = add (scalePos (playerRadius / 2) op) (toPosition centre)
