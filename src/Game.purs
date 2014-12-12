@@ -21,7 +21,7 @@ import Utils
 
 minPlayers = 2
 rampageLength = 180
-cooldownLength = 60
+cooldownLength = 120
 respawnLength = 60
 
 -- minimum squared distance that a player needs to be from another player in
