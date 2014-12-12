@@ -332,7 +332,7 @@ inCountdown g = isJust g.countdown
 
 checkEnded :: Game -> Maybe GameEndReason
 checkEnded g
-  | M.isEmpty g.items                         = Just Completed
+  | M.isEmpty g.items && isNothing g.rampage  = Just Completed
   | length (M.values g.players) < minPlayers  = Just TooManyPlayersDisconnected
   | otherwise                                 = Nothing
 
