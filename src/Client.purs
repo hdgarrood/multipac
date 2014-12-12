@@ -40,6 +40,13 @@ foreign import host
   }
   """ :: DOMLocation -> String
 
+foreign import protocol
+  """
+  function protocol(location) {
+    return location.protocol
+  }
+  """ :: DOMLocation -> String
+
 foreign import selectElement """
   function selectElement(el) {
     return function() {
@@ -109,8 +116,10 @@ start startedRef name = do
 
     callbacks <- mkCallbacks
     h <- host <$> location globalWindow
+    p <- protocol <$> location globalWindow
 
-    let socketUrl = "ws://" <> h <> "/"
+    let wsProtocol = if p == "https:" then "wss:" else "ws:"
+    let socketUrl = wsProtocol <> "//" <> h <> "/"
     startClient initialState callbacks socketUrl name
 
 
