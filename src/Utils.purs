@@ -24,8 +24,7 @@ iterateN :: forall a. Number -> a -> (a -> a) -> [a]
 iterateN n x f =
   if n <= 0
      then []
-     else let x' = f x
-          in  [x'] <> iterateN (n - 1) x' f
+     else [x] <> iterateN (n - 1) (f x) f
 
 
 collect :: forall a b. (a -> Maybe b) -> [a] -> [b]

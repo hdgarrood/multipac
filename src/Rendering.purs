@@ -363,8 +363,8 @@ renderPlayers game = do
   flashCounts = concatMap (uncurry range) flashes
 
   initial = rampageLength ~ (rampageLength - step)
-  f = (\x -> x - (2 * step))
-  step = 10
+  f x = x - (2 * step)
+  step = 8
   flashes = iterateN 5 initial (f *** f)
 
 
