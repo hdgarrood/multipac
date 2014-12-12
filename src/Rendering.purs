@@ -314,21 +314,23 @@ enlargeRect delta r =
   }
 
 renderItems :: forall e. Game -> CanvasM e Unit
-renderItems game =
-  eachItem' game renderItem
-
-renderItem :: forall e. Item -> CanvasM e Unit
-renderItem item = do
-  let centre = getCentredRectAt (item ^. iPosition)
+renderItems game = do
   setFillStyle dotColor
-  beginPath
-  arc { x: centre.x
-      , y: centre.y
-      , start: 0
-      , end: 2 * pi
-      , r: dotRadiusFor (item ^. iType)
-      }
-  fill
+  let rampaging = isJust game.rampage
+  eachItem' game (renderItem rampaging)
+
+renderItem :: forall e. Boolean -> Item -> CanvasM e Unit
+renderItem rampaging item = do
+  let centre = getCentredRectAt (item ^. iPosition)
+  when (not (item ^. iType == BigDot && rampaging)) $ do
+    beginPath
+    arc { x: centre.x
+        , y: centre.y
+        , start: 0
+        , end: 2 * pi
+        , r: dotRadiusFor (item ^. iType)
+        }
+    fill
 
 renderPlayers :: forall e. Game -> CanvasM e Unit
 renderPlayers game =

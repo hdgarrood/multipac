@@ -430,6 +430,13 @@ instance showItemType :: Show ItemType where
   show BigDot = "BigDot"
   show Cherry = "Cherry"
 
+instance eqItemType :: Eq ItemType where
+  (==) LittleDot LittleDot = true
+  (==) BigDot BigDot = true
+  (==) Cherry Cherry = true
+  (==) _ _ = false
+  (/=) x y = not (x == y)
+
 instance toJSONItemType :: ToJSON ItemType where
   toJSON = JString <<< show
 
