@@ -21,7 +21,7 @@ import Utils
 
 minPlayers = 2
 rampageLength = 180
-respawnLength = 45
+respawnLength = 60
 
 -- minimum squared distance that a player needs to be from another player in
 -- order to eat them, in blocks.
