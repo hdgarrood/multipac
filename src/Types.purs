@@ -255,7 +255,7 @@ newtype Player
       , intendedDirection :: Maybe Direction
       , score :: Number
       , nomIndex :: Number
-      , isEaten :: Boolean
+      , respawnCounter :: Maybe Number
       }
 
 instance toJSONPlayer :: ToJSON Player where
@@ -266,26 +266,26 @@ instance toJSONPlayer :: ToJSON Player where
            , toJSON p.intendedDirection
            , toJSON p.score
            , toJSON p.nomIndex
-           , toJSON p.isEaten
+           , toJSON p.respawnCounter
            ]
 
 instance fromJSONPlayer :: FromJSON Player where
   parseJSON (JArray arr) =
     case arr of
-      [JString "Player", pos, dir, intdir, sc, idx, etn] -> do
+      [JString "Player", pos, dir, intdir, sc, idx, ctr] -> do
         p <- parseJSON pos
         d <- parseJSON dir
         i <- parseJSON intdir
         s <- parseJSON sc
         x <- parseJSON idx
-        e <- parseJSON etn
+        c <- parseJSON ctr
         return $ Player
                   { position: p
                   , direction: d
                   , intendedDirection: i
                   , score: s
                   , nomIndex: x
-                  , isEaten: e
+                  , respawnCounter: c
                   }
       _ -> failJsonParse arr "Player"
   parseJSON val = failJsonParse val "Player"
@@ -300,7 +300,7 @@ mkPlayer pos =
          , intendedDirection: Nothing
          , score: 0
          , nomIndex: floor (nomIndexMax / 2)
-         , isEaten: false
+         , respawnCounter: Nothing
          }
 
 players :: forall r a. LensP { players :: a | r } a
@@ -334,10 +334,10 @@ pNomIndex = lens
   (\(Player p) -> p.nomIndex)
   (\(Player p) s -> Player $ p { nomIndex = s })
 
-pIsEaten :: LensP Player Boolean
-pIsEaten = lens
-  (\(Player p) -> p.isEaten)
-  (\(Player p) s -> Player $ p { isEaten = s })
+pRespawnCounter :: LensP Player (Maybe Number)
+pRespawnCounter = lens
+  (\(Player p) -> p.respawnCounter)
+  (\(Player p) s -> Player $ p { respawnCounter = s })
 
 eachPlayer' :: forall f. (Applicative f) =>
   Game -> (PlayerId -> Player -> f Unit) -> f Unit
@@ -468,7 +468,7 @@ data PlayerUpdate
   | ChangedPosition Position
   | ChangedScore Number
   | ChangedNomIndex Number
-  | ChangedIsEaten Boolean
+  | ChangedRespawnCounter (Maybe Number)
   | PlayerLeft
 
 instance showPlayerUpdate :: Show PlayerUpdate where
@@ -487,7 +487,7 @@ instance fromJSONPlayerUpdate :: FromJSON PlayerUpdate where
        [JString "cid", x] -> ChangedIntendedDirection <$> parseJSON x
        [JString "cs", x] -> ChangedScore <$> parseJSON x
        [JString "cni", x] -> ChangedNomIndex <$> parseJSON x
-       [JString "iseat", x] -> ChangedIsEaten <$> parseJSON x
+       [JString "rspwn", x] -> ChangedRespawnCounter <$> parseJSON x
        [JString "left"] -> return PlayerLeft
 
   parseJSON val = failJsonParse val "PlayerUpdate"
@@ -500,7 +500,7 @@ instance toJSONPlayerUpdate :: ToJSON PlayerUpdate where
       ChangedIntendedDirection d -> [JString "cid", toJSON d]
       ChangedScore x             -> [JString "cs", toJSON x]
       ChangedNomIndex x          -> [JString "cni", toJSON x]
-      ChangedIsEaten x           -> [JString "iseat", toJSON x]
+      ChangedRespawnCounter x    -> [JString "rspwn", toJSON x]
       PlayerLeft                 -> [JString "left"]
 
 

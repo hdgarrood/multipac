@@ -21,6 +21,7 @@ import Utils
 
 minPlayers = 2
 rampageLength = 180
+respawnLength = 45
 
 -- minimum squared distance that a player needs to be from another player in
 -- order to eat them, in blocks.
@@ -61,12 +62,12 @@ removePlayer pId = players .. at pId .~ Nothing
 applyPlayerUpdate :: PlayerUpdate -> Player -> Player
 applyPlayerUpdate u =
   case u of
-    (ChangedPosition p) -> pPosition .~ p
-    (ChangedDirection d) -> pDirection .~ d
+    (ChangedPosition p)          -> pPosition .~ p
+    (ChangedDirection d)         -> pDirection .~ d
     (ChangedIntendedDirection d) -> pIntendedDirection .~ d
-    (ChangedScore s) -> pScore .~ s
-    (ChangedNomIndex a) -> pNomIndex .~ a
-    (ChangedIsEaten x) -> pIsEaten .~ x
+    (ChangedScore s)             -> pScore .~ s
+    (ChangedNomIndex a)          -> pNomIndex .~ a
+    (ChangedRespawnCounter x)    -> pRespawnCounter .~ x
 
 applyItemUpdate :: ItemUpdate -> Maybe Item -> Maybe Item
 applyItemUpdate u =
@@ -106,9 +107,9 @@ eat :: ItemId -> GameUpdateM Unit
 eat iId =
   applyGameUpdateM (GUIU iId Eaten)
 
-changeIsEaten :: PlayerId -> Boolean -> GameUpdateM Unit
-changeIsEaten pId x =
-  applyGameUpdateM (GUPU pId (ChangedIsEaten x))
+changeRespawnCounter :: PlayerId -> Maybe Number -> GameUpdateM Unit
+changeRespawnCounter pId x =
+  applyGameUpdateM (GUPU pId (ChangedRespawnCounter x))
 
 endGame :: GameEndReason -> GameUpdateM Unit
 endGame =
@@ -168,7 +169,7 @@ doLogic = do
       eachPlayer movePlayer
       eachPlayer eatItems
       eachPlayer eatOtherPlayers
-      eachPlayer unEatSelf
+      eachPlayer attemptRespawn
       decrementRampageCounter
       checkForGameEnd
 
@@ -197,28 +198,27 @@ isRampage pId =
 eatItems :: PlayerId -> Player -> GameUpdateM Unit
 eatItems pId p = do
   g <- getGame
-  when (not (p ^. pIsEaten)) $ do
-    let mItem = lookupItemByPosition (p ^. pPosition) g
-    whenJust mItem $ \(Tuple iId item) -> do
-      case item ^. iType of
-        LittleDot -> do
+  let mItem = lookupItemByPosition (p ^. pPosition) g
+  whenJust mItem $ \(Tuple iId item) -> do
+    case item ^. iType of
+      LittleDot -> do
+        eat iId
+        changeScore pId (p ^. pScore + 1)
+      BigDot ->
+        when (not (isJust g.rampage)) $ do
           eat iId
-          changeScore pId (p ^. pScore + 1)
-        BigDot ->
-          when (not (isJust g.rampage)) $ do
-            eat iId
-            changeScore pId (p ^. pScore + 5)
-            startRampage pId
+          changeScore pId (p ^. pScore + 5)
+          startRampage pId
 
 eatOtherPlayers :: PlayerId -> Player -> GameUpdateM Unit
 eatOtherPlayers pId p = do
   ok <- isRampage pId
   when ok $ do
     eachPlayer $ \pId' p' ->
-      when (pId' /= pId && not (p' ^. pIsEaten)) $ do
+      when (pId' /= pId && not (isRespawning p')) $ do
         let q = quadrance (p ^. pPosition) (p' ^. pPosition)
         when (q <= minEatingQuadrance) $ do
-          changeIsEaten pId' true
+          changeRespawnCounter pId' $ Just respawnLength
           takeHalfPoints pId p pId' p'
   where
   takeHalfPoints pId p pId' p' = do
@@ -249,20 +249,27 @@ tryChangeDirection pId p d = do
     changeIntendedDirection pId Nothing
 
 canMoveInDirection :: PlayerId -> Player -> Direction -> GameUpdateM Boolean
-canMoveInDirection pId (Player p) d =
-  let newPosition = moveInDirection d p.position
+canMoveInDirection pId p d =
+  let newPosition = moveInDirection d (p ^. pPosition)
       destIsFree game  = isFree game.map newPosition
-      immobilised game = not p.isEaten && isFleeing game
+      immobilised game = isRespawning p || isFleeing game
       isFleeing game   = maybe false (\(Tuple pId' count) ->
                                 pId' /= pId && count % 3 == 0) game.rampage
       both (Tuple x y) = x && y
   in  both <<< (destIsFree &&& (not <<< immobilised)) <$> getGame
 
-unEatSelf :: PlayerId -> Player -> GameUpdateM Unit
-unEatSelf pId p = do
+isRespawning p =
+  isJust $ p ^. pRespawnCounter
+
+attemptRespawn :: PlayerId -> Player -> GameUpdateM Unit
+attemptRespawn pId p = do
   g <- getGame
-  when (p ^. pIsEaten && inSafeZone g (p ^. pPosition)) $ do
-    changeIsEaten pId false
+  whenJust (p ^. pRespawnCounter) $ \ctr -> do
+    let ctr' = decrementOrNothing ctr
+    changeRespawnCounter pId ctr'
+    when (ctr' == Nothing) $ do
+      let mPos = find (\pos -> isFree g.map pos) g.safeZone
+      whenJust mPos $ changePosition pId
 
 inSafeZone :: Game -> Position -> Boolean
 inSafeZone g pos = pos `elem` g.safeZone

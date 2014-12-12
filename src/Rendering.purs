@@ -261,7 +261,7 @@ renderPlayer :: forall e.
   -> Player
   -> CanvasM e Unit
 renderPlayer pId player = do
-  setFillStyle $ playerColor pId (if player ^. pIsEaten then "40%" else "100%")
+  setFillStyle $ if isRespawning player then "grey" else playerColor pId
   let r = playerRenderParameters player
   let centre = getCentredRectAt (player ^. pPosition)
   beginPath

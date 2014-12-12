@@ -190,7 +190,7 @@ playerColorStyles =
         concat [".player-"
                , show pId
                , " { color: "
-               , playerColor pId "100%"
+               , playerColor pId
                , ";}\n"
                ])
   where

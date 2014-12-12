@@ -13,15 +13,15 @@ fontColor              = "#dfd1a5"
 tileColor              = "hsl(200, 80%, 40%)"
 dotColor               = "#eecccc"
 
-playerColor :: PlayerId -> String -> String
-playerColor pId sat =
+playerColor :: PlayerId -> String
+playerColor pId =
   let hue =
       case pId of
          P1 -> 0
          P2 -> 90
          P3 -> 180
          P4 -> 270
-  in "hsl(" <> show hue <> ", " <> sat <> ", 60%)"
+  in "hsl(" <> show hue <> ", 100%, 60%)"
 
 pxPerTile = 35
 pxPerBlock = pxPerTile / tileSize
