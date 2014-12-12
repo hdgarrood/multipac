@@ -40,7 +40,7 @@ type Game = { map :: LevelMap
             , players :: M.Map PlayerId Player
             , items   :: M.Map ItemId Item
             , countdown :: Maybe Number
-            , rampage :: Maybe (Tuple PlayerId Number)
+            , rampage :: Maybe Rampage
             , safeZone :: [Position]
             }
 newtype WrappedGame = WrappedGame Game
@@ -534,12 +534,29 @@ instance fromJSONGameEndReason :: FromJSON GameEndReason where
   parseJSON (JString "tmpd") = return TooManyPlayersDisconnected
   parseJSON v = failJsonParse v "GameEndReason"
 
+data Rampage
+  = Rampaging PlayerId Number
+  | Cooldown Number
+
+instance toJSONRampage :: ToJSON Rampage where
+  toJSON (Rampaging pId x) = JArray [JString "rpgn", toJSON (Tuple pId x)]
+  toJSON (Cooldown x) = JArray [JString "cool", toJSON x]
+
+instance fromJSONRampage :: FromJSON Rampage where
+  parseJSON (JArray [JString type_, data_]) =
+    case type_ of
+      "rpgn" -> uncurry Rampaging <$> parseJSON data_
+      "cool" -> Cooldown <$> parseJSON data_
+      _ -> failJsonParse (JArray [JString type_, data_]) "Rampage"
+  parseJSON v = failJsonParse v "Rampage"
+
+
 data GameUpdate
   = GUPU PlayerId PlayerUpdate
   | GUIU ItemId ItemUpdate
   | ChangedCountdown (Maybe Number)
   | GameEnded GameEndReason
-  | ChangedRampage (Maybe (Tuple PlayerId Number))
+  | ChangedRampage (Maybe Rampage)
 
 instance fromJSONGameUpdate :: FromJSON GameUpdate where
   parseJSON (JArray arr) =

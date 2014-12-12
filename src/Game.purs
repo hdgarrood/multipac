@@ -21,6 +21,7 @@ import Utils
 
 minPlayers = 2
 rampageLength = 180
+cooldownLength = 60
 respawnLength = 60
 
 -- minimum squared distance that a player needs to be from another player in
@@ -115,7 +116,7 @@ endGame :: GameEndReason -> GameUpdateM Unit
 endGame =
   applyGameUpdateM <<< GameEnded
 
-changeRampage :: Maybe (Tuple PlayerId Number) -> GameUpdateM Unit
+changeRampage :: Maybe Rampage -> GameUpdateM Unit
 changeRampage =
   applyGameUpdateM <<< ChangedRampage
 
@@ -192,8 +193,14 @@ movePlayer pId p =
       changeNomIndex pId $ ((p ^. pNomIndex) + 1) % nomIndexMax
 
 isRampage :: PlayerId -> GameUpdateM Boolean
-isRampage pId =
-  (\g -> maybe false (fst >>> (==) pId) g.rampage) <$> getGame
+isRampage pId = do
+  g <- getGame
+  maybe (return false) isRampaging g.rampage
+  where
+  isRampaging rampage =
+    return $ case rampage of
+      Rampaging pId' _ -> pId' == pId
+      Cooldown _       -> false
 
 eatItems :: PlayerId -> Player -> GameUpdateM Unit
 eatItems pId p = do
@@ -229,12 +236,18 @@ eatOtherPlayers pId p = do
 decrementRampageCounter :: GameUpdateM Unit
 decrementRampageCounter = do
   g <- getGame
-  whenJust g.rampage $ \(Tuple pId counter) ->
-    changeRampage (Tuple pId <$> decrementOrNothing counter)
+  whenJust g.rampage $ \rampage ->
+    changeRampage $
+      case rampage of
+        Rampaging pId ctr ->
+          Just $ fromMaybe (Cooldown cooldownLength)
+                           (Rampaging pId <$> decrementOrNothing ctr)
+        Cooldown ctr ->
+          Cooldown <$> decrementOrNothing ctr
 
 startRampage :: PlayerId -> GameUpdateM Unit
 startRampage pId =
-  changeRampage $ Just $ pId ~ rampageLength
+  changeRampage $ Just $ Rampaging pId rampageLength
 
 checkForGameEnd :: GameUpdateM Unit
 checkForGameEnd = do
@@ -253,9 +266,12 @@ canMoveInDirection pId p d =
   let newPosition = moveInDirection d (p ^. pPosition)
       destIsFree game  = isFree game.map newPosition
       immobilised game = isRespawning p || isFleeing game
-      isFleeing game   = maybe false (\(Tuple pId' count) ->
-                                pId' /= pId && count % 3 == 0) game.rampage
+      isFleeing game   =
+        case game.rampage of
+          Just (Rampaging pId' count) -> pId' /= pId && count % 3 == 0
+          _ -> false
       both (Tuple x y) = x && y
+
   in  both <<< (destIsFree &&& (not <<< immobilised)) <$> getGame
 
 isRespawning p =
