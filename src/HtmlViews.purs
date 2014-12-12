@@ -265,7 +265,7 @@ indexDoc =
         div ! id "error" $ do
           h2 $ text "disconnected"
           p $ do
-            text "something went wrong and I couldn't contact the server. "
+            text "Something went wrong and the server couldn't be contacted. "
             text "Please "
             a ! href "" $ text "refresh the page"
             text " to reconnect."
