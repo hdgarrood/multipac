@@ -24,20 +24,25 @@ import Control.Lens (lens, (^.), (%~), (.~), at, LensP())
 import Types
 import BaseCommon
 import qualified NodeWebSocket as WS
-import Utils (unionWith)
+import Utils
+
+idleInterval = 30 * 1000
 
 type Server st =
   { connections :: [Connection]
-  , state :: st
+  , state       :: st
+  , timeCounter :: Number -- for tracking whether players are idle
   }
 
 connections = lens (\s -> s.connections) (\s x -> s { connections = x })
+timeCounter = lens (\s -> s.timeCounter) (\s x -> s { timeCounter = x })
 
 newtype Connection =
   Connection
-    { wsConn :: WS.Connection
-    , pId :: PlayerId
-    , name :: String
+    { wsConn      :: WS.Connection
+    , pId         :: PlayerId
+    , name        :: String
+    , timeCounter :: Number -- for tracking whether the player is idle
     }
 
 cWsConn = lens
@@ -52,6 +57,10 @@ cPId = lens
 cName = lens
   (\(Connection c) -> c.name)
   (\(Connection c) x -> Connection $ c { name = x })
+
+cTimeCounter = lens
+  (\(Connection c) -> c.timeCounter)
+  (\(Connection c) x -> Connection $ c { timeCounter = x })
 
 connectionsToPlayersMap :: [Connection] -> M.Map PlayerId String
 connectionsToPlayersMap =
@@ -101,6 +110,7 @@ mkServer :: forall st. st -> Server st
 mkServer initialState =
   { connections: []
   , state: initialState
+  , timeCounter: 0
   }
 
 runCallback :: forall st outg args e. (ToJSON outg) =>
@@ -173,13 +183,16 @@ startServer cs refSrv = do
             handleNewPlayer refSrv pId
             runCallback refSrv $ cs.onNewPlayer pId
 
-            WS.onMessage conn $ \msg ->
+            WS.onMessage conn $ \msg -> do
+              updatePlayerTimeCounter refSrv pId
               case eitherDecode msg of
                 E.Right val -> runCallback refSrv $ cs.onMessage val pId
                 E.Left err  -> trace err
+
             WS.onClose   conn $ \close -> do
               closeConnection refSrv pId
               runCallback refSrv $ cs.onClose pId
+
           Nothing -> do
             trace "rejecting connection, no player ids available"
             WS.close conn
@@ -187,6 +200,10 @@ startServer cs refSrv = do
 
   void $ interval (1000 / stepsPerSecond) $
     runCallback refSrv $ cs.step
+
+  interval idleInterval $ do
+    kickIdlePlayers refSrv
+    updateServerTimeCounter refSrv
 
   return server
 
@@ -198,7 +215,9 @@ tryAddPlayer conn refSrv name = do
       let srv' = srv { connections = srv.connections <>
                               [Connection { pId: pId
                                           , wsConn: conn
-                                          , name: name }] }
+                                          , name: name
+                                          , timeCounter: srv.timeCounter
+                                          }] }
       writeRef refSrv srv'
       return (Just pId)
     Nothing ->
@@ -230,6 +249,27 @@ closeConnection :: forall st e.
 closeConnection refSrv pId = do
   modifyRef refSrv $ connections %~ filter (\c -> pId /= c ^. cPId)
   trace $ "closed connection for " <> show pId
+
+
+updatePlayerTimeCounter refSrv pId = do
+  srv <- readRef refSrv
+  let mConn = find (\c -> c ^. cPId == pId) srv.connections
+  whenJust mConn $ \conn -> do
+    let conn' = conn # cTimeCounter .~ srv.timeCounter
+    let conns' = filter (\c -> pId /= c ^. cPId) srv.connections
+    let conns'' = conns' <> [conn']
+    modifyRef refSrv $ connections .~ conns''
+
+
+kickIdlePlayers refSrv = do
+  srv <- readRef refSrv
+  let idles = filter (\c -> c ^. cTimeCounter /= srv.timeCounter)
+                     srv.connections
+  for_ idles $ \c -> do
+    WS.close (c ^. cWsConn)
+
+updateServerTimeCounter refSrv =
+  modifyRef refSrv $ timeCounter %~ ((+) 1)
 
 foreign import decodeUriComponent """
   function decodeUriComponent(string) {
