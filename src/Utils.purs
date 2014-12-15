@@ -183,7 +183,7 @@ tracePM msg = return (traceP msg unit)
 isEven :: Number -> Boolean
 isEven n = isInteger (n / 2)
   where
-  isInteger m = m | 0 == m
+  isInteger m = complement (complement m) == m
 
 isOdd :: Number -> Boolean
 isOdd = not <<< isEven
