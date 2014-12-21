@@ -227,7 +227,6 @@ eatOtherPlayers pId p = do
         when (q <= minEatingQuadrance) $ do
           changeRespawnCounter pId' $ Just respawnLength
           takeHalfPoints pId p pId' p'
-          changeDirection pId' Nothing
   where
   takeHalfPoints pId p pId' p' = do
     let delta = floor (p' ^. pScore / 2)
@@ -287,6 +286,7 @@ attemptRespawn pId p = do
     when (ctr' == Nothing) $ do
       let mPos = find (\pos -> isFree g.map pos) g.safeZone
       whenJust mPos $ changePosition pId
+      changeDirection pId Nothing
 
 inSafeZone :: Game -> Position -> Boolean
 inSafeZone g pos = pos `elem` g.safeZone
