@@ -399,6 +399,7 @@ renderCounter cd = do
   strokeText text x y
 
 
+renderReminderArrow :: forall e. Game -> PlayerId -> CanvasM e Unit
 renderReminderArrow game pId = do
   whenJust (game ^. (players .. at pId)) $ \pl ->
     withContext $ do
