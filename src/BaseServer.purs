@@ -18,8 +18,11 @@ import qualified Control.Monad.Reader.Class as R
 import Control.Monad.Eff (Eff())
 import Control.Monad.Eff.Ref (newRef, readRef, writeRef, modifyRef, Ref(),
                               RefVal())
-import Control.Reactive.Timer (Timer(), interval)
-import Control.Lens (lens, (^.), (%~), (.~), at, LensP())
+import Control.Timer (Timer(), interval)
+import Optic.Core (lens, LensP())
+import Optic.Getter ((^.))
+import Optic.Setter ((%~), (.~))
+import Optic.At (at)
 
 import Types
 import BaseCommon

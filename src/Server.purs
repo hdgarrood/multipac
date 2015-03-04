@@ -5,7 +5,7 @@ import Data.Tuple
 import Data.JSON
 import Data.Function
 import Data.Maybe
-import Data.Array
+import Data.Array hiding ((..))
 import qualified Data.String as S
 import qualified Data.Either as E
 import qualified Data.Map as M
@@ -14,8 +14,11 @@ import Control.Monad
 import Control.Monad.State.Class (get, put, modify)
 import Control.Monad.Eff
 import Control.Monad.Eff.Ref
-import Control.Reactive.Timer
-import Control.Lens (lens, (^.), (%~), (.~), (%=), at, LensP(), (~))
+import Control.Timer
+import Optic.Core (lens, LensP())
+import Optic.Getter ((^.))
+import Optic.Setter ((%~), (.~))
+import Optic.At (at)
 
 import qualified NodeWebSocket as WS
 import qualified NodeHttp as Http

@@ -14,20 +14,22 @@
     "tests"
   ],
   "dependencies": {
-    "purescript-arrays": "~0.3.0",
-    "purescript-math": "~0.1.0",
-    "purescript-tuples": "~0.2.3",
-    "purescript-foldable-traversable": "~0.1.5",
-    "purescript-transformers": "~0.3.0",
-    "purescript-lens": "~0.3.2",
-    "purescript-timers": "0.0.5",
+    "purescript-base": "*",
+    "purescript-lens": "~0.6.0",
+    "purescript-index": "~0.3.0",
+    "purescript-refractor": "~0.3.0",
+    "purescript-timers": "0.0.8",
     "purescript-refs": "~0.1.2",
-    "purescript-json": "~0.4.3",
-    "purescript-identity": "~0.1.0",
+    "purescript-json": "~0.4.7",
     "purescript-canvas": "~0.2.0",
-    "purescript-smolder": "~1.0.1"
+    "purescript-smolder": "~2.0.0",
+    "purescript-arrows": "~0.3.0"
   },
   "resolutions": {
-    "purescript-arrays": "~0.3.0"
+    "purescript-maps": "~0.2.0",
+    "purescript-tuples": "~0.3.0",
+    "purescript-foldable-traversable": "~0.3.0",
+    "purescript-monoid": "~0.2.0",
+    "purescript-sets": "~0.3.0"
   }
 }

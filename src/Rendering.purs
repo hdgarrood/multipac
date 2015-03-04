@@ -14,7 +14,9 @@ import Control.Monad.Eff
 import Control.Arrow
 import Control.Monad (when)
 import Control.Monad.Reader.Class (reader)
-import Control.Lens ((^.), (..), (~), (^?))
+import Optic.Getter ((^.))
+import Optic.At (at)
+import Optic.Refractor.Prism (_Just)
 import Math (pi, floor, ceil)
 
 import LevelMap
@@ -398,7 +400,7 @@ renderCounter cd = do
 
 
 renderReminderArrow game pId = do
-  whenJust (game ^? player pId) $ \pl ->
+  whenJust (game ^. (players .. at pId)) $ \pl ->
     withContext $ do
       let pos = pl ^. pPosition
       let playerX = pos ^. pX

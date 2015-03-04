@@ -10,8 +10,13 @@ import Control.Arrow
 import Control.Alt
 import Control.Monad
 import Control.Monad.Reader.Class
-import Control.Lens (LensP(), TraversalP(), lens, at, _Just, _1, _2,
-                     (.~), (..), (^.), (%~), (~))
+import Optic.Core (LensP(), Lens(), lens, (.~))
+--                   (.~), (^.), (%~))
+import Optic.Getter ((^.))
+import Optic.Setter ((%~))
+import Optic.At (at)
+import Optic.Refractor.Lens (_1, _2)
+import Optic.Refractor.Prism (_Just)
 import Math (ceil, floor, pi)
 
 import Types
@@ -44,7 +49,7 @@ applyGameUpdate u =
     GUPU pId x ->
       player pId %~ applyPlayerUpdate x
     GUIU iId x ->
-      items .. at iId %~ applyItemUpdate x
+      items <<< at iId %~ applyItemUpdate x
     ChangedCountdown x ->
       setCountdown x
     GameEnded _ ->
@@ -58,7 +63,7 @@ applyGameUpdates :: [GameUpdate] -> Game -> Game
 applyGameUpdates updates game = foldr applyGameUpdate game updates
 
 removePlayer :: PlayerId -> Game -> Game
-removePlayer pId = players .. at pId .~ Nothing
+removePlayer pId = players <<< at pId .~ Nothing
 
 applyPlayerUpdate :: PlayerUpdate -> Player -> Player
 applyPlayerUpdate u =

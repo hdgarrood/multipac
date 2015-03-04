@@ -18,8 +18,11 @@ import Control.Monad.State
 import Control.Monad.State.Class
 import Control.Monad.Eff
 import Control.Monad.Eff.Ref
-import Control.Reactive.Timer
-import Control.Lens hiding ((.=))
+import Control.Timer
+import Optic.Lens
+import Optic.Getter ((^.))
+import Optic.Setter (over)
+import Optic.Types (LensP())
 import Data.DOM.Simple.Types (DOM(), DOMEvent())
 import Math (floor, pi, pow)
 

@@ -2,7 +2,7 @@ module HtmlViews where
 
 import Data.Foldable (foldr, for_)
 import Prelude hiding (id)
-import Control.Lens ((~), (^.))
+import Optic.Getter ((^.))
 import Control.Monad (when)
 import Data.Tuple
 import Data.Maybe

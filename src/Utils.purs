@@ -4,7 +4,7 @@ import Debug.Trace
 import Data.Function
 import Data.Maybe
 import Data.Tuple
-import Data.Array
+import Data.Array hiding ((..))
 import Data.Either
 import Data.JSON (decode)
 import qualified Data.Map as M
@@ -13,6 +13,15 @@ import Data.Monoid.All
 import Data.Foldable (Foldable, for_, foldMap, foldr, foldl)
 import Prelude.Unsafe (unsafeIndex)
 import Control.Monad.Eff
+
+(~) :: forall a b. a -> b -> Tuple a b
+(~) = Tuple
+
+(..) :: forall s a b c. (Semigroupoid s) => s b c -> s a b -> s a c
+(..) = (<<<)
+
+type Traversal s t a b = forall f. (Applicative f) => (a -> f b) -> s -> f t
+type TraversalP s a = Traversal s s a a
 
 replicate :: forall a. Number -> a -> [a]
 replicate n x =
@@ -56,10 +65,6 @@ foreign import eachWithIndex_
   \    } \
   \  }\
   \}":: forall a b e. [a] -> (a -> Number -> Eff e b) -> Eff e Unit
-
--- eachWithIndex_ as f =
---   for_ (0 .. length as - 1) $ \n ->
---     f (unsafeIndex as n) n
 
 whenJust :: forall a f. (Applicative f) => Maybe a -> (a -> f Unit) -> f Unit
 whenJust mx f = maybe (pure unit) f mx

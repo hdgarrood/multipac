@@ -4,7 +4,7 @@ import Data.Either
 import Data.Tuple
 import Data.Char (charString)
 import Data.String (split, trim, toCharArray, joinWith)
-import Control.Lens ((~), (^.))
+import Optic.Getter ((^.))
 import Control.Monad (unless)
 import Math (floor)
 import Data.Array (map, filter, null, reverse, (!!), range, concatMap,

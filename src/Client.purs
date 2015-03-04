@@ -21,8 +21,11 @@ import Control.Monad.Eff
 import Control.Monad.Eff.Ref
 import Control.Monad.RWS.Class
 import Control.Monad.State.Class
-import Control.Lens (lens, (.~), (..), (^.), (~))
-import Control.Reactive.Timer
+import Optic.Core (lens, LensP())
+import Optic.Getter ((^.))
+import Optic.Setter ((%~), (.~))
+import Optic.At (at)
+import Control.Timer
 
 import qualified BrowserWebSocket as WS
 import qualified Rendering as R
