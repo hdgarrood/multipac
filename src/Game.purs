@@ -5,6 +5,7 @@ import Data.Maybe
 import Data.Maybe.Unsafe (fromJust)
 import Data.Array ((!!), range, filter, length, take)
 import qualified Data.Map as M
+import qualified Data.Sequence as S
 import Data.Foldable
 import Control.Arrow
 import Control.Alt
@@ -59,7 +60,7 @@ applyGameUpdate u =
   where
   setCountdown x game = game {countdown = x}
 
-applyGameUpdates :: [GameUpdate] -> Game -> Game
+applyGameUpdates :: S.Seq GameUpdate -> Game -> Game
 applyGameUpdates updates game = foldr applyGameUpdate game updates
 
 removePlayer :: PlayerId -> Game -> Game
@@ -153,7 +154,7 @@ initialGame =
     return (tilePositionToBlock (Position {x:x, y:y}))
 
 
-stepGame :: Input -> Game -> Tuple Game [GameUpdate]
+stepGame :: Input -> Game -> Tuple Game (S.Seq GameUpdate)
 stepGame input game =
   let actions = [handleInput input, doLogic]
       action = foldl (>>) (return unit) actions

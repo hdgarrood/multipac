@@ -7,6 +7,7 @@ import qualified Data.Either as E
 import Data.JSON (eitherDecode, encode)
 import Data.Tuple
 import qualified Data.String as S
+import qualified Data.Sequence as Seq
 import qualified Data.Map as M
 import Data.DOM.Simple.Events hiding (view)
 import Data.DOM.Simple.Types (DOM(), DOMEvent(), DOMLocation(), HTMLElement())
@@ -182,7 +183,7 @@ onKeyDown event = do
 type CM e a = ClientM ClientState ServerIncomingMessage e a
 
 matchInProgress :: forall e.
-  ServerOutgoingMessage -> ([GameUpdate] -> CM e Unit) -> CM e Unit
+  ServerOutgoingMessage -> (Seq.Seq GameUpdate -> CM e Unit) -> CM e Unit
 matchInProgress = matchMessage asInProgressMessageO
 
 matchWaiting :: forall e.

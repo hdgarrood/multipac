@@ -11,6 +11,7 @@ import Data.JSON
 import Data.Tuple
 import Data.String hiding (singleton, uncons)
 import Data.Array (map, singleton)
+import qualified Data.Sequence as S
 import Graphics.Canvas
 import Control.Monad.Writer.Trans
 import Control.Monad.Writer.Class
@@ -37,6 +38,14 @@ instance toJSONMap :: (ToJSON k, ToJSON v) => ToJSON (M.Map k v) where
 instance fromJSONMap :: (Ord k, FromJSON k, FromJSON v) => FromJSON (M.Map k v) where
   parseJSON (JArray arr) =
     M.fromList <$> traverse parseJSON arr
+  parseJSON other = failJsonParse other "Map"
+
+instance toJSONSeq :: (ToJSON a) => ToJSON (S.Seq a) where
+  toJSON = JArray <<< S.fromSeq <<< (toJSON <$>)
+
+instance fromJSONSeq :: (FromJSON a) => FromJSON (S.Seq a) where
+  parseJSON (JArray arr) = S.toSeq <$> traverse parseJSON arr
+  parseJSON other = failJsonParse other "Seq"
 
 -- newtype wrapper is just so that the ReaderT instance works
 type Game = { map :: LevelMap
@@ -615,7 +624,7 @@ instance fromJSONWaitingUpdate :: FromJSON WaitingUpdate where
     NewReadyStates <$> parseJSON m
   parseJSON v = failJsonParse v "WaitingUpdate"
 
-type GameUpdateM a = WriterT [GameUpdate] (State WrappedGame) a
+type GameUpdateM a = WriterT (S.Seq GameUpdate) (State WrappedGame) a
 
 -- these are just here to shorten declarations that are required because of
 -- types that psc is not able to infer
@@ -626,7 +635,7 @@ innerGame :: LensP WrappedGame Game
 innerGame = lens (\(WrappedGame g) -> g) (const WrappedGame)
 
 tellGameUpdate :: GameUpdate -> GameUpdateM Unit
-tellGameUpdate = tell <<< singleton
+tellGameUpdate = tell <<< S.singleton
 
 modifyGame :: (Game -> Game) -> GameUpdateM Unit
 modifyGame = modify <<< f
@@ -641,7 +650,7 @@ getGame = gets f
   f x = x ^. innerGame
 
 runGameUpdateM :: forall a.
-  Game -> GameUpdateM a -> Tuple a (Tuple Game [GameUpdate])
+  Game -> GameUpdateM a -> Tuple a (Tuple Game (S.Seq GameUpdate))
 runGameUpdateM game action =
   let a0 = runWriterT action
       a1 = runState a0 (WrappedGame game)
@@ -651,7 +660,7 @@ runGameUpdateM game action =
   in  rearrange a1
 
 execGameUpdateM :: forall a.
-  Game -> GameUpdateM a -> Tuple Game [GameUpdate]
+  Game -> GameUpdateM a -> Tuple Game (S.Seq GameUpdate)
 execGameUpdateM game action = snd $ runGameUpdateM game action
 
 input_ = lens (\s -> s.input) (\s x -> s { input = x })
@@ -668,13 +677,13 @@ type ReadyState = Boolean
 
 data ServerOutgoingMessage
   = SOWaiting WaitingUpdate
-  | SOInProgress [GameUpdate]
+  | SOInProgress (S.Seq GameUpdate)
 
 asWaitingMessageO :: ServerOutgoingMessage -> Maybe WaitingUpdate
 asWaitingMessageO (SOWaiting x) = Just x
 asWaitingMessageO _ = Nothing
 
-asInProgressMessageO :: ServerOutgoingMessage -> Maybe [GameUpdate]
+asInProgressMessageO :: ServerOutgoingMessage -> Maybe (S.Seq GameUpdate)
 asInProgressMessageO (SOInProgress x) = Just x
 asInProgressMessageO _ = Nothing
 

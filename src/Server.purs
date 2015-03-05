@@ -6,7 +6,7 @@ import Data.JSON
 import Data.Function
 import Data.Maybe
 import Data.Array hiding ((..))
-import qualified Data.String as S
+import qualified Data.Sequence as S
 import qualified Data.Either as E
 import qualified Data.Map as M
 import Data.Foldable (for_, all, find)
@@ -126,7 +126,7 @@ onClose pId = do
   state <- get
   case state of
     InProgress g -> do
-      sendUpdate $ SOInProgress [GUPU pId PlayerLeft]
+      sendUpdate <<< SOInProgress <<< S.singleton $ GUPU pId PlayerLeft
       let g' = g # game_ %~ removePlayer pId
       put $ InProgress g'
 
