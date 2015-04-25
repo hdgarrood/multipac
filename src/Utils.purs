@@ -23,12 +23,6 @@ import Control.Monad.Eff
 type Traversal s t a b = forall f. (Applicative f) => (a -> f b) -> s -> f t
 type TraversalP s a = Traversal s s a a
 
-replicate :: forall a. Number -> a -> [a]
-replicate n x =
-    if n <= 0
-        then []
-        else x : replicate (n - 1) x
-
 iterateN :: forall a. Number -> a -> (a -> a) -> [a]
 iterateN n x f =
   if n <= 0

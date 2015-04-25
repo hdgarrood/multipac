@@ -8,7 +8,7 @@ import Optic.Getter ((^.))
 import Control.Monad (unless)
 import Math (floor)
 import Data.Array (map, filter, null, reverse, (!!), range, concatMap,
-                   concat, length)
+                   concat, length, replicate)
 import Data.Maybe
 import Data.Maybe.Unsafe
 import Data.Traversable (for, sequence)
