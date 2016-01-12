@@ -110,6 +110,7 @@ instance encodeJsonPlayerId :: EncodeJson PlayerId where
 
 type ItemId = Number
 
+-- psc bug #1443
 type LevelMap =
   { blocks   :: Array (Array Block)
   , tiles    :: Array (Array Tile)
@@ -182,7 +183,7 @@ showRecord name props =
 
 failJsonParse :: forall a b. (Show a) => a -> String -> Either String b
 failJsonParse value typ =
-  Left $ "failed to parse " <> show value <> " as " <> typ <> "."
+  E.Left $ "failed to parse " <> show value <> " as " <> typ <> "."
 
 newtype Position = Position {x :: Number, y :: Number}
 
@@ -244,11 +245,11 @@ mkPlayer pos =
          , respawnCounter: Nothing
          }
 
-players :: forall r a. LensP { players :: a | r } a
-players = lens (\o -> o.players) (\o x -> o { players = x })
+players :: LensP Game (Map PlayerId Player)
+players = lens (\o -> runGenericMap o.players) (\o x -> o { players = GenericMap x })
 
-items :: forall r a. LensP { items :: a | r } a
-items = lens (\o -> o.items) (\o x -> o { items = x })
+items :: LensP Game (Map ItemId Item)
+items = lens (\o -> runGenericMap o.items) (\o x -> o { items = GenericMap x })
 
 pPosition :: LensP Player Position
 pPosition = lens
@@ -362,18 +363,18 @@ instance decodeJsonItemType :: DecodeJson ItemType where
   decodeJson = gDecodeJson
 
 dirToPos :: Direction -> Position
-dirToPos Up    = Position {x:  0, y: -1}
-dirToPos Left  = Position {x: -1, y:  0}
-dirToPos Right = Position {x:  1, y:  0}
-dirToPos Down  = Position {x:  0, y:  1}
+dirToPos Up    = Position {x:  0.0, y: -1.0}
+dirToPos Left  = Position {x: -1.0, y:  0.0}
+dirToPos Right = Position {x:  1.0, y:  0.0}
+dirToPos Down  = Position {x:  0.0, y:  1.0}
 
 directionToRadians :: Direction -> Number
 directionToRadians d =
   case d of
-    Right -> 0
-    Down -> pi / 2
+    Right -> 0.0
+    Down -> pi / 2.0
     Left -> pi
-    Up -> 3 * pi / 2
+    Up -> 3.0 * pi / 2.0
 
 opposite d =
   case d of
@@ -463,7 +464,7 @@ instance encodeJsonGameUpdate :: EncodeJson GameUpdate where
 -- Sent by the server during the waiting stage, ie, after initial connection
 -- but before the game starts
 data WaitingUpdate
-  = GameStarting Game
+  = GameStarting WrappedGame
   | NewReadyStates (GenericMap PlayerId Boolean)
 
 derive instance genericWaitingUpdate :: Generic WaitingUpdate
