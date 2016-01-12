@@ -23,6 +23,7 @@ import Optic.Core (lens, LensP())
 import Optic.Getter ((^.))
 import Optic.Setter ((%~), (.~))
 import Optic.At (at)
+import Global (decodeURIComponent)
 
 import Types
 import BaseCommon
@@ -32,7 +33,7 @@ import Utils
 idleInterval = 30 * 1000
 
 type Server st =
-  { connections :: [Connection]
+  { connections :: Array Connection
   , state       :: st
   , timeCounter :: Number -- for tracking whether players are idle
   }
@@ -65,7 +66,7 @@ cTimeCounter = lens
   (\(Connection c) -> c.timeCounter)
   (\(Connection c) x -> Connection $ c { timeCounter = x })
 
-connectionsToPlayersMap :: [Connection] -> M.Map PlayerId String
+connectionsToPlayersMap :: Array Connection -> M.Map PlayerId String
 connectionsToPlayersMap =
   map (\(Connection c) -> Tuple c.pId c.name) >>> M.fromList
 
@@ -78,8 +79,8 @@ type ServerCallbacks st inc outg =
 
 newtype SendMessages outg
   = SendMessages
-    { toAll :: [outg]
-    , toOne :: M.Map PlayerId [outg]
+    { toAll :: Array outg
+    , toOne :: M.Map PlayerId (Array outg)
     }
 
 instance semigroupSendMsgs :: Semigroup (SendMessages outg) where
@@ -92,7 +93,7 @@ instance monoidSendMsgs :: Monoid (SendMessages outg) where
   mempty = SendMessages { toAll: [], toOne: M.empty }
 
 type ServerM st outg a =
-  RWS [Connection] (SendMessages outg) st a
+  RWS (Array Connection) (SendMessages outg) st a
 
 type ServerMResult st outg a =
   { nextState :: st
@@ -101,7 +102,7 @@ type ServerMResult st outg a =
   }
 
 runServerM :: forall st outg a.
-  [Connection] -> st -> ServerM st outg a -> ServerMResult st outg a
+  Array Connection -> st -> ServerM st outg a -> ServerMResult st outg a
 runServerM conns state action =
   let r = runRWS action conns state
   in { nextState: r.state
@@ -125,7 +126,7 @@ runCallback refSrv callback = do
   sendAllMessages srv res.messages
   writeRef refSrv $ srv { state = res.nextState }
 
-messagesFor :: forall outg. PlayerId -> SendMessages outg -> [outg]
+messagesFor :: forall outg. PlayerId -> SendMessages outg -> Array outg
 messagesFor pId (SendMessages sm) =
   sm.toAll <> fromMaybe [] (M.lookup pId sm.toOne)
 
@@ -144,7 +145,7 @@ sendUpdate :: forall m outg. (Monad m, W.MonadWriter (SendMessages outg) m) =>
 sendUpdate m = sendUpdates [m]
 
 sendUpdates :: forall m outg. (Monad m, W.MonadWriter (SendMessages outg) m) =>
-  [outg] -> m Unit
+  Array outg -> m Unit
 sendUpdates ms =
   W.tell $ SendMessages { toAll: ms, toOne: M.empty }
 
@@ -153,7 +154,7 @@ sendUpdateTo :: forall m outg. (Monad m, W.MonadWriter (SendMessages outg) m) =>
 sendUpdateTo pId m =
   W.tell $ SendMessages { toAll: [], toOne: M.insert pId [m] M.empty }
 
-askPlayers :: forall m. (Monad m, R.MonadReader [Connection] m) =>
+askPlayers :: forall m. (Monad m, R.MonadReader (Array Connection) m) =>
   m (M.Map PlayerId String)
 askPlayers =
   connectionsToPlayersMap <$> R.ask
@@ -273,9 +274,3 @@ kickIdlePlayers refSrv = do
 
 updateServerTimeCounter refSrv =
   modifyRef refSrv $ timeCounter %~ ((+) 1)
-
-foreign import decodeUriComponent """
-  function decodeUriComponent(string) {
-    return global.decodeURIComponent(string)
-  }
-""" :: String -> String

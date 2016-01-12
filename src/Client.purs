@@ -37,28 +37,6 @@ import Types
 import Utils
 import LocalStorage
 
-foreign import host
-  """
-  function host(location) {
-    return location.host;
-  }
-  """ :: DOMLocation -> String
-
-foreign import protocol
-  """
-  function protocol(location) {
-    return location.protocol
-  }
-  """ :: DOMLocation -> String
-
-foreign import selectElement """
-  function selectElement(el) {
-    return function() {
-      el.select()
-    }
-  }
-""" :: forall e. HTMLElement -> Eff (dom :: DOM | e) Unit
-
 initialState =
   CWaitingForPlayers
     { prevGame: Nothing

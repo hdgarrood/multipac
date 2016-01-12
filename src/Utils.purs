@@ -2,17 +2,21 @@ module Utils where
 
 import Debug.Trace
 import Data.Function
+import Data.Int as Int
 import Data.Maybe
 import Data.Tuple
-import Data.Array hiding ((..))
+import Data.Array hiding ((..), map)
 import Data.Either
 import Data.JSON (decode)
-import qualified Data.Map as M
+import Data.List.ZipList (ZipList(..), runZipList)
+import Data.List.Lazy as List
+import Data.Map as M
 import Data.Traversable (sequence)
 import Data.Monoid.All
 import Data.Foldable (Foldable, for_, foldMap, foldr, foldl)
 import Prelude.Unsafe (unsafeIndex)
 import Control.Monad.Eff
+import Node.Process as Process
 
 (~) :: forall a b. a -> b -> Tuple a b
 (~) = Tuple
@@ -23,42 +27,33 @@ import Control.Monad.Eff
 type Traversal s t a b = forall f. (Applicative f) => (a -> f b) -> s -> f t
 type TraversalP s a = Traversal s s a a
 
-iterateN :: forall a. Number -> a -> (a -> a) -> [a]
+iterateN :: forall a. Int -> a -> (a -> a) -> Array a
 iterateN n x f =
   if n <= 0
      then []
      else [x] <> iterateN (n - 1) (f x) f
 
 
-collect :: forall a b. (a -> Maybe b) -> [a] -> [b]
+collect :: forall a b. (a -> Maybe b) -> Array a -> Array b
 collect f = map f >>> catMaybes
 
-transpose :: forall a. [[a]] -> [[a]]
-transpose [] = []
-transpose ([]:xss) = transpose xss
-transpose ((x:xs) : xss) =
-    (x : collect head xss) : transpose (xs : collect tail xss)
+transpose :: forall a. Array (Array a) -> Array (Array a)
+transpose =
+  toZipList
+   >>> map toZipList
+   >>> sequence
+   >>> map runZipList
+   >>> runZipList
+  where
+  toZipList = ZipList <<< List.fromFoldable
+  fromZipList = List.toUnfoldable <<< runZipList
 
-collectMaybes :: forall a. [[Maybe a]] -> Maybe [[a]]
+collectMaybes :: forall a. Array (Array (Maybe a)) -> Maybe (Array (Array a))
 collectMaybes = map sequence >>> sequence
-
-fmap :: forall f a b. (Functor f) => (a -> b) -> f a -> f b
-fmap = (<$>)
 
 -- this could be generalised to Applicative, but is restricted to Eff for
 -- performance reasons.
-foreign import eachWithIndex_
-  "function eachWithIndex_(xs) {\
-  \  return function(f) {\
-  \    return function() {\
-  \      var i = 0; \
-  \      var l = xs.length; \
-  \      for (var i = 0; i < l; i++) {\
-  \        f(xs[i])(i)(); \
-  \      } \
-  \    } \
-  \  }\
-  \}":: forall a b e. [a] -> (a -> Number -> Eff e b) -> Eff e Unit
+foreign import eachWithIndex_ :: forall a b e. Array a -> (a -> Number -> Eff e b) -> Eff e Unit
 
 whenJust :: forall a f. (Applicative f) => Maybe a -> (a -> f Unit) -> f Unit
 whenJust mx f = maybe (pure unit) f mx
@@ -66,47 +61,17 @@ whenJust mx f = maybe (pure unit) f mx
 (>>) :: forall a b m. (Monad m) => m a -> m b -> m b
 (>>) a b = a >>= (\_ -> b)
 
-foreign import unshift
-  "function unshift(x) { \
-  \  return function(xs) { \
-  \    var ys = xs.slice(); \
-  \    ys.unshift(x); \
-  \    return ys; \
-  \  } \
-  \}" :: forall a. a -> [a] -> [a]
-
-foreign import traceTimeImpl
-  """
-  function traceTimeImpl(trace, msg) {
-    return trace((new Date()) + ' ' + msg)
-  }
-  """ :: forall e.
-  Fn2
-    (String -> Eff (trace :: Trace | e) Unit)
-    String
-    (Eff (trace :: Trace | e) Unit)
-
-traceTime :: forall e.  String -> Eff (trace :: Trace | e) Unit
-traceTime msg = runFn2 traceTimeImpl trace msg
-
 fromEither :: forall a b. Either a b -> Maybe b
 fromEither (Left _) = Nothing
 fromEither (Right x) = Just x
 
-applyN :: forall a. Number -> (a -> a) -> a -> a
+applyN :: forall a. Int -> (a -> a) -> a -> a
 applyN = go id
   where
   go f n _ | n <= 0 = f
   go f n g = go (f >>> g) (n - 1) g
 
-foreign import error
-  """
-  function error(msg) {
-    throw new Error(msg)
-  }
-  """ :: forall a. String -> a
-
-zipNumbers :: forall a. [a] -> [Tuple Number a]
+zipNumbers :: forall a. Array a -> Array (Tuple Number a)
 zipNumbers xs = zip (range 0 (length xs - 1)) xs
 
 deleteWhere :: forall k v. (Ord k) =>
@@ -124,65 +89,8 @@ unionWith f m1 m2 = foldl go m2 (M.toList m1)
  where
  go m (Tuple k v) = M.alter (Just <<< maybe v (f v)) k m
 
-
-
-foreign import data Process :: !
-
-foreign import chdir
-  """
-  function chdir(path) {
-    return function() {
-      process.chdir(path)
-    }
-  }
-  """ :: forall e. String -> Eff (process :: Process | e) Unit
-
-foreign import getEnvImpl
-  """
-  function getEnvImpl(just, nothing, key) {
-    return function() {
-      var v = process.env[key]
-      return v ? just(v) : nothing
-    }
-  }
-  """ :: forall e a.
-  Fn3
-    (a -> Maybe a)
-    (Maybe a)
-    String
-    (Eff (process :: Process | e) (Maybe String))
-
-getEnv :: forall e.
-  String -> Eff (process :: Process | e) (Maybe String)
-getEnv key =
-  runFn3 getEnvImpl Just Nothing key
-
-parseNumber :: String -> Maybe Number
-parseNumber = decode
-
 portOrDefault :: forall e.
-  Number -> Eff (process :: Process | e) Number
+  Int -> Eff (process :: Process.PROCESS | e) Int
 portOrDefault default = do
-  port <- getEnv "PORT"
-  return $ fromMaybe default (port >>= parseNumber)
-
-foreign import traceP
-  """
-  function traceP(message) {
-    return function(value) {
-      console.log(message);
-      return value;
-    }
-  }""" :: forall a. String -> a -> a
-
--- This doesn't seem to actually work.
-tracePM :: forall m. (Monad m) => String -> m Unit
-tracePM msg = return (traceP msg unit)
-
-isEven :: Number -> Boolean
-isEven n = isInteger (n / 2)
-  where
-  isInteger m = complement (complement m) == m
-
-isOdd :: Number -> Boolean
-isOdd = not <<< isEven
+  port <- Process.lookupEnv "PORT"
+  return $ fromMaybe default (port >>= Int.fromString)

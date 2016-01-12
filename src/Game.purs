@@ -305,7 +305,7 @@ isFree levelmap pos =
   let block = getBlockAt pos levelmap
   in  maybe false (not <<< isWall) block
 
-makeItems :: LevelMap -> [Position] -> [Position] -> [Item]
+makeItems :: LevelMap -> Array Position -> Array Position -> Array Item
 makeItems levelmap safeZone bigDotPositions =
   littleDots <> bigDots
   where
@@ -327,7 +327,7 @@ makeItems levelmap safeZone bigDotPositions =
   bigDots =
     (\pos -> Item { itemType: BigDot, position: pos }) <$> bigDotPositions
 
-makeGame :: [PlayerId] -> Game
+makeGame :: Array PlayerId -> Game
 makeGame pIds =
   let players' =
     deleteWhere (\pId _ -> not (elem pId pIds)) (initialGame.players)

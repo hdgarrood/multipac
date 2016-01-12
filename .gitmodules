@@ -1,3 +1,0 @@
-[submodule "vendor/purescript-simple-dom"]
-	path = vendor/purescript-simple-dom
-	url = https://github.com/hdgarrood/purescript-simple-dom

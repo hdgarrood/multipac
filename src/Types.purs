@@ -53,7 +53,7 @@ type Game = { map :: LevelMap
             , items   :: M.Map ItemId Item
             , countdown :: Maybe Number
             , rampage :: Maybe Rampage
-            , safeZone :: [Position]
+            , safeZone :: Array Position
             }
 newtype WrappedGame = WrappedGame Game
 
@@ -88,7 +88,7 @@ instance fromJSONWrappedGame :: FromJSON WrappedGame where
 
 data PlayerId = P1 | P2 | P3 | P4
 
-allPlayerIds :: [PlayerId]
+allPlayerIds :: Array PlayerId
 allPlayerIds = [P1, P2, P3, P4]
 
 playerIdToInt :: PlayerId -> Number
@@ -134,8 +134,8 @@ instance toJSONPlayerId :: ToJSON PlayerId where
 type ItemId = Number
 
 type LevelMap =
-    { blocks   :: [[Block]]
-    , tiles    :: [[Tile]]
+    { blocks   :: Array (Array Block)
+    , tiles    :: Array (Array Tile)
     }
 
 newtype WrappedLevelMap = WrappedLevelMap LevelMap
@@ -168,7 +168,7 @@ instance fromJSONBlock :: FromJSON Block where
   parseJSON v = failJsonParse v "Block"
 
 -- A fixed size two-dimensional array of blocks.
-type BlockTile = [[Block]]
+type BlockTile = Array (Array Block)
 
 data Tile
   = Intersection
@@ -220,7 +220,7 @@ isWall :: Block -> Boolean
 isWall Wall = true
 isWall _ = false
 
-showRecord :: String -> [String] -> String
+showRecord :: String -> Array String -> String
 showRecord name props =
     "(" <> name <> " {" <> joinWith ", " props <> "})"
 
