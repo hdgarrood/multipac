@@ -5,15 +5,18 @@ import Data.Function
 import Data.Int as Int
 import Data.Maybe
 import Data.Tuple
+import Data.StrMap as StrMap
 import Data.Array hiding ((..))
 import Data.Array.Unsafe (unsafeIndex)
 import Data.Either
+import Data.List as List
 import Data.List.ZipList (ZipList(..), runZipList)
-import Data.List.Lazy as List
+import Data.List.Lazy as LazyList
 import Data.Map as M
 import Data.Traversable (sequence)
 import Data.Unfoldable (Unfoldable)
 import Data.Foldable (Foldable, for_, foldMap, foldr, foldl)
+import Data.Argonaut.Core
 import Control.Monad.Eff
 import Node.Process as Process
 
@@ -40,10 +43,10 @@ transpose =
 
   where
   toZipList :: forall f a'. (Foldable f) => f a' -> ZipList a'
-  toZipList = ZipList <<< List.fromFoldable
+  toZipList = ZipList <<< LazyList.fromFoldable
 
   fromZipList :: forall f a'. (Unfoldable f) => ZipList a' -> f a'
-  fromZipList = List.toUnfoldable <<< runZipList
+  fromZipList = LazyList.toUnfoldable <<< runZipList
 
 collectMaybes :: forall a. Array (Array (Maybe a)) -> Maybe (Array (Array a))
 collectMaybes = map sequence >>> sequence
@@ -91,3 +94,6 @@ portOrDefault :: forall e.
 portOrDefault default = do
   port <- Process.lookupEnv "PORT"
   return $ fromMaybe default (port >>= Int.fromString)
+
+object :: Array JAssoc -> Json
+object = fromObject <<< StrMap.fromList <<< List.fromFoldable
