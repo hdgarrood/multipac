@@ -23,7 +23,7 @@ import Utils
 import Types
 import Style
 
-replaceAll :: [Tuple String String] -> String -> String
+replaceAll :: Array (Tuple String String) -> String -> String
 replaceAll = fmap (uncurry replace) >>> foldr (>>>) Prelude.id
 
 styles =

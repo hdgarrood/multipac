@@ -51,11 +51,11 @@ type ClientCallbacks st inc outg e =
   }
 
 type ClientM st outg e a =
-  RWST ClientMReader [outg] st (Eff (ClientEffects e)) a
+  RWST ClientMReader (Array outg) st (Eff (ClientEffects e)) a
 
 type ClientMResult st outg a =
   { nextState :: st
-  , messages  :: [outg]
+  , messages  :: Array outg
   , result    :: a
   }
 
@@ -91,17 +91,17 @@ runCallback refCln callback = do
   writeRef refCln $ cln { state = res.nextState }
 
 sendAllMessages :: forall e st outg. (ToJSON outg) =>
-  Client st -> [outg] -> Eff (ClientEffects e) Unit
+  Client st -> Array outg -> Eff (ClientEffects e) Unit
 sendAllMessages cln msgs =
   for_ msgs $ \msg ->
     WS.send cln.socket (encode msg)
 
-sendUpdate :: forall m outg. (Monad m, W.MonadWriter [outg] m) =>
+sendUpdate :: forall m outg. (Monad m, W.MonadWriter (Array outg) m) =>
   outg -> m Unit
 sendUpdate m = sendUpdates [m]
 
-sendUpdates :: forall m outg. (Monad m, W.MonadWriter [outg] m) =>
-  [outg] -> m Unit
+sendUpdates :: forall m outg. (Monad m, W.MonadWriter (Array outg) m) =>
+  Array outg -> m Unit
 sendUpdates = W.tell
 
 askPlayerId :: forall m. (Monad m, R.MonadReader ClientMReader m) =>
@@ -172,16 +172,16 @@ handleInternalMessage refCln msg = do
 connectSocket :: forall e.
   String -> String
   -> (WS.Socket -> PlayerId
-                -> [String]
-                -> [InternalMessage]
+                -> Array String
+                -> Array InternalMessage
                 -> Eff (ClientEffects e) Unit)
   -> Eff (ClientEffects e) Unit
 connectSocket url playerName cont = do
   let fullUrl = url <> "?" <> playerName
 
   -- HACK - for messages received before the client is fully operational.
-  delayedMsgs <- newRef ([] :: [String])
-  delayedInternals <- newRef ([] :: [InternalMessage])
+  delayedMsgs <- newRef ([] :: Array String)
+  delayedInternals <- newRef ([] :: Array InternalMessage)
   sock <- WS.mkWebSocket fullUrl
 
   WS.onMessage sock $ \msg ->
@@ -196,32 +196,6 @@ connectSocket url playerName cont = do
 
 foreign import data AnimationLoop :: *
 
-foreign import startAnimationLoop
-  """
-  function startAnimationLoop(action) {
-    var loop = {}
+foreign import startAnimationLoop :: forall a e. Eff e a -> Eff e AnimationLoop
 
-    var go = (function() {
-      window.requestAnimationFrame(this.go);
-      action();
-    }).bind(loop)
-    loop.go = go
-
-    var stop = (function() {
-      this.go = function () { }
-    }).bind(loop)
-    loop.stop = stop
-
-    return function() {
-      loop.go()
-      return loop
-    }
-  }
-  """ :: forall a e. Eff e a -> Eff e AnimationLoop
-
-foreign import stopAnimationLoop
-  """
-  function stopAnimationLoop(loop) {
-    loop.stop()
-  }
-  """ :: forall e. AnimationLoop -> Eff e Unit
+foreign import stopAnimationLoop :: forall e. AnimationLoop -> Eff e Unit

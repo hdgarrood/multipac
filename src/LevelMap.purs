@@ -64,7 +64,7 @@ toBlockTile t =
 
 mkBlockTile :: BlockTile -> BlockTile
 mkBlockTile b =
-  let rightLength :: forall a. [a] -> Boolean
+  let rightLength :: forall a. Array a -> Boolean
       rightLength x = length x == tileSize
       ok = rightLength b && all rightLength b
   in  if ok then b else error "bad dimensions for BlockTile"
@@ -82,11 +82,11 @@ debugShowBlockTile bt =
           Empty -> " "
   in  joinWith "\n" (map showRow rows)
 
-concatTiles :: [[Tile]] -> Maybe [[Block]]
+concatTiles :: Array (Array Tile) -> Maybe (Array (Array Block))
 concatTiles =
   map (map toBlockTile) >>> map concatTileRow >>> sequence >>> fmap concat
 
-concatTileRow :: [BlockTile] -> Maybe [[Block]]
+concatTileRow :: Array BlockTile -> Maybe (Array (Array Block))
 concatTileRow ts =
     let r = range 0 (tileSize - 1)
         getRow n t = t !! n
@@ -103,7 +103,7 @@ tileSize = 11
 halfTile :: Number
 halfTile = floor (tileSize / 2)
 
-mirror :: forall a. a -> a -> [a]
+mirror :: forall a. a -> a -> Array a
 mirror x y =
     let xs = replicate halfTile x
     in xs <> [y] <> xs
@@ -141,7 +141,7 @@ straightHorizontalB =
 inaccessibleB :: BlockTile
 inaccessibleB = mkBlockTile $ replicate tileSize (replicate tileSize Wall)
 
-basicTileMap :: [[Tile]]
+basicTileMap :: Array (Array Tile))
 basicTileMap =
     let n = tilesAlongSide - 2
         leftCol =
@@ -158,7 +158,7 @@ basicTileMap =
                 [CornerLeftUp]
     in [leftCol] <> replicate n centralCol <> [rightCol]
 
-fromString :: String -> Either String [[Tile]]
+fromString :: String -> Either String (Array (Array Tile))
 fromString str = parseLevelMapString str >>= constructLevelMap
 
 -- 'Wall' or 'Empty'
@@ -172,7 +172,7 @@ instance eqBasicTile :: Eq BasicTile where
 
 fail = Left
 
-parseLevelMapString :: String -> Either String [[BasicTile]]
+parseLevelMapString :: String -> Either String (Array (Array BasicTile))
 parseLevelMapString str = do
   let toLines =
     split "\n" >>>
@@ -194,10 +194,10 @@ parseLevelMapString str = do
         _   -> fail $ "unexpected char '" <> c <> "'; expected '#' or '_'"
 
   where
-  rightLength :: forall a. [a] -> Boolean
+  rightLength :: forall a. Array a -> Boolean
   rightLength x = length x == tilesAlongSide
 
-constructLevelMap :: [[BasicTile]] -> Either String [[Tile]]
+constructLevelMap :: Array (Array BasicTile) -> Either String (Array (Array Tile))
 constructLevelMap basicTiles = do
   let tileIndices = range 0 (tilesAlongSide - 1)
   let b i j = basicTiles !! i >>= (\r -> r !! j)
@@ -251,7 +251,7 @@ basicMap2 =
   #################
   """
 
-mkLevelMap :: [[Tile]] -> Maybe LevelMap
+mkLevelMap :: Array (Array Tile) -> Maybe LevelMap
 mkLevelMap ts = fmap (\bs -> { blocks: bs, tiles: ts }) (concatTiles ts)
 
 basicMap :: LevelMap
