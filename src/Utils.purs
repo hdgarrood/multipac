@@ -1,20 +1,20 @@
 module Utils where
 
-import Debug.Trace
+import Prelude
 import Data.Function
 import Data.Int as Int
 import Data.Maybe
 import Data.Tuple
-import Data.Array hiding ((..), map)
+import Data.Array hiding ((..))
+import Data.Array.Unsafe (unsafeIndex)
 import Data.Either
 import Data.JSON (decode)
 import Data.List.ZipList (ZipList(..), runZipList)
 import Data.List.Lazy as List
 import Data.Map as M
 import Data.Traversable (sequence)
-import Data.Monoid.All
+import Data.Unfoldable (Unfoldable)
 import Data.Foldable (Foldable, for_, foldMap, foldr, foldl)
-import Prelude.Unsafe (unsafeIndex)
 import Control.Monad.Eff
 import Node.Process as Process
 
@@ -42,10 +42,14 @@ transpose =
   toZipList
    >>> map toZipList
    >>> sequence
-   >>> map runZipList
-   >>> runZipList
+   >>> map fromZipList
+   >>> fromZipList
+
   where
+  toZipList :: forall f a'. (Foldable f) => f a' -> ZipList a'
   toZipList = ZipList <<< List.fromFoldable
+
+  fromZipList :: forall f a'. (Unfoldable f) => ZipList a' -> f a'
   fromZipList = List.toUnfoldable <<< runZipList
 
 collectMaybes :: forall a. Array (Array (Maybe a)) -> Maybe (Array (Array a))
@@ -71,8 +75,8 @@ applyN = go id
   go f n _ | n <= 0 = f
   go f n g = go (f >>> g) (n - 1) g
 
-zipNumbers :: forall a. Array a -> Array (Tuple Number a)
-zipNumbers xs = zip (range 0 (length xs - 1)) xs
+zipIndices :: forall a. Array a -> Array (Tuple Int a)
+zipIndices xs = zip (range 0 (length xs - 1)) xs
 
 deleteWhere :: forall k v. (Ord k) =>
   (k -> v -> Boolean) -> M.Map k v -> M.Map k v
