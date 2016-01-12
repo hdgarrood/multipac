@@ -141,7 +141,7 @@ straightHorizontalB =
 inaccessibleB :: BlockTile
 inaccessibleB = mkBlockTile $ replicate tileSize (replicate tileSize Wall)
 
-basicTileMap :: Array (Array Tile))
+basicTileMap :: Array (Array Tile)
 basicTileMap =
     let n = tilesAlongSide - 2
         leftCol =
