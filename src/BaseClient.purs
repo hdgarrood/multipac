@@ -7,7 +7,7 @@ import Data.Foldable (for_)
 import Data.Array (insertAt)
 import qualified Data.Map as M
 import qualified Data.Either as E
-import Data.JSON (ToJSON, FromJSON, encode, eitherDecode)
+import Data.Argonaut.Codecs (EncodeJson, DecodeJson, encodeJson, decodeJson)
 import Control.Monad.Trans
 import Control.Monad.RWS.Trans
 import Control.Monad.RWS.Class
@@ -152,10 +152,10 @@ startClient initialState cs socketUrl playerName =
 
   where
   onMessageCallback ref msg =
-    case eitherDecode msg of
+    case decodeJson msg of
       E.Right val -> runCallback ref (cs.onMessage val)
       E.Left err ->
-        case eitherDecode msg of
+        case decodeJson msg of
           E.Right intMsg -> handleInternalMessage ref intMsg
           E.Left _ -> trace err
 
@@ -185,7 +185,7 @@ connectSocket url playerName cont = do
   sock <- WS.mkWebSocket fullUrl
 
   WS.onMessage sock $ \msg ->
-    case eitherDecode msg of
+    case decodeJson msg of
       E.Right (YourPlayerIdIs pId) -> do
         delayed <- readRef delayedMsgs
         internals <- readRef delayedInternals

@@ -8,7 +8,6 @@ import Data.Tuple
 import Data.Array hiding ((..))
 import Data.Array.Unsafe (unsafeIndex)
 import Data.Either
-import Data.JSON (decode)
 import Data.List.ZipList (ZipList(..), runZipList)
 import Data.List.Lazy as List
 import Data.Map as M
@@ -20,12 +19,6 @@ import Node.Process as Process
 
 (~) :: forall a b. a -> b -> Tuple a b
 (~) = Tuple
-
-(..) :: forall s a b c. (Semigroupoid s) => s b c -> s a b -> s a c
-(..) = (<<<)
-
-type Traversal s t a b = forall f. (Applicative f) => (a -> f b) -> s -> f t
-type TraversalP s a = Traversal s s a a
 
 iterateN :: forall a. Int -> a -> (a -> a) -> Array a
 iterateN n x f =

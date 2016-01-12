@@ -1,16 +1,19 @@
 module Types where
 
-import Debug.Trace
+import Prelude
 import Data.Maybe
 import Data.Traversable
 import Data.Foldable
 import Data.Function
-import qualified Data.Map as M
-import qualified Data.Either as E
-import Data.JSON
+import Data.Map (Map())
+import Data.Map as Map
+import Data.Either as E
+import Data.Argonaut.Core
+import Data.Argonaut.Encode
+import Data.Argonaut.Decode
 import Data.Tuple
 import Data.String hiding (singleton, uncons)
-import Data.Array (map, singleton)
+import Data.Array (singleton)
 import qualified Data.Sequence as S
 import Graphics.Canvas
 import Control.Monad.Writer.Trans
@@ -19,38 +22,22 @@ import Control.Monad.State
 import Control.Monad.State.Class
 import Control.Monad.Eff
 import Control.Monad.Eff.Ref
-import Control.Timer
-import Optic.Lens
-import Optic.Getter ((^.))
-import Optic.Setter (over)
-import Optic.Types (LensP())
-import Data.DOM.Simple.Types (DOM(), DOMEvent())
+import DOM.Timer
+import Data.Lens
+import Data.Lens.Getter ((^.))
+import Data.Lens.Setter (over)
+import Data.Lens.Types (LensP())
+import DOM (DOM())
 import Math (floor, pi, pow)
 
 import Utils
-import qualified NodeWebSocket as WS
-import qualified BrowserWebSocket as BWS
-import NodeHttp (Http())
-
-instance toJSONMap :: (ToJSON k, ToJSON v) => ToJSON (M.Map k v) where
-  toJSON m = JArray $ map toJSON (M.toList m)
-
-instance fromJSONMap :: (Ord k, FromJSON k, FromJSON v) => FromJSON (M.Map k v) where
-  parseJSON (JArray arr) =
-    M.fromList <$> traverse parseJSON arr
-  parseJSON other = failJsonParse other "Map"
-
-instance toJSONSeq :: (ToJSON a) => ToJSON (S.Seq a) where
-  toJSON = JArray <<< S.fromSeq <<< (toJSON <$>)
-
-instance fromJSONSeq :: (FromJSON a) => FromJSON (S.Seq a) where
-  parseJSON (JArray arr) = S.toSeq <$> traverse parseJSON arr
-  parseJSON other = failJsonParse other "Seq"
+import NodeWebSocket as WS
+import WebSocket as BWS
 
 -- newtype wrapper is just so that the ReaderT instance works
 type Game = { map :: LevelMap
-            , players :: M.Map PlayerId Player
-            , items   :: M.Map ItemId Item
+            , players :: Map PlayerId Player
+            , items   :: Map ItemId Item
             , countdown :: Maybe Number
             , rampage :: Maybe Rampage
             , safeZone :: Array Position
@@ -60,7 +47,7 @@ newtype WrappedGame = WrappedGame Game
 unwrapGame :: WrappedGame -> Game
 unwrapGame (WrappedGame g) = g
 
-instance toJSONWrappedGame :: ToJSON WrappedGame where
+instance toJSONWrappedGame :: EncodeJson WrappedGame where
   toJSON (WrappedGame game) =
     object [ "map" .= toJSON (WrappedLevelMap game.map)
            , "players" .= toJSON game.players
@@ -70,7 +57,7 @@ instance toJSONWrappedGame :: ToJSON WrappedGame where
            , "safeZone" .= toJSON game.safeZone
            ]
 
-instance fromJSONWrappedGame :: FromJSON WrappedGame where
+instance fromJSONWrappedGame :: DecodeJson WrappedGame where
   parseJSON (JObject obj) = do
     (WrappedLevelMap m) <- obj .: "map"
     p <- obj .: "players"
@@ -115,20 +102,19 @@ instance showPlayerId :: Show PlayerId where
   show P4 = "P4"
 
 instance eqPlayerId :: Eq PlayerId where
-  (==) = (==) `on` playerIdToInt
-  (/=) = (/=) `on` playerIdToInt
+  eq = eq `on` playerIdToInt
 
 instance ordPlayerId :: Ord PlayerId where
   compare = compare `on` playerIdToInt
 
-instance fromJSONPlayerId :: FromJSON PlayerId where
+instance fromJSONPlayerId :: DecodeJson PlayerId where
   parseJSON (JNumber n) =
     case intToPlayerId n of
       Just x -> return x
       Nothing -> failJsonParse n "PlayerId"
   parseJSON val = failJsonParse val "PlayerId"
 
-instance toJSONPlayerId :: ToJSON PlayerId where
+instance toJSONPlayerId :: EncodeJson PlayerId where
   toJSON = JNumber <<< playerIdToInt
 
 type ItemId = Number
@@ -140,13 +126,13 @@ type LevelMap =
 
 newtype WrappedLevelMap = WrappedLevelMap LevelMap
 
-instance toJSONWrappedLevelMap :: ToJSON WrappedLevelMap where
+instance toJSONWrappedLevelMap :: EncodeJson WrappedLevelMap where
   toJSON (WrappedLevelMap m) =
     object [ "blocks" .= toJSON m.blocks
            , "tiles" .= toJSON m.tiles
            ]
 
-instance fromJSONWrappedLevelMap :: FromJSON WrappedLevelMap where
+instance fromJSONWrappedLevelMap :: DecodeJson WrappedLevelMap where
   parseJSON (JObject obj) = do
     b <- obj .: "blocks"
     t <- obj .: "tiles"
@@ -158,11 +144,11 @@ instance showBlock :: Show Block where
   show Wall = "Wall"
   show Empty = "Empty"
 
-instance toJSONBlock :: ToJSON Block where
+instance toJSONBlock :: EncodeJson Block where
   toJSON Wall = JNumber 1
   toJSON Empty = JNumber 2
 
-instance fromJSONBlock :: FromJSON Block where
+instance fromJSONBlock :: DecodeJson Block where
   parseJSON (JNumber 1) = return Wall
   parseJSON (JNumber 2) = return Empty
   parseJSON v = failJsonParse v "Block"
@@ -198,10 +184,10 @@ instance showTile :: Show Tile where
   show StraightVertical   = "StraightVertical"
   show Inaccessible       = "Inaccessible"
 
-instance toJSONTile :: ToJSON Tile where
+instance toJSONTile :: EncodeJson Tile where
   toJSON t = JString (show t)
 
-instance fromJSONTile :: FromJSON Tile where
+instance fromJSONTile :: DecodeJson Tile where
   parseJSON (JString "Intersection") = return Intersection
   parseJSON (JString "TeeJunctionUp") = return TeeJunctionUp
   parseJSON (JString "TeeJunctionRight") = return TeeJunctionRight
@@ -238,18 +224,17 @@ instance showPosition :: Show Position where
     showRecord "Position" ["x" .:: p.x, "y" .:: p.y]
 
 instance eqPosition :: Eq Position where
-  (==) (Position p) (Position q) = p.x == q.x && p.y == q.y
-  (/=) p q = not (p == q)
+  eq (Position p) (Position q) = p.x == q.x && p.y == q.y
 
-instance fromJsonPosition :: FromJSON Position where
-  parseJSON (JArray [JNumber x, JNumber y]) = return $ Position { x: x, y: y}
+instance fromJsonPosition :: DecodeJson Position where
+  parseJSON (JArray [JNumber x, JNumber y]) = return $ Position { x: x, y: y }
   parseJSON v = failJsonParse v "Position"
 
-instance toJsonPosition :: ToJSON Position where
+instance toJsonPosition :: EncodeJson Position where
   toJSON (Position p) = JArray [JNumber p.x, JNumber p.y]
 
-add :: Position -> Position -> Position
-add (Position p) (Position q) = Position {x: p.x + q.x, y: p.y + q.y}
+addPos :: Position -> Position -> Position
+addPos (Position p) (Position q) = Position {x: p.x + q.x, y: p.y + q.y}
 
 scalePos :: Number -> Position -> Position
 scalePos s (Position p) = Position {x: s * p.x, y: s * p.y}
@@ -270,7 +255,7 @@ newtype Player
       , respawnCounter :: Maybe Number
       }
 
-instance toJSONPlayer :: ToJSON Player where
+instance toJSONPlayer :: EncodeJson Player where
   toJSON (Player p) =
     JArray [ JString "Player"
            , toJSON p.position
@@ -281,7 +266,7 @@ instance toJSONPlayer :: ToJSON Player where
            , toJSON p.respawnCounter
            ]
 
-instance fromJSONPlayer :: FromJSON Player where
+instance fromJSONPlayer :: DecodeJson Player where
   parseJSON (JArray arr) =
     case arr of
       [JString "Player", pos, dir, intdir, sc, idx, ctr] -> do
@@ -374,13 +359,13 @@ instance showItem :: Show Item where
       , "itemType" .:: i.itemType
       ]
 
-instance fromJSONItem :: FromJSON Item where
+instance fromJSONItem :: DecodeJson Item where
   parseJSON (JArray [JString "Item", position, itemType]) = do
     p <- parseJSON position
     i <- parseJSON itemType
     return $ Item {position: p, itemType: i}
 
-instance toJSONItem :: ToJSON Item where
+instance toJSONItem :: EncodeJson Item where
   toJSON (Item i) = JArray [ JString "Item"
                            , toJSON i.position
                            , toJSON i.itemType
@@ -419,7 +404,7 @@ instance showDirection :: Show Direction where
   show Left = "Left"
   show Right = "Right"
 
-instance fromJsonDirection :: FromJSON Direction where
+instance fromJsonDirection :: DecodeJson Direction where
   parseJSON (JString str) =
     case str of
       "up"    -> return Up
@@ -429,7 +414,7 @@ instance fromJsonDirection :: FromJSON Direction where
       _       -> failJsonParse str "Direction"
   parseJSON i = failJsonParse i "Direction"
 
-instance toJsonDirection :: ToJSON Direction where
+instance toJsonDirection :: EncodeJson Direction where
   toJSON Up = JString "up"
   toJSON Down = JString "down"
   toJSON Left = JString "left"
@@ -443,16 +428,15 @@ instance showItemType :: Show ItemType where
   show Cherry = "Cherry"
 
 instance eqItemType :: Eq ItemType where
-  (==) LittleDot LittleDot = true
-  (==) BigDot BigDot = true
-  (==) Cherry Cherry = true
-  (==) _ _ = false
-  (/=) x y = not (x == y)
+  eq LittleDot LittleDot = true
+  eq BigDot BigDot = true
+  eq Cherry Cherry = true
+  eq _ _ = false
 
-instance toJSONItemType :: ToJSON ItemType where
+instance toJSONItemType :: EncodeJson ItemType where
   toJSON = JString <<< show
 
-instance fromJSONItemType :: FromJSON ItemType where
+instance fromJSONItemType :: DecodeJson ItemType where
   parseJSON (JString "LittleDot") = return LittleDot
   parseJSON (JString "BigDot") = return BigDot
   parseJSON (JString "Cherry") = return Cherry
@@ -479,7 +463,7 @@ opposite d =
     Right -> Left
     Left -> Right
 
-type Input = M.Map PlayerId (Maybe Direction)
+type Input = Map PlayerId (Maybe Direction)
 
 data PlayerUpdate
   = ChangedDirection (Maybe Direction)
@@ -498,7 +482,7 @@ instance showPlayerUpdate :: Show PlayerUpdate where
   show (ChangedPosition x) =
     "ChangedPosition (" <> show x <> ")"
 
-instance fromJSONPlayerUpdate :: FromJSON PlayerUpdate where
+instance fromJSONPlayerUpdate :: DecodeJson PlayerUpdate where
   parseJSON (JArray arr) =
     case arr of
        [JString "cp", x] -> ChangedPosition <$> parseJSON x
@@ -511,7 +495,7 @@ instance fromJSONPlayerUpdate :: FromJSON PlayerUpdate where
 
   parseJSON val = failJsonParse val "PlayerUpdate"
 
-instance toJSONPlayerUpdate :: ToJSON PlayerUpdate where
+instance toJSONPlayerUpdate :: EncodeJson PlayerUpdate where
   toJSON update =
     JArray $ case update of
       ChangedPosition p          -> [JString "cp", toJSON p]
@@ -529,11 +513,11 @@ data ItemUpdate
 instance showItemUpdate :: Show ItemUpdate where
   show Eaten = "Eaten"
 
-instance fromJSONItemUpdate :: FromJSON ItemUpdate where
+instance fromJSONItemUpdate :: DecodeJson ItemUpdate where
   parseJSON (JArray [JString "iu"]) = return Eaten
   parseJSON v = failJsonParse v "ItemUpdate"
 
-instance toJSONItemUpdate :: ToJSON ItemUpdate where
+instance toJSONItemUpdate :: EncodeJson ItemUpdate where
   toJSON u = JArray [JString "iu"]
 
 data GameEndReason
@@ -544,11 +528,11 @@ instance showGameEndReason :: Show GameEndReason where
   show Completed = "Completed"
   show TooManyPlayersDisconnected = "TooManyPlayersDisconnected"
 
-instance toJSONGameEndReason :: ToJSON GameEndReason where
+instance toJSONGameEndReason :: EncodeJson GameEndReason where
   toJSON Completed = JString "cmpl"
   toJSON TooManyPlayersDisconnected = JString "tmpd"
 
-instance fromJSONGameEndReason :: FromJSON GameEndReason where
+instance fromJSONGameEndReason :: DecodeJson GameEndReason where
   parseJSON (JString "cmpl") = return Completed
   parseJSON (JString "tmpd") = return TooManyPlayersDisconnected
   parseJSON v = failJsonParse v "GameEndReason"
@@ -557,11 +541,11 @@ data Rampage
   = Rampaging PlayerId Number
   | Cooldown Number
 
-instance toJSONRampage :: ToJSON Rampage where
+instance toJSONRampage :: EncodeJson Rampage where
   toJSON (Rampaging pId x) = JArray [JString "rpgn", toJSON (Tuple pId x)]
   toJSON (Cooldown x) = JArray [JString "cool", toJSON x]
 
-instance fromJSONRampage :: FromJSON Rampage where
+instance fromJSONRampage :: DecodeJson Rampage where
   parseJSON (JArray [JString type_, data_]) =
     case type_ of
       "rpgn" -> uncurry Rampaging <$> parseJSON data_
@@ -577,7 +561,7 @@ data GameUpdate
   | GameEnded GameEndReason
   | ChangedRampage (Maybe Rampage)
 
-instance fromJSONGameUpdate :: FromJSON GameUpdate where
+instance fromJSONGameUpdate :: DecodeJson GameUpdate where
   parseJSON (JArray arr) =
     case arr of
       [JString "gupu", pId, pUpd] ->
@@ -593,7 +577,7 @@ instance fromJSONGameUpdate :: FromJSON GameUpdate where
       _ -> failJsonParse arr "GameUpdate"
   parseJSON val = failJsonParse val "GameUpdate"
 
-instance toJSONGameUpdate :: ToJSON GameUpdate where
+instance toJSONGameUpdate :: EncodeJson GameUpdate where
   toJSON (GUPU pId pUpd) =
     JArray [JString "gupu", toJSON pId, toJSON pUpd]
   toJSON (GUIU iId iUpd) =
@@ -609,15 +593,15 @@ instance toJSONGameUpdate :: ToJSON GameUpdate where
 -- but before the game starts
 data WaitingUpdate
   = GameStarting Game
-  | NewReadyStates (M.Map PlayerId Boolean)
+  | NewReadyStates (Map PlayerId Boolean)
 
-instance toJSONWaitingUpdate :: ToJSON WaitingUpdate where
+instance toJSONWaitingUpdate :: EncodeJson WaitingUpdate where
   toJSON (GameStarting game) =
     JArray [JString "starting", toJSON (WrappedGame game)]
   toJSON (NewReadyStates m) =
     JArray [JString "readyStates", toJSON m]
 
-instance fromJSONWaitingUpdate :: FromJSON WaitingUpdate where
+instance fromJSONWaitingUpdate :: DecodeJson WaitingUpdate where
   parseJSON (JArray [JString "starting", game]) =
     (GameStarting <<< unwrapGame) <$> parseJSON game
   parseJSON (JArray [JString "readyStates", m]) =
@@ -670,7 +654,7 @@ data GameState
   = WaitingForPlayers GameStateWaitingForPlayers
   | InProgress        GameStateInProgress
 
-type GameStateWaitingForPlayers = M.Map PlayerId Boolean
+type GameStateWaitingForPlayers = Map PlayerId Boolean
 type GameStateInProgress = { game :: Game, input :: Input }
 
 type ReadyState = Boolean
@@ -687,11 +671,11 @@ asInProgressMessageO :: ServerOutgoingMessage -> Maybe (S.Seq GameUpdate)
 asInProgressMessageO (SOInProgress x) = Just x
 asInProgressMessageO _ = Nothing
 
-instance toJSONServerOutgoingMessage :: ToJSON ServerOutgoingMessage where
+instance toJSONServerOutgoingMessage :: EncodeJson ServerOutgoingMessage where
   toJSON (SOWaiting u)    = JArray [JString "out", JString "wait", toJSON u]
   toJSON (SOInProgress u) = JArray [JString "out", JString "iprg", toJSON u]
 
-instance fromJSONServerOutgoingMessage :: FromJSON ServerOutgoingMessage where
+instance fromJSONServerOutgoingMessage :: DecodeJson ServerOutgoingMessage where
   parseJSON (JArray [JString "out", JString type_, data_]) =
     case type_ of
       "wait" -> SOWaiting <$> parseJSON data_
@@ -705,13 +689,13 @@ data ServerIncomingMessage
   = SIToggleReadyState
   | SIInProgress Direction
 
-instance toJSONServerIncomingMessage :: ToJSON ServerIncomingMessage where
+instance toJSONServerIncomingMessage :: EncodeJson ServerIncomingMessage where
   toJSON (SIToggleReadyState) =
     JArray [JString "in", JString "tors", toJSON unit]
   toJSON (SIInProgress u) =
     JArray [JString "in", JString "iprg", toJSON u]
 
-instance fromJSONServerIncomingMessage :: FromJSON ServerIncomingMessage where
+instance fromJSONServerIncomingMessage :: DecodeJson ServerIncomingMessage where
   parseJSON (JArray [JString "in", JString type_, data_]) =
     case type_ of
       "tors" -> return SIToggleReadyState
@@ -729,7 +713,7 @@ asInProgressMessage :: ServerIncomingMessage -> Maybe Direction
 asInProgressMessage (SIInProgress d) = Just d
 asInProgressMessage _ = Nothing
 
-matchMessage :: forall m a b. (Monad m, ToJSON a) =>
+matchMessage :: forall m a b. (Monad m, EncodeJson a) =>
   (a -> Maybe b) -> a -> (b -> m Unit) -> m Unit
 matchMessage f msg action =
   maybe (return unit) action (f msg)
@@ -742,7 +726,7 @@ type ClientStateWaiting
   = { prevGame          :: Maybe Game
     , backgroundCleared :: Boolean
     , cachedHtml        :: String
-    , readyStates       :: M.Map PlayerId Boolean
+    , readyStates       :: Map PlayerId Boolean
     }
 
 type ClientStateInProgress

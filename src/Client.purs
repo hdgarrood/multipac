@@ -4,7 +4,6 @@ import Debug.Trace (trace)
 import Data.Maybe
 import Data.Maybe.Unsafe (fromJust)
 import qualified Data.Either as E
-import Data.JSON (eitherDecode, encode)
 import Data.Tuple
 import qualified Data.String as S
 import qualified Data.Sequence as Seq

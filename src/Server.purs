@@ -2,7 +2,7 @@ module Server where
 
 import Debug.Trace
 import Data.Tuple
-import Data.JSON
+import Data.Argonaut.Core
 import Data.Function
 import Data.Maybe
 import Data.Array hiding ((..))

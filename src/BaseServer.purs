@@ -9,7 +9,7 @@ import qualified Data.Either as E
 import qualified Data.String as S
 import qualified Data.Map as M
 import Data.Monoid (Monoid, mempty)
-import Data.JSON
+import Data.Argonaut.Codecs
 import Control.Monad (when)
 import Control.Monad.RWS
 import Control.Monad.RWS.Class
@@ -189,7 +189,7 @@ startServer cs refSrv = do
 
             WS.onMessage conn $ \msg -> do
               updatePlayerTimeCounter refSrv pId
-              case eitherDecode msg of
+              case decodeJson msg of
                 E.Right val -> runCallback refSrv $ cs.onMessage val pId
                 E.Left err  -> trace err
 

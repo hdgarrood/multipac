@@ -1,22 +1,33 @@
 module BaseCommon where
 
-import Data.JSON
-import qualified Data.Map as M
+import Prelude
+import Control.Monad
+import Data.Maybe
+import Data.Map (Map())
+import Data.Argonaut.Core as A
+import Data.Argonaut.Encode
+import Data.Argonaut.Decode
+
 import Types
 
 -- message types internal to the BaseClient/BaseServer
 data InternalMessage
-  = NewPlayer (M.Map PlayerId String)
+  = NewPlayer (Map PlayerId String)
   | YourPlayerIdIs PlayerId
 
-instance toJSONInternalMessage :: ToJSON InternalMessage where
-  toJSON (NewPlayer m) =
-    JArray [JString "__internal", JString "NewPlayer", toJSON m]
+instance encodeInternalMessage :: EncodeJson InternalMessage where
+  encodeJson (NewPlayer m) =
+    A.fromArray [A.fromString "__internal", A.fromString "NewPlayer", encodeJson m]
   toJSON (YourPlayerIdIs pId) =
-    JArray [JString "__internal", JString "YourPlayerIdIs", toJSON pId]
+    A.fromArray [A.fromString "__internal", A.fromString "YourPlayerIdIs", encodeJson pId]
 
-instance fromJSONInternalMessage :: FromJSON InternalMessage where
-  parseJSON (JArray [JString "__internal", JString type_, x]) =
-    case type_ of
-      "NewPlayer" -> NewPlayer <$> parseJSON x
-      "YourPlayerIdIs" -> YourPlayerIdIs <$> parseJSON x
+instance decodeInternalMessage :: DecodeJson InternalMessage where
+  decodeJson json =
+    case maybe (Left "Wrong type: expected array") A.toArray json of
+      [internal, type_, x] -> do
+        unless (A.fromString internal == "__internal")
+          (Left "Not internal")
+        case A.fromString type_ of
+          Just "NewPlayer" -> NewPlayer <$> decodeJson x
+          Just "YourPlayerIdIs" -> YourPlayerIdIs <$> decodeJson x
+          Nothing -> Left "Wrong type: expected String"

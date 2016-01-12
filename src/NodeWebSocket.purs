@@ -1,8 +1,7 @@
 module NodeWebSocket where
 
-import Data.Tuple
+import Prelude
 import Data.Function
-import Data.Maybe
 import Control.Monad.Eff
 
 foreign import data WebSocket :: !
@@ -11,7 +10,7 @@ foreign import data Connection :: *
 foreign import data Request :: *
 foreign import data Close :: *
 
-import qualified NodeHttp as Http
+import Node.HTTP as Http
 
 -- for now, only UTF8 messages are supported
 -- TODO: node buffers
@@ -52,7 +51,7 @@ onceOnMessage conn callback =
   runFn5 registerEventHandlerUnsafe
     conn "once" "message" callback getMessageData
 
-foreign import getMessageData :: Message -> String 
+foreign import getMessageData :: Message -> String
 
 onClose :: RegisterHandler Connection Close
 onClose conn callback =
@@ -63,8 +62,6 @@ foreign import reject :: forall e. Request -> Eff (ws :: WebSocket | e) Unit
 
 foreign import accept :: forall e. Request -> Eff (ws :: WebSocket | e) Connection
 
-foreign import resourceUrl :: Request -> Http.Url
-
 foreign import sendImpl :: forall e.
   Fn2 Connection String (Eff (ws :: WebSocket | e) Unit)
 
@@ -72,10 +69,10 @@ send :: forall e. Connection -> String -> Eff (ws :: WebSocket | e) Unit
 send conn msg = runFn2 sendImpl conn msg
 
 foreign import mountImpl :: forall e.
-  Fn2 Server Http.Server (Eff (ws :: WebSocket, http :: Http.Http | e) Unit)
+  Fn2 Server Http.Server (Eff (ws :: WebSocket, http :: Http.HTTP | e) Unit)
 
 mount :: forall e.
-  Server -> Http.Server -> Eff (ws :: WebSocket, http :: Http.Http | e) Unit
+  Server -> Http.Server -> Eff (ws :: WebSocket, http :: Http.HTTP | e) Unit
 mount wsServer httpServer = runFn2 mountImpl wsServer httpServer
 
 foreign import close :: forall e. Connection -> Eff (ws :: WebSocket | e) Unit
