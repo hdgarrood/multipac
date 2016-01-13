@@ -5,16 +5,16 @@ import Data.Maybe
 import Data.Tuple (fst, snd)
 import Data.Foldable (for_)
 import Data.Array (insertAt)
-import qualified Data.Map as M
-import qualified Data.Either as E
+import Data.Map as M
+import Data.Either as E
 import Data.Argonaut.Encode
 import Data.Argonaut.Decode
 import Data.Argonaut.Printer
 import Control.Monad.Trans
 import Control.Monad.RWS.Trans
 import Control.Monad.RWS.Class
-import qualified Control.Monad.Writer.Class as W
-import qualified Control.Monad.Reader.Class as R
+import Control.Monad.Writer.Class as W
+import Control.Monad.Reader.Class as R
 import Control.Monad.Eff (Eff())
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Control.Monad.Eff.Console

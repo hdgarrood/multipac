@@ -1,6 +1,6 @@
 module Client where
 
-import Debug.Trace (trace)
+import Prelude
 import Data.Maybe
 import Data.Maybe.Unsafe (fromJust)
 import Data.Either as E
@@ -24,16 +24,28 @@ import Data.Lens (lens, LensP())
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter ((%~), (.~))
 import Data.Lens.At (at)
-import Control.Timer
+import DOM.Timer
+import WebSocket as WS
+import Browser.WebStorage as Storage
+import Unsafe.Coerce (unsafeCoerce)
 
-import BrowserWebSocket as WS
 import Rendering as R
 import HtmlViews as V
 import BaseClient
 import Game
 import Types
 import Utils
-import LocalStorage
+
+-- This is a bit unsafe, but we only deal with HTMLElements, so it's fine here.
+castToHTML :: Element -> HTMLElement
+castToHTML = unsafeCoerce
+
+type ClientEffects2 e =
+  ClientEffects
+  ( webStorage :: Storage.WebStorage
+  , dom :: DOM
+  | e
+  )
 
 initialState =
   CWaitingForPlayers
@@ -55,14 +67,14 @@ main = do
          else start startRef name
 
 promptScreenName :: forall e.
-  String -> (String -> Eff (storage :: Storage, dom :: DOM | e) Unit)
-  -> Eff (storage :: Storage, dom :: DOM | e) Unit
+  String -> (String -> Eff (ClientEffects2 e) Unit)
+  -> Eff (ClientEffects2 e) Unit
 promptScreenName msg cont = do
   let key = "screenName"
-  mVal <- getStorage key
+  mVal <- Storage.getItem Storage.localStorage key
   let val = fromMaybe "" mVal
   popupPromptInput msg val $ \name -> do
-    setStorage "screenName" name
+    Storage.setItem Storage.localStorage "screenName" name
     cont name
 
 popupPromptInput msg val cont = do
@@ -225,7 +237,7 @@ putWaitingState prevGame =
       Nothing -> M.empty
 
 
-directionFromKeyCode :: Number -> Maybe Direction
+directionFromKeyCode :: Int -> Maybe Direction
 directionFromKeyCode code =
   case code of
     38 -> Just Up
