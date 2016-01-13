@@ -2,6 +2,7 @@ module Utils where
 
 import Prelude
 import Control.Bind ((>=>))
+import Data.Generic (Generic)
 import Data.Function
 import Data.Int as Int
 import Data.Maybe
@@ -17,11 +18,8 @@ import Data.Map as M
 import Data.Traversable (sequence)
 import Data.Unfoldable (Unfoldable)
 import Data.Foldable (Foldable, for_, foldMap, foldr, foldl)
-import Data.Argonaut.Core
-import Data.Argonaut.Encode (encodeJson, EncodeJson)
-import Data.Argonaut.Decode (decodeJson, DecodeJson)
-import Data.Argonaut.Printer (printJson)
-import Data.Argonaut.Parser (jsonParser)
+import Data.Foreign
+import Data.Foreign.Generic
 import Control.Monad.Eff
 import Node.Process as Process
 
@@ -103,11 +101,11 @@ portOrDefault default = do
   port <- Process.lookupEnv "PORT"
   return $ fromMaybe default (port >>= Int.fromString)
 
-object :: Array JAssoc -> Json
-object = fromObject <<< StrMap.fromList <<< List.fromFoldable
+-- object :: Array JAssoc -> Json
+-- object = fromObject <<< StrMap.fromList <<< List.fromFoldable
 
-encode :: forall a. (EncodeJson a) => a -> String
-encode = printJson <<< encodeJson
+encode :: forall a. (Generic a) => a -> String
+encode = toJSONGeneric defaultOptions
 
-decode :: forall a. (DecodeJson a) => String -> Either String a
-decode = jsonParser >=> decodeJson
+decode :: forall a. (Generic a) => String -> F a
+decode = readJSONGeneric defaultOptions

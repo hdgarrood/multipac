@@ -7,9 +7,7 @@ import Data.Foldable (for_)
 import Data.Array (insertAt)
 import Data.Map as M
 import Data.Either as E
-import Data.Argonaut.Encode
-import Data.Argonaut.Decode
-import Data.Argonaut.Printer
+import Data.Generic (Generic)
 import Control.Monad.Trans
 import Control.Monad.RWS.Trans
 import Control.Monad.RWS.Class
@@ -89,7 +87,7 @@ mkClient initialState conn pId =
   , players: M.empty
   }
 
-runCallback :: forall st outg e. (EncodeJson outg) =>
+runCallback :: forall st outg e. (Generic outg) =>
   Ref (Client st) -> ClientM st outg e Unit -> Eff (ClientEffects e) Unit
 runCallback refCln callback = do
   cln <- readRef refCln
@@ -97,7 +95,7 @@ runCallback refCln callback = do
   sendAllMessages cln res.messages
   writeRef refCln $ cln { state = res.nextState }
 
-sendAllMessages :: forall e st outg. (EncodeJson outg) =>
+sendAllMessages :: forall e st outg. (Generic outg) =>
   Client st -> Array outg -> Eff (ClientEffects e) Unit
 sendAllMessages cln msgs =
   for_ msgs $ \msg ->
@@ -132,7 +130,7 @@ askPlayerName = do
 liftEff :: forall st outg e a. Eff (ClientEffects e) a -> ClientM st outg e a
 liftEff = lift
 
-startClient :: forall st inc outg e. (DecodeJson inc, EncodeJson outg) =>
+startClient :: forall st inc outg e. (Generic inc, Generic outg) =>
   st -> ClientCallbacks st inc outg e -> String -> String
   -> Eff (ClientEffects e) Unit
 startClient initialState cs socketUrl playerName =
@@ -168,7 +166,7 @@ startClient initialState cs socketUrl playerName =
           E.Left err2 ->
             error ("Unable to parse message:\n" ++
               "data: " ++ msg ++ "\n" ++
-              "errors: " ++ err ++ "\n" ++ err2)
+              "errors: " ++ show err ++ "\n" ++ show err2)
 
 
 handleInternalMessage :: forall st e.

@@ -248,10 +248,10 @@ mkPlayer pos =
          }
 
 players :: LensP Game (Map PlayerId Player)
-players = lens (\o -> runGenericMap o.players) (\o x -> o { players = GenericMap x })
+players = lens (\o -> runGenericMap o.players) (\o x -> o { players = mkGenericMap x })
 
 items :: LensP Game (Map ItemId Item)
-items = lens (\o -> runGenericMap o.items) (\o x -> o { items = GenericMap x })
+items = lens (\o -> runGenericMap o.items) (\o x -> o { items = mkGenericMap x })
 
 pPosition :: LensP Player Position
 pPosition = lens

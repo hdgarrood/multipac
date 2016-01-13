@@ -132,8 +132,8 @@ changeRampage =
 initialGame :: Game
 initialGame =
   { map: levelmap
-  , players: toMap $ f <$> starts
-  , items:   toMap $ zipIndices $ makeItems levelmap safeZone bigDots
+  , players: GenericMap $ f <$> starts
+  , items:   GenericMap $ zipIndices $ makeItems levelmap safeZone bigDots
   , countdown: Just 90
   , rampage: Nothing
   , safeZone: safeZone
@@ -141,8 +141,6 @@ initialGame =
   where
   levelmap = WrappedLevelMap basicMap2
   f (Tuple pId position) = Tuple pId (mkPlayer position)
-  toMap :: forall f k v. (Ord k, Foldable f) => f (Tuple k v) -> GenericMap k v
-  toMap = GenericMap <<< M.fromFoldable
   starts =
     [ P1 ~ tilePositionToBlock (Position {x:7.0, y:7.0})
     , P2 ~ tilePositionToBlock (Position {x:9.0, y:7.0})

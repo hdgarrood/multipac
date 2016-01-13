@@ -10,8 +10,7 @@ import Data.Either as E
 import Data.String as S
 import Data.Map as M
 import Data.Monoid (Monoid, mempty)
-import Data.Argonaut.Encode
-import Data.Argonaut.Decode
+import Data.Generic (Generic)
 import Control.Monad (when)
 import Control.Monad.RWS
 import Control.Monad.RWS.Trans
@@ -123,7 +122,7 @@ mkServer initialState =
   , timeCounter: 0
   }
 
-runCallback :: forall st outg args e. (EncodeJson outg) =>
+runCallback :: forall st outg args e. (Generic outg) =>
   Ref (Server st) -> ServerM st outg Unit
   -> Eff (ServerEffects e) Unit
 runCallback refSrv callback = do
@@ -136,7 +135,7 @@ messagesFor :: forall outg. PlayerId -> SendMessages outg -> Array outg
 messagesFor pId (SendMessages sm) =
   sm.toAll <> fromMaybe [] (M.lookup pId sm.toOne)
 
-sendAllMessages :: forall e st outg. (EncodeJson outg) =>
+sendAllMessages :: forall e st outg. (Generic outg) =>
   Server st -> SendMessages outg
   -> Eff (ServerEffects e) Unit
 sendAllMessages srv sm = do
@@ -170,7 +169,7 @@ stepsPerSecond = 30
 type ServerEffects e =
   (timer :: Timer, ref :: REF, console :: CONSOLE, ws :: WS.WebSocket | e)
 
-startServer :: forall st inc outg e. (DecodeJson inc, EncodeJson outg) =>
+startServer :: forall st inc outg e. (Generic inc, Generic outg) =>
   ServerCallbacks st inc outg -> Ref (Server st)
   -> Eff (ServerEffects e) WS.Server
 startServer cs refSrv = do
@@ -197,7 +196,7 @@ startServer cs refSrv = do
               updatePlayerTimeCounter refSrv pId
               case decode msg of
                 E.Right val -> runCallback refSrv $ cs.onMessage val pId
-                E.Left err  -> log err
+                E.Left err  -> print err
 
             WS.onClose   conn $ \close -> do
               closeConnection refSrv pId
@@ -244,7 +243,7 @@ handleNewPlayer :: forall st e.
 handleNewPlayer refSrv pId = do
   srv <- readRef refSrv
   let playersMap = connectionsToPlayersMap srv.connections
-  let msgAll = NewPlayer (GenericMap playersMap)
+  let msgAll = NewPlayer (mkGenericMap playersMap)
   let msgOne = YourPlayerIdIs pId
   let msgs = SendMessages { toAll: [msgAll]
                           , toOne: M.singleton pId [msgOne]

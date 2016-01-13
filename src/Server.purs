@@ -88,7 +88,7 @@ step = do
                 put $ InProgress { game: game', input: M.empty }
 
     WaitingForPlayers m -> do
-      sendUpdate $ SOWaiting $ NewReadyStates $ GenericMap m
+      sendUpdate $ SOWaiting $ NewReadyStates $ mkGenericMap m
       when (readyToStart m) do
         let game = makeGame (M.keys m)
         sendUpdate $ SOWaiting $ GameStarting $ WrappedGame game
