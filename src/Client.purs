@@ -178,6 +178,7 @@ matchWaiting :: forall e.
   ServerOutgoingMessage -> (WaitingUpdate -> CM e Unit) -> CM e Unit
 matchWaiting = matchMessage asWaitingMessageO
 
+onMessage :: ServerOutgoingMessage -> _
 onMessage msg = do
   state <- get
   case state of
