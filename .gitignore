@@ -6,3 +6,4 @@ bin/
 output/
 dist/
 server.log
+.pulp-cache/

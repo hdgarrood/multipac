@@ -42,7 +42,7 @@ exports.sendImpl = function(conn, msg) {
   }
 }
 
-exports.mountImpl(wsServer, httpServer) {
+exports.mountImpl = function(wsServer, httpServer) {
   return function() {
     wsServer.mount({httpServer: httpServer})
   }
