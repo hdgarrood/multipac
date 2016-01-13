@@ -22,10 +22,9 @@ import Control.Monad.Eff.Ref (newRef, readRef, writeRef, modifyRef, REF(),
                               Ref())
 import Control.Monad.Eff.Var (set)
 import DOM (DOM())
-import DOM.Event.Types (Event(), EventType(..), KeyboardEvent())
-import DOM.Event.EventTarget (addEventListener, eventListener)
-import DOM.HTML (window)
-import DOM.HTML.Types (windowToEventTarget)
+import Data.DOM.Simple.Types (DOMEvent())
+import Data.DOM.Simple.Events (addKeyboardEventListener, KeyboardEventType(..))
+import Data.DOM.Simple.Window (globalWindow)
 import Graphics.Canvas (Canvas())
 
 import Types
@@ -90,7 +89,7 @@ mkClient initialState conn pId =
   , players: M.empty
   }
 
-runCallback :: forall st outg args e. (EncodeJson outg) =>
+runCallback :: forall st outg e. (EncodeJson outg) =>
   Ref (Client st) -> ClientM st outg e Unit -> Eff (ClientEffects e) Unit
 runCallback refCln callback = do
   cln <- readRef refCln
@@ -149,12 +148,10 @@ startClient initialState cs socketUrl playerName =
     set conn.onerror   (const (runCallback refCln cs.onError))
     set conn.onclose   (const (runCallback refCln cs.onClose))
 
-    w <- windowToEventTarget <$> window
-    addEventListener
-      keydownEventType
-      (eventListener \event -> runCallback refCln (cs.onKeyDown event))
-      false
-      w
+    addKeyboardEventListener
+      KeydownEvent
+      (\event -> runCallback refCln (cs.onKeyDown event))
+      globalWindow
 
     void $ startAnimationLoop $ do
       c <- readRef refCln
@@ -214,6 +211,3 @@ foreign import stopAnimationLoop :: forall e. AnimationLoop -> Eff e Unit
 
 wsSend :: WS.Connection -> String -> _
 wsSend (WS.Connection r) msg = r.send (WS.Message msg)
-
-keydownEventType :: EventType
-keydownEventType = EventType "keydown"

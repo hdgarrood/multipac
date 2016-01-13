@@ -266,4 +266,4 @@ hideWaitingMessageDiv = withEl hideElement "#waiting-message"
 showSimpleScoresDiv = withEl showElement "#scores-container"
 hideSimpleScoresDiv = withEl hideElement "#scores-container"
 
-foreign import selectElement :: forall a. a
+foreign import selectElement :: forall e. HTMLElement -> Eff (ClientEffects2 e) Unit
