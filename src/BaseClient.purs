@@ -52,7 +52,7 @@ getReader c = ClientMReader { playerId: c.playerId, players: c.players }
 
 type ClientCallbacks st inc outg e =
   { onMessage     :: inc -> ClientM st outg e Unit
-  , onKeyDown     :: Event -> ClientM st outg e Unit
+  , onKeyDown     :: DOMEvent -> ClientM st outg e Unit
   , render        :: ClientM st outg e Unit
   , onError       :: ClientM st outg e Unit
   , onClose       :: ClientM st outg e Unit

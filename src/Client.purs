@@ -7,14 +7,17 @@ import Data.Either as E
 import Data.Tuple
 import Data.String as S
 import Data.Map as M
+import DOM (DOM())
+--import DOM.HTML.Types (HTMLElement())
+import DOM.HTML.Location (host, protocol)
 import Data.DOM.Simple.Events hiding (view)
-import Data.DOM.Simple.Types (DOM(), DOMEvent(), DOMLocation(), HTMLElement())
+import Data.DOM.Simple.Types (DOMEvent(), DOMLocation())
 import Data.DOM.Simple.Window (globalWindow, location, document)
+import Data.DOM.Simple.Unsafe.Element (HTMLElement())
 import Data.DOM.Simple.Element
   (setInnerHTML, querySelector, setAttribute, value, setValue, focus)
 import Data.DOM.Simple.Events
   (keyCode, addKeyboardEventListener, KeyboardEventType(..))
-import Data.DOM.Simple.Document ()
 import Control.Monad
 import Control.Monad.Eff
 import Control.Monad.Eff.Ref
@@ -29,6 +32,7 @@ import WebSocket as WS
 import Browser.WebStorage as Storage
 import Unsafe.Coerce (unsafeCoerce)
 
+import GenericMap
 import Rendering as R
 import HtmlViews as V
 import BaseClient
@@ -36,14 +40,9 @@ import Game
 import Types
 import Utils
 
--- This is a bit unsafe, but we only deal with HTMLElements, so it's fine here.
-castToHTML :: Element -> HTMLElement
-castToHTML = unsafeCoerce
-
 type ClientEffects2 e =
   ClientEffects
   ( webStorage :: Storage.WebStorage
-  , dom :: DOM
   | e
   )
 
@@ -107,8 +106,9 @@ start startedRef name = do
     writeRef startedRef true
 
     callbacks <- mkCallbacks
-    h <- host <$> location globalWindow
-    p <- protocol <$> location globalWindow
+    l <- unsafeCoerce <$> location globalWindow
+    h <- host l
+    p <- protocol l
 
     let wsProtocol = if p == "https:" then "wss:" else "ws:"
     let socketUrl = wsProtocol <> "//" <> h <> "/"
@@ -201,9 +201,9 @@ onMessage msg = do
             liftEff $ do
               hideWaitingMessageDiv
               showSimpleScoresDiv
-            put $ CInProgress $ startNewGame game
+            put $ CInProgress $ startNewGame $ unwrapGame game
           NewReadyStates m -> do
-            put $ CWaitingForPlayers (g # readyStates .~ m)
+            put $ CWaitingForPlayers (g # readyStates .~ runGenericMap m)
 
 
 startNewGame game =
@@ -265,3 +265,5 @@ hideWaitingMessageDiv = withEl hideElement "#waiting-message"
 
 showSimpleScoresDiv = withEl showElement "#scores-container"
 hideSimpleScoresDiv = withEl hideElement "#scores-container"
+
+foreign import selectElement :: forall a. a
