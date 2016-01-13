@@ -29,11 +29,11 @@
     "purescript-webstorage": "~0.4.0",
     "purescript-profunctor-lenses": "~0.3.5",
     "purescript-transformers": "~0.8.4",
-    "purescript-node-http": "hdgarrood/purescript-node-http#ba1562fadc46c35f694fc6862674242bbb70df58",
+    "purescript-node-http": "~0.2.0",
     "purescript-dom": "~0.2.14",
     "purescript-websocket-simple": "~0.2.0",
     "purescript-argonaut-core": "~0.2.3",
-    "purescript-argonaut-codecs": "~0.5.1",
+    "purescript-argonaut-codecs": "hdgarrood/purescript-argonaut-codecs#9a075bcf6c6cde09e22a61577943ff24e943d103",
     "purescript-generics": "~0.7.0",
     "purescript-var": "~0.1.0",
     "purescript-simple-dom": "~0.1.3"
