@@ -1,3 +1,3 @@
 // module NodeUrl
 
-exports.parseUrl = requre('url').parse;
+exports.parseUrl = require('url').parse;

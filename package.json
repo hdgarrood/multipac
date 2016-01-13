@@ -1,11 +1,11 @@
 {
   "private": true,
   "dependencies": {
-    "websocket": "~1.0.10"
+    "websocket": "*"
   },
   "scripts": {
     "build": "npm run build:client && npm run build:server",
-    "build:client": "pulp browserify -O --to dist/client.js --main Client",
-    "build:server": "pulp browserify -O --to dist/server.js --main Server"
+    "build:server": "pulp build -O --to dist/server.js --main Server",
+    "build:client": "pulp build -O --to dist/client.js --main Client"
   }
 }

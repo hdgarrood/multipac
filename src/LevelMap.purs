@@ -9,7 +9,8 @@ import Data.Lens.Getter ((^.))
 import Control.Monad (unless)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Math (floor)
-import Data.Int (toNumber, fromNumber)
+import Data.Int (toNumber)
+import Data.Int as Int
 import Data.Array (filter, null, reverse, (!!), range, concatMap,
                    concat, length, replicate)
 import Data.Maybe
@@ -262,7 +263,7 @@ basicMap = fromJust (mkLevelMap basicTileMap)
 getBlockAt :: Position -> LevelMap -> Maybe Block
 getBlockAt (Position pos) levelmap =
   let
-    x = fromMaybe (unsafeThrow "pos.x was not integral") $ fromNumber pos.x
-    y = fromMaybe (unsafeThrow "pos.y was not integral") $ fromNumber pos.y
+    x = Int.floor pos.x
+    y = Int.floor pos.y
   in
     levelmap.blocks !! x >>= (!! y)

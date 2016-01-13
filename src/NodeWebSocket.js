@@ -1,7 +1,8 @@
 // module NodeWebSocket
 
 exports.mkServer = function() {
-  return new require('websocket').server()
+  var WebSocketServer = require('websocket').server
+  return new WebSocketServer()
 };
 
 exports.registerEventHandlerUnsafe = function(receiver, method, msgType, callback, transform) {

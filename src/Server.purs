@@ -16,6 +16,7 @@ import Control.Monad.State.Class (get, put, modify)
 import Control.Monad.Eff
 import Control.Monad.Eff.Console
 import Control.Monad.Eff.Ref
+import Control.Monad.Eff.Exception (throw, message)
 import DOM.Timer
 import Data.Lens (lens, LensP())
 import Data.Lens.Getter ((^.))
@@ -55,8 +56,8 @@ createHttpServer =
     case path of
       "/" ->
         sendHtml res indexHtml
-      "/js/game.js" ->
-        sendFile res "dist/game.js"
+      "/js/client.js" ->
+        sendFile res "dist/client.js"
       _ ->
         send404  res
 
@@ -146,8 +147,12 @@ sendHtml res html = do
 
 sendFile res path = do
   let mimeType = fromMaybe "text/plain" (detectMime path)
-  FS.readTextFile UTF8 path \(E.Right fileData) ->
-    void (sendContent res mimeType fileData)
+  FS.readTextFile UTF8 path \r ->
+    case r of
+      E.Right fileData ->
+        void (sendContent res mimeType fileData)
+      E.Left err ->
+        throw ("While trying to read " ++ path ++ ": " ++ message err)
 
 sendContent res contentType contentData = do
   Http.setStatusCode res 200

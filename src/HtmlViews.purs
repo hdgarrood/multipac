@@ -248,7 +248,7 @@ indexDoc =
     head $ do
       meta ! charset "utf-8"
       meta ! httpEquiv "X-UA-Compatible" ! content "IE=edge,chrome=1"
-      script ! src "/js/game.js" ! defer "" $ text ""
+      script ! src "/js/client.js" ! defer "" $ text ""
       link ! rel "stylesheet" ! type' "text/css" ! href fontUrl
       style ! type' "text/css" $ text styles
 
