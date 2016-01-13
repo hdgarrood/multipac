@@ -463,11 +463,36 @@ instance decodeJsonGameUpdate :: DecodeJson GameUpdate where
 instance encodeJsonGameUpdate :: EncodeJson GameUpdate where
   encodeJson = gEncodeJson
 
+data ReadyState
+  = Ready
+  | NotReady
+
+invertReadyState :: ReadyState -> ReadyState
+invertReadyState Ready = NotReady
+invertReadyState NotReady = Ready
+
+derive instance genericReadyState :: Generic ReadyState
+
+instance eqReadyState :: Eq ReadyState where
+  eq = gEq
+
+instance ordReadyState :: Ord ReadyState where
+  compare = gCompare
+
+instance showReadyState :: Show ReadyState where
+  show = gShow
+
+instance encodeJsonReadyState :: EncodeJson ReadyState where
+  encodeJson = gEncodeJson
+
+instance decodeJsonReadyState :: DecodeJson ReadyState where
+  decodeJson = gDecodeJson
+
 -- Sent by the server during the waiting stage, ie, after initial connection
 -- but before the game starts
 data WaitingUpdate
   = GameStarting WrappedGame
-  | NewReadyStates (GenericMap PlayerId Boolean)
+  | NewReadyStates (GenericMap PlayerId ReadyState)
 
 derive instance genericWaitingUpdate :: Generic WaitingUpdate
 
@@ -523,10 +548,8 @@ data GameState
   = WaitingForPlayers GameStateWaitingForPlayers
   | InProgress        GameStateInProgress
 
-type GameStateWaitingForPlayers = Map PlayerId Boolean
+type GameStateWaitingForPlayers = Map PlayerId ReadyState
 type GameStateInProgress = { game :: Game, input :: Input }
-
-type ReadyState = Boolean
 
 data ServerOutgoingMessage
   = SOWaiting WaitingUpdate
@@ -581,7 +604,7 @@ type ClientStateWaiting
   = { prevGame          :: Maybe Game
     , backgroundCleared :: Boolean
     , cachedHtml        :: String
-    , readyStates       :: Map PlayerId Boolean
+    , readyStates       :: Map PlayerId ReadyState
     }
 
 type ClientStateInProgress

@@ -292,10 +292,10 @@ waitingMessageDoc ::
 waitingMessageDoc sw pId playersMap = do
   whenJust sw.prevGame (scoresTable pId playersMap)
 
-  let r = fromMaybe false $ M.lookup pId sw.readyStates
-  p $ text $ if r
-               then "Waiting for other players..."
-               else "Press SPACE when you're ready"
+  let r = fromMaybe NotReady $ M.lookup pId sw.readyStates
+  p $ text $ case r of
+               Ready -> "Waiting for other players..."
+               NotReady -> "Press SPACE when you're ready"
 
   div ! className "clearfix" $
     for_ allPlayerIds $ \pId' -> do
@@ -309,7 +309,9 @@ waitingMessageDoc sw pId playersMap = do
         p ! className cl' $ text (show pId')
         whenJust mInfo $ \info -> do
           p $ text info.name
-          p $ text $ if info.ready then "ready!" else "not ready"
+          p $ text $ case info.ready of
+                       Ready -> "ready!"
+                       NotReady -> "not ready"
   where
   getPlayerInfo pId'' = do
     ready <- M.lookup pId'' sw.readyStates

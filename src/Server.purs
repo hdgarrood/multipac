@@ -10,7 +10,7 @@ import Data.Array hiding ((..))
 import Data.List as List
 import Data.Either as E
 import Data.Map as M
-import Data.Foldable (for_, and, find)
+import Data.Foldable (for_, all, find)
 import Control.Monad
 import Control.Monad.State.Class (get, put, modify)
 import Control.Monad.Eff
@@ -83,7 +83,7 @@ step = do
       if isEnded game'
               then do
                 players <- askPlayers
-                put $ WaitingForPlayers (const false <$> players)
+                put $ WaitingForPlayers (const NotReady <$> players)
               else do
                 put $ InProgress { game: game', input: M.empty }
 
@@ -96,7 +96,7 @@ step = do
       where
       readyToStart m =
         let ps = M.values m
-        in List.length ps >= minPlayers && and ps
+        in List.length ps >= minPlayers && all (== Ready) ps
 
 
 matchInProgress :: ServerIncomingMessage -> (Direction -> SM Unit) -> SM Unit
@@ -116,7 +116,7 @@ onMessage msg pId = do
 
     WaitingForPlayers m -> do
       matchWaiting msg $ \_ -> do
-        let m' = M.alter (map not) pId m
+        let m' = M.alter (map invertReadyState) pId m
         put $ WaitingForPlayers m'
 
 onNewPlayer :: PlayerId -> SM Unit
@@ -124,7 +124,7 @@ onNewPlayer pId = do
   state <- get
   case state of
     WaitingForPlayers m -> do
-      let m' = M.insert pId false m
+      let m' = M.insert pId NotReady m
       put $ WaitingForPlayers m'
     _ -> return unit
 

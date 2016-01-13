@@ -159,12 +159,16 @@ startClient initialState cs socketUrl playerName =
 
   where
   onMessageCallback ref msg = do
-    case decode msg of
+    case decode msg :: _ inc of
       E.Right val -> runCallback ref (cs.onMessage val)
       E.Left err ->
-        case decode msg of
-          E.Right intMsg -> handleInternalMessage ref intMsg
-          E.Left _ -> log err
+        case decode msg :: _ InternalMessage of
+          E.Right intMsg ->
+            handleInternalMessage ref intMsg
+          E.Left err2 ->
+            error ("Unable to parse message:\n" ++
+              "data: " ++ msg ++ "\n" ++
+              "errors: " ++ err ++ "\n" ++ err2)
 
 
 handleInternalMessage :: forall st e.

@@ -233,7 +233,7 @@ putWaitingState prevGame =
   getStates mg =
     case mg of
       Just g -> M.fromList $
-        (\(Tuple pId _) -> pId ~ false) <$> (M.toList (g ^. players))
+        (\(Tuple pId _) -> pId ~ NotReady) <$> (M.toList (g ^. players))
       Nothing -> M.empty
 
 
