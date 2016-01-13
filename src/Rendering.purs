@@ -94,6 +94,7 @@ instance showCornerType :: Show CornerType where
   show CRI = "CRI"
   show CSH = "CSH"
   show CSV = "CSV"
+  show NON = "NON"
 
 type Corners =
   { tl :: CornerType, tr :: CornerType, bl :: CornerType, br :: CornerType }

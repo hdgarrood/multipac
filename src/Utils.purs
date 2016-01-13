@@ -1,6 +1,7 @@
 module Utils where
 
 import Prelude
+import Control.Bind ((>=>))
 import Data.Function
 import Data.Int as Int
 import Data.Maybe
@@ -18,7 +19,9 @@ import Data.Unfoldable (Unfoldable)
 import Data.Foldable (Foldable, for_, foldMap, foldr, foldl)
 import Data.Argonaut.Core
 import Data.Argonaut.Encode (encodeJson, EncodeJson)
+import Data.Argonaut.Decode (decodeJson, DecodeJson)
 import Data.Argonaut.Printer (printJson)
+import Data.Argonaut.Parser (jsonParser)
 import Control.Monad.Eff
 import Node.Process as Process
 
@@ -105,3 +108,6 @@ object = fromObject <<< StrMap.fromList <<< List.fromFoldable
 
 encode :: forall a. (EncodeJson a) => a -> String
 encode = printJson <<< encodeJson
+
+decode :: forall a. (DecodeJson a) => String -> Either String a
+decode = jsonParser >=> decodeJson

@@ -69,7 +69,7 @@ foreign import reject :: forall e. Request -> Eff (ws :: WebSocket | e) Unit
 
 foreign import accept :: forall e. Request -> Eff (ws :: WebSocket | e) Connection
 
-foreign import resourceUrl :: forall e. Request -> Eff (ws :: WebSocket | e) Url
+foreign import resourceUrl :: forall e. Request -> Url
 
 foreign import sendImpl :: forall e.
   Fn2 Connection String (Eff (ws :: WebSocket | e) Unit)

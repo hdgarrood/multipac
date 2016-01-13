@@ -5,9 +5,10 @@ import Data.Maybe
 import Data.Tuple
 import Data.Foldable (for_, find)
 import Data.Array (head, null, filter, (\\))
-import qualified Data.Either as E
-import qualified Data.String as S
-import qualified Data.Map as M
+import Data.List as List
+import Data.Either as E
+import Data.String as S
+import Data.Map as M
 import Data.Monoid (Monoid, mempty)
 import Data.Argonaut.Encode
 import Data.Argonaut.Decode
@@ -15,8 +16,8 @@ import Control.Monad (when)
 import Control.Monad.RWS
 import Control.Monad.RWS.Trans
 import Control.Monad.RWS.Class
-import qualified Control.Monad.Writer.Class as W
-import qualified Control.Monad.Reader.Class as R
+import Control.Monad.Writer.Class as W
+import Control.Monad.Reader.Class as R
 import Control.Monad.Eff (Eff())
 import Control.Monad.Eff.Console
 import Control.Monad.Eff.Ref (newRef, readRef, writeRef, modifyRef, REF(),
@@ -29,8 +30,9 @@ import Data.Lens.At (at)
 import Global (decodeURIComponent)
 
 import Types
+import GenericMap
 import BaseCommon
-import qualified NodeWebSocket as WS
+import NodeWebSocket as WS
 import Utils
 
 idleInterval = 30 * 1000
@@ -71,7 +73,7 @@ cTimeCounter = lens
 
 connectionsToPlayersMap :: Array Connection -> M.Map PlayerId String
 connectionsToPlayersMap =
-  map (\(Connection c) -> Tuple c.pId c.name) >>> M.fromList
+  map (\(Connection c) -> Tuple c.pId c.name) >>> List.fromFoldable >>> M.fromList
 
 type ServerCallbacks st inc outg =
   { step        :: ServerM st outg Unit
@@ -193,7 +195,7 @@ startServer cs refSrv = do
 
             WS.onMessage conn $ \msg -> do
               updatePlayerTimeCounter refSrv pId
-              case decodeJson msg of
+              case decode msg of
                 E.Right val -> runCallback refSrv $ cs.onMessage val pId
                 E.Left err  -> log err
 
@@ -242,13 +244,13 @@ handleNewPlayer :: forall st e.
 handleNewPlayer refSrv pId = do
   srv <- readRef refSrv
   let playersMap = connectionsToPlayersMap srv.connections
-  let msgAll = NewPlayer playersMap
+  let msgAll = NewPlayer (GenericMap playersMap)
   let msgOne = YourPlayerIdIs pId
   let msgs = SendMessages { toAll: [msgAll]
                           , toOne: M.singleton pId [msgOne]
                           }
-  log $ "new player connected, sending to all: " <> encodeJson msgAll
-  log $ "                      sending to one: " <> encodeJson msgOne
+  log $ "new player connected, sending to all: " <> encode msgAll
+  log $ "                      sending to one: " <> encode msgOne
   sendAllMessages srv msgs
 
 
