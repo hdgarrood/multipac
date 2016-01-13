@@ -16,7 +16,6 @@ import Data.Argonaut.Combinators ((:=), (.?))
 import Data.Tuple
 import Data.String hiding (singleton, uncons)
 import Data.Array (singleton)
-import Data.Sequence as S
 import Data.Generic
 import Graphics.Canvas
 import Control.Monad.Writer.Trans
@@ -478,7 +477,7 @@ instance encodeJsonWaitingUpdate :: EncodeJson WaitingUpdate where
 instance decodeJsonWaitingUpdate :: DecodeJson WaitingUpdate where
   decodeJson = gDecodeJson
 
-type GameUpdateM a = WriterT (S.Seq GameUpdate) (State WrappedGame) a
+type GameUpdateM a = WriterT (Array GameUpdate) (State WrappedGame) a
 
 -- these are just here to shorten declarations that are required because of
 -- types that psc is not able to infer
@@ -489,7 +488,7 @@ innerGame :: LensP WrappedGame Game
 innerGame = lens (\(WrappedGame g) -> g) (const WrappedGame)
 
 tellGameUpdate :: GameUpdate -> GameUpdateM Unit
-tellGameUpdate = tell <<< S.singleton
+tellGameUpdate = tell <<< singleton
 
 modifyGame :: (Game -> Game) -> GameUpdateM Unit
 modifyGame = modify <<< f
@@ -504,7 +503,7 @@ getGame = gets f
   f x = x ^. innerGame
 
 runGameUpdateM :: forall a.
-  Game -> GameUpdateM a -> Tuple a (Tuple Game (S.Seq GameUpdate))
+  Game -> GameUpdateM a -> Tuple a (Tuple Game (Array GameUpdate))
 runGameUpdateM game action =
   let a0 = runWriterT action
       a1 = runState a0 (WrappedGame game)
@@ -514,7 +513,7 @@ runGameUpdateM game action =
   in  rearrange a1
 
 execGameUpdateM :: forall a.
-  Game -> GameUpdateM a -> Tuple Game (S.Seq GameUpdate)
+  Game -> GameUpdateM a -> Tuple Game (Array GameUpdate)
 execGameUpdateM game action = snd $ runGameUpdateM game action
 
 input_ = lens (\s -> s.input) (\s x -> s { input = x })

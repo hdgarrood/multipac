@@ -8,7 +8,6 @@ import Data.Array ((!!), range, filter, length, take)
 import Data.List as List
 import Data.Int (toNumber, fromNumber)
 import Data.Map as M
-import Data.Sequence as S
 import Data.Foldable
 import Data.Profunctor.Strong ((&&&))
 import Control.Arrow
@@ -64,7 +63,7 @@ applyGameUpdate u =
   where
   setCountdown x game = game {countdown = x}
 
-applyGameUpdates :: S.Seq GameUpdate -> Game -> Game
+applyGameUpdates :: forall f. (Foldable f) => f GameUpdate -> Game -> Game
 applyGameUpdates updates game = foldr applyGameUpdate game updates
 
 removePlayer :: PlayerId -> Game -> Game
@@ -161,7 +160,7 @@ initialGame =
 
 
 
-stepGame :: Input -> Game -> Tuple Game (S.Seq GameUpdate)
+stepGame :: Input -> Game -> Tuple Game (Array GameUpdate)
 stepGame input game =
   let actions = [handleInput input, doLogic]
       action = foldl (>>) (return unit) actions
@@ -334,7 +333,7 @@ makeItems levelmap safeZone bigDotPositions =
   bigDots =
     (\pos -> Item { itemType: BigDot, position: pos }) <$> bigDotPositions
 
-makeGame :: Array PlayerId -> Game
+makeGame :: forall f. (Foldable f) => f PlayerId -> Game
 makeGame pIds =
   let
     f = deleteWhere (\pId _ -> not (elem pId pIds))

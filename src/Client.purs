@@ -3,11 +3,10 @@ module Client where
 import Debug.Trace (trace)
 import Data.Maybe
 import Data.Maybe.Unsafe (fromJust)
-import qualified Data.Either as E
+import Data.Either as E
 import Data.Tuple
-import qualified Data.String as S
-import qualified Data.Sequence as Seq
-import qualified Data.Map as M
+import Data.String as S
+import Data.Map as M
 import Data.DOM.Simple.Events hiding (view)
 import Data.DOM.Simple.Types (DOM(), DOMEvent(), DOMLocation(), HTMLElement())
 import Data.DOM.Simple.Window (globalWindow, location, document)
@@ -21,15 +20,15 @@ import Control.Monad.Eff
 import Control.Monad.Eff.Ref
 import Control.Monad.RWS.Class
 import Control.Monad.State.Class
-import Optic.Core (lens, LensP())
-import Optic.Getter ((^.))
-import Optic.Setter ((%~), (.~))
-import Optic.At (at)
+import Data.Lens (lens, LensP())
+import Data.Lens.Getter ((^.))
+import Data.Lens.Setter ((%~), (.~))
+import Data.Lens.At (at)
 import Control.Timer
 
-import qualified BrowserWebSocket as WS
-import qualified Rendering as R
-import qualified HtmlViews as V
+import BrowserWebSocket as WS
+import Rendering as R
+import HtmlViews as V
 import BaseClient
 import Game
 import Types
@@ -160,7 +159,7 @@ onKeyDown event = do
 type CM e a = ClientM ClientState ServerIncomingMessage e a
 
 matchInProgress :: forall e.
-  ServerOutgoingMessage -> (Seq.Seq GameUpdate -> CM e Unit) -> CM e Unit
+  ServerOutgoingMessage -> (Array GameUpdate -> CM e Unit) -> CM e Unit
 matchInProgress = matchMessage asInProgressMessageO
 
 matchWaiting :: forall e.

@@ -1,27 +1,34 @@
 module Server where
 
-import Debug.Trace
+import Prelude
 import Data.Tuple
 import Data.Argonaut.Core
 import Data.Function
 import Data.Maybe
+import Data.String as String
 import Data.Array hiding ((..))
-import qualified Data.Sequence as S
-import qualified Data.Either as E
-import qualified Data.Map as M
-import Data.Foldable (for_, all, find)
+import Data.List as List
+import Data.Either as E
+import Data.Map as M
+import Data.Foldable (for_, and, find)
 import Control.Monad
 import Control.Monad.State.Class (get, put, modify)
 import Control.Monad.Eff
+import Control.Monad.Eff.Console
 import Control.Monad.Eff.Ref
-import Control.Timer
-import Optic.Core (lens, LensP())
-import Optic.Getter ((^.))
-import Optic.Setter ((%~), (.~))
-import Optic.At (at)
+import DOM.Timer
+import Data.Lens (lens, LensP())
+import Data.Lens.Getter ((^.))
+import Data.Lens.Setter ((%~), (.~))
+import Data.Lens.At (at)
+import Node.HTTP as Http
+import Node.Stream as Stream
+import Node.FS.Async as FS
+import Node.Encoding (Encoding(..))
 
-import qualified NodeWebSocket as WS
-import qualified NodeHttp as Http
+import GenericMap
+import NodeWebSocket as WS
+import NodeUrl
 import Types
 import Game
 import Utils
@@ -38,20 +45,20 @@ main = do
   wsServer <- startServer serverCallbacks refSrv
 
   WS.mount wsServer httpServer
-  Http.listen httpServer port
-  trace $ "listening on " <> show port <> "..."
+  Http.listen httpServer port $
+    log $ "listening on " <> show port <> "..."
 
 
 createHttpServer =
   Http.createServer $ \req res -> do
-    let path = (Http.getUrl req).pathname
-    let reply =
-      case path of
-          "/"           -> Http.sendHtml indexHtml
-          "/js/game.js" -> Http.sendFile "dist/game.js"
-          _             -> Http.send404
-    reply res
-
+    let path = (parseUrl (Http.requestURL req)).pathname
+    case path of
+      "/" ->
+        sendHtml res indexHtml
+      "/js/game.js" ->
+        sendFile res "dist/game.js"
+      _ ->
+        send404  res
 
 serverCallbacks =
   { step: step
@@ -80,15 +87,15 @@ step = do
                 put $ InProgress { game: game', input: M.empty }
 
     WaitingForPlayers m -> do
-      sendUpdate $ SOWaiting $ NewReadyStates m
+      sendUpdate $ SOWaiting $ NewReadyStates $ GenericMap m
       when (readyToStart m) do
         let game = makeGame (M.keys m)
-        sendUpdate $ SOWaiting $ GameStarting game
+        sendUpdate $ SOWaiting $ GameStarting $ WrappedGame game
         put $ InProgress { game: game, input: M.empty }
       where
       readyToStart m =
         let ps = M.values m
-        in length ps >= minPlayers && all id ps
+        in List.length ps >= minPlayers && and ps
 
 
 matchInProgress :: ServerIncomingMessage -> (Direction -> SM Unit) -> SM Unit
@@ -108,7 +115,7 @@ onMessage msg pId = do
 
     WaitingForPlayers m -> do
       matchWaiting msg $ \_ -> do
-        let m' = M.alter (fmap not) pId m
+        let m' = M.alter (map not) pId m
         put $ WaitingForPlayers m'
 
 onNewPlayer :: PlayerId -> SM Unit
@@ -126,7 +133,7 @@ onClose pId = do
   state <- get
   case state of
     InProgress g -> do
-      sendUpdate <<< SOInProgress <<< S.singleton $ GUPU pId PlayerLeft
+      sendUpdate <<< SOInProgress <<< singleton $ GUPU pId PlayerLeft
       let g' = g # game_ %~ removePlayer pId
       put $ InProgress g'
 
@@ -134,3 +141,43 @@ onClose pId = do
       let m' = M.delete pId m
       put $ WaitingForPlayers m'
 
+sendHtml res html = do
+  sendContent res "text/html" html
+
+sendFile res path = do
+  let mimeType = fromMaybe "text/plain" (detectMime path)
+  FS.readTextFile UTF8 path \(E.Right fileData) ->
+    void (sendContent res mimeType fileData)
+
+sendContent res contentType contentData = do
+  Http.setStatusCode res 200
+  Http.setHeader res "Content-Type" contentType
+  let stream = Http.responseAsStream res
+  void $
+    Stream.writeString stream UTF8 contentData $
+      Stream.end stream (pure unit)
+
+send404 res = do
+  Http.setStatusCode res 404
+  Http.setHeader res "Content-Type" "text/plain"
+  let stream = Http.responseAsStream res
+  void $
+    Stream.writeString stream UTF8 "404: File not found" $
+      Stream.end stream (pure unit)
+
+-- detect the most likely mime type for a given filename
+detectMime :: String -> Maybe String
+detectMime str = do
+  ext <- extension str
+  case ext of
+    "txt"  -> Just "text/plain"
+    "html" -> Just "text/html"
+    "css"  -> Just "text/css"
+    "js"   -> Just "text/javascript"
+    _      -> Nothing
+
+extension :: String -> Maybe String
+extension str =
+  let arr = String.split "." str
+      len = length arr
+  in  arr !! (len - 1)

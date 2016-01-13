@@ -3,21 +3,15 @@ module NodeWebSocket where
 import Prelude
 import Data.Function
 import Control.Monad.Eff
+import Node.HTTP as Http
+
+import NodeUrl
 
 foreign import data WebSocket :: !
 foreign import data Server :: *
 foreign import data Connection :: *
 foreign import data Request :: *
 foreign import data Close :: *
-
-type Url =
-  { href :: String
-  , search :: String
-  , query :: String
-  , pathname :: String
-  }
-
-import Node.HTTP as Http
 
 -- for now, only UTF8 messages are supported
 -- TODO: node buffers

@@ -16,9 +16,11 @@ import Control.Monad.RWS.Class
 import qualified Control.Monad.Writer.Class as W
 import qualified Control.Monad.Reader.Class as R
 import Control.Monad.Eff (Eff())
+import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Control.Monad.Eff.Console
 import Control.Monad.Eff.Ref (newRef, readRef, writeRef, modifyRef, REF(),
                               Ref())
+import Control.Monad.Eff.Var (set)
 import DOM (DOM())
 import DOM.Event.Types (Event(), EventType(..), KeyboardEvent())
 import DOM.Event.EventTarget (addEventListener, eventListener)
@@ -126,7 +128,7 @@ askPlayerName = do
   where
   f pId (ClientMReader c) =
     fromMaybe err $ M.lookup pId c.players
-  err = error "player name not found. this is a bug :/"
+  err = unsafeThrow "player name not found. this is a bug :/"
 
 liftEff :: forall st outg e a. Eff (ClientEffects e) a -> ClientM st outg e a
 liftEff = lift
@@ -137,32 +139,33 @@ startClient :: forall st inc outg e. (DecodeJson inc, EncodeJson outg) =>
 startClient initialState cs socketUrl playerName =
   connectSocket socketUrl playerName \(WS.Connection conn) pId msgs internals -> do
     log $ "connected. pId = " <> show pId <> ", msgs = " <> show msgs
-    let cln' = mkClient initialState conn pId
+    let cln' = mkClient initialState (WS.Connection conn) pId
     refCln <- newRef cln'
 
     for_ msgs (onMessageCallback refCln)
     for_ internals (handleInternalMessage refCln)
 
-    conn.onmessage (onMessageCallback refCln)
-    conn.onerror   (runCallback refCln cs.onError)
-    conn.onclose   (runCallback refCln cs.onClose)
+    set conn.onmessage (onMessageCallback refCln <<< WS.runMessage <<< WS.runMessageEvent)
+    set conn.onerror   (const (runCallback refCln cs.onError))
+    set conn.onclose   (const (runCallback refCln cs.onClose))
 
+    w <- windowToEventTarget <$> window
     addEventListener
       keydownEventType
       (eventListener \event -> runCallback refCln (cs.onKeyDown event))
       false
-      (windowToEventTarget window)
+      w
 
     void $ startAnimationLoop $ do
       c <- readRef refCln
       runCallback refCln cs.render
 
   where
-  onMessageCallback ref msg =
-    case decodeJson msg of
+  onMessageCallback ref msg = do
+    case decode msg of
       E.Right val -> runCallback ref (cs.onMessage val)
       E.Left err ->
-        case decodeJson msg of
+        case decode msg of
           E.Right intMsg -> handleInternalMessage ref intMsg
           E.Left _ -> log err
 
@@ -192,8 +195,9 @@ connectSocket url playerName cont = do
   delayedInternals <- newRef ([] :: Array InternalMessage)
   WS.Connection conn <- WS.newWebSocket (WS.URL fullUrl) []
 
-  conn.onmessage \msg ->
-    case decodeJson msg of
+  set conn.onmessage \msgEv -> do
+    let msg = WS.runMessage (WS.runMessageEvent msgEv)
+    case decode msg of
       E.Right (YourPlayerIdIs pId) -> do
         delayed <- readRef delayedMsgs
         internals <- readRef delayedInternals

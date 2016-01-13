@@ -34,7 +34,8 @@
     "purescript-websocket-simple": "~0.2.0",
     "purescript-argonaut-core": "~0.2.3",
     "purescript-argonaut-codecs": "~0.5.1",
-    "purescript-generics": "~0.7.0"
+    "purescript-generics": "~0.7.0",
+    "purescript-var": "~0.1.0"
   },
   "resolutions": {
     "purescript-lens": "~0.9.1",

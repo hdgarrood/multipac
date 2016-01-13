@@ -1,14 +1,14 @@
 module HtmlViews where
 
-import Prelude hiding (div)
+import Prelude hiding (id, div)
 import Data.Foldable (foldr, for_)
-import Prelude hiding (id)
 import Data.Lens.Getter ((^.))
 import Control.Monad (when)
 import Data.Tuple
 import Data.Maybe
 import Data.String (replace, joinWith)
 import Data.Array (sortBy, reverse, catMaybes)
+import Data.List as List
 import Data.Function (on)
 import qualified Data.Map as M
 import Text.Smolder.HTML
@@ -25,7 +25,7 @@ import Types
 import Style
 
 replaceAll :: Array (Tuple String String) -> String -> String
-replaceAll = fmap (uncurry replace) >>> foldr (>>>) Prelude.id
+replaceAll = map (uncurry replace) >>> foldr (>>>) Prelude.id
 
 styles =
   replaceAll
@@ -317,7 +317,7 @@ waitingMessageDoc sw pId playersMap = do
     return $ { ready: ready, name: name }
 
 type PlayerScoreInfo
-  = { score :: Number
+  = { score :: Int
     , name  :: String
     , pId   :: PlayerId
     }
@@ -335,7 +335,7 @@ scoresTable pId playersMap game =
           scoresCellDiv ["cell-thin", "score"] (show info.score)
   where
   sortedPlayerInfos game =
-    reverse $ sortBy (compare `on` score) (playerInfos game playersMap)
+    List.reverse $ List.sortBy (compare `on` score) (playerInfos game playersMap)
 
   score i = i.score
 
@@ -345,7 +345,7 @@ scoresTable pId playersMap game =
 
 
 playerInfos game playersMap =
-  catMaybes $ map (getPlayerInfo playersMap) allPlayers
+  List.catMaybes $ map (getPlayerInfo playersMap) allPlayers
   where
   allPlayers = M.toList (game ^. players)
 
