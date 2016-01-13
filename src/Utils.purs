@@ -17,11 +17,16 @@ import Data.Traversable (sequence)
 import Data.Unfoldable (Unfoldable)
 import Data.Foldable (Foldable, for_, foldMap, foldr, foldl)
 import Data.Argonaut.Core
+import Data.Argonaut.Encode (encodeJson, EncodeJson)
+import Data.Argonaut.Printer (printJson)
 import Control.Monad.Eff
 import Node.Process as Process
 
 (~) :: forall a b. a -> b -> Tuple a b
 (~) = Tuple
+
+(..) :: forall a b c. (b -> c) -> (a -> b) -> (a -> c)
+(..) f g x = f (g x)
 
 iterateN :: forall a. Int -> a -> (a -> a) -> Array a
 iterateN n x f =
@@ -97,3 +102,6 @@ portOrDefault default = do
 
 object :: Array JAssoc -> Json
 object = fromObject <<< StrMap.fromList <<< List.fromFoldable
+
+encode :: forall a. (EncodeJson a) => a -> String
+encode = printJson <<< encodeJson

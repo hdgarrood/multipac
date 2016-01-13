@@ -44,7 +44,7 @@ type Game =
   { map :: WrappedLevelMap
   , players :: GenericMap PlayerId Player
   , items   :: GenericMap ItemId Item
-  , countdown :: Maybe Number
+  , countdown :: Maybe Int
   , rampage :: Maybe Rampage
   , safeZone :: Array Position
   }
@@ -53,7 +53,7 @@ newtype WrappedGame = WrappedGame
   { map :: WrappedLevelMap
   , players :: GenericMap PlayerId Player
   , items   :: GenericMap ItemId Item
-  , countdown :: Maybe Number
+  , countdown :: Maybe Int
   , rampage :: Maybe Rampage
   , safeZone :: Array Position
   }
@@ -108,7 +108,7 @@ instance decodeJsonPlayerId :: DecodeJson PlayerId where
 instance encodeJsonPlayerId :: EncodeJson PlayerId where
   encodeJson = gEncodeJson
 
-type ItemId = Number
+type ItemId = Int
 
 -- psc bug #1443
 type LevelMap =
@@ -120,6 +120,9 @@ newtype WrappedLevelMap = WrappedLevelMap
   { blocks   :: Array (Array Block)
   , tiles    :: Array (Array Tile)
   }
+
+unwrapLevelMap :: WrappedLevelMap -> LevelMap
+unwrapLevelMap (WrappedLevelMap m) = m
 
 derive instance genericLevelMap :: Generic WrappedLevelMap
 
@@ -389,9 +392,9 @@ data PlayerUpdate
   = ChangedDirection (Maybe Direction)
   | ChangedIntendedDirection (Maybe Direction)
   | ChangedPosition Position
-  | ChangedScore Number
-  | ChangedNomIndex Number
-  | ChangedRespawnCounter (Maybe Number)
+  | ChangedScore Int
+  | ChangedNomIndex Int
+  | ChangedRespawnCounter (Maybe Int)
   | PlayerLeft
 
 derive instance genericPlayerUpdate :: Generic PlayerUpdate
@@ -435,8 +438,8 @@ instance decodeJsonGameEndReason :: DecodeJson GameEndReason where
   decodeJson = gDecodeJson
 
 data Rampage
-  = Rampaging PlayerId Number
-  | Cooldown Number
+  = Rampaging PlayerId Int
+  | Cooldown Int
 
 derive instance genericRampage :: Generic Rampage
 
@@ -449,7 +452,7 @@ instance decodeJsonRampage :: DecodeJson Rampage where
 data GameUpdate
   = GUPU PlayerId PlayerUpdate
   | GUIU ItemId ItemUpdate
-  | ChangedCountdown (Maybe Number)
+  | ChangedCountdown (Maybe Int)
   | GameEnded GameEndReason
   | ChangedRampage (Maybe Rampage)
 

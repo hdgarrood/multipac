@@ -9,6 +9,7 @@ import qualified Data.Map as M
 import qualified Data.Either as E
 import Data.Argonaut.Encode
 import Data.Argonaut.Decode
+import Data.Argonaut.Printer
 import Control.Monad.Trans
 import Control.Monad.RWS.Trans
 import Control.Monad.RWS.Class
@@ -19,12 +20,14 @@ import Control.Monad.Eff.Console
 import Control.Monad.Eff.Ref (newRef, readRef, writeRef, modifyRef, REF(),
                               Ref())
 import DOM (DOM())
-import DOM.Event.Types (Event(), KeyboardEvent())
-import DOM.Event.EventTarget (addEventListener)
+import DOM.Event.Types (Event(), EventType(..), KeyboardEvent())
+import DOM.Event.EventTarget (addEventListener, eventListener)
 import DOM.HTML (window)
+import DOM.HTML.Types (windowToEventTarget)
 import Graphics.Canvas (Canvas())
 
 import Types
+import GenericMap
 import WebSocket as WS
 import BaseCommon
 import Utils
@@ -70,11 +73,11 @@ runClientM :: forall st outg e a.
   ClientMReader -> st -> ClientM st outg e a
   -> Eff (ClientEffects e) (ClientMResult st outg a)
 runClientM rdr state action = do
-  r <- runRWST action rdr state
+  RWSResult nextState result messages <- runRWST action rdr state
   return $
-    { nextState: r.state
-    , messages:  r.log
-    , result:    r.result
+    { nextState
+    , result
+    , messages
     }
 
 mkClient :: forall st. st -> WS.Connection -> PlayerId -> Client st
@@ -97,7 +100,7 @@ sendAllMessages :: forall e st outg. (EncodeJson outg) =>
   Client st -> Array outg -> Eff (ClientEffects e) Unit
 sendAllMessages cln msgs =
   for_ msgs $ \msg ->
-    wsSend cln.conn (encodeJson msg)
+    wsSend cln.conn (encode msg)
 
 sendUpdate :: forall m outg. (Monad m, W.MonadWriter (Array outg) m) =>
   outg -> m Unit
@@ -132,22 +135,23 @@ startClient :: forall st inc outg e. (DecodeJson inc, EncodeJson outg) =>
   st -> ClientCallbacks st inc outg e -> String -> String
   -> Eff (ClientEffects e) Unit
 startClient initialState cs socketUrl playerName =
-  connectSocket socketUrl playerName $ \socket pId msgs internals -> do
+  connectSocket socketUrl playerName \(WS.Connection conn) pId msgs internals -> do
     log $ "connected. pId = " <> show pId <> ", msgs = " <> show msgs
-    let cln' = mkClient initialState socket pId
+    let cln' = mkClient initialState conn pId
     refCln <- newRef cln'
 
     for_ msgs (onMessageCallback refCln)
     for_ internals (handleInternalMessage refCln)
 
-    WS.onMessage socket (onMessageCallback refCln)
-    WS.onError   socket (runCallback refCln cs.onError)
-    WS.onClose   socket (runCallback refCln cs.onClose)
+    conn.onmessage (onMessageCallback refCln)
+    conn.onerror   (runCallback refCln cs.onError)
+    conn.onclose   (runCallback refCln cs.onClose)
 
-    addKeyboardEventListener
-      KeydownEvent
-      (\event -> runCallback refCln (cs.onKeyDown event))
-      globalWindow
+    addEventListener
+      keydownEventType
+      (eventListener \event -> runCallback refCln (cs.onKeyDown event))
+      false
+      (windowToEventTarget window)
 
     void $ startAnimationLoop $ do
       c <- readRef refCln
@@ -168,8 +172,9 @@ handleInternalMessage :: forall st e.
 handleInternalMessage refCln msg = do
   case msg of
     NewPlayer m -> do
-      log $ "handling NewPlayer internal message: " <> show m
-      modifyRef refCln $ \cln -> cln { players = m }
+      let m' = runGenericMap m
+      log $ "handling NewPlayer internal message: " <> show m'
+      modifyRef refCln $ \cln -> cln { players = m' }
 
 
 connectSocket :: forall e.
@@ -185,14 +190,14 @@ connectSocket url playerName cont = do
   -- HACK - for messages received before the client is fully operational.
   delayedMsgs <- newRef ([] :: Array String)
   delayedInternals <- newRef ([] :: Array InternalMessage)
-  Connection conn <- WS.newWebSocket fullUrl
+  WS.Connection conn <- WS.newWebSocket (WS.URL fullUrl) []
 
   conn.onmessage \msg ->
     case decodeJson msg of
       E.Right (YourPlayerIdIs pId) -> do
         delayed <- readRef delayedMsgs
         internals <- readRef delayedInternals
-        cont sock pId delayed internals
+        cont (WS.Connection conn) pId delayed internals
       E.Right i -> modifyRef delayedInternals $ \arr -> arr <> [i]
       E.Left _ -> modifyRef delayedMsgs $ \arr -> arr <> [msg]
 
@@ -204,4 +209,7 @@ foreign import startAnimationLoop :: forall a e. Eff e a -> Eff e AnimationLoop
 foreign import stopAnimationLoop :: forall e. AnimationLoop -> Eff e Unit
 
 wsSend :: WS.Connection -> String -> _
-wsSend (WS.Connection r) msg = r.send msg
+wsSend (WS.Connection r) msg = r.send (WS.Message msg)
+
+keydownEventType :: EventType
+keydownEventType = EventType "keydown"

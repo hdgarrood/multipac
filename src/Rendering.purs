@@ -1,9 +1,11 @@
 module Rendering where
 
-import Debug.Trace
-import Data.Array hiding (map, (..))
+import Prelude
+import Data.Array hiding ((..))
 import Data.Function
-import qualified Data.Map as M
+import Data.Map as M
+import Data.Int as Int
+import Data.Profunctor.Strong ((***))
 import Data.Tuple
 import Data.Maybe
 import Data.Foldable
@@ -11,12 +13,13 @@ import Graphics.Canvas
   (getContext2D, setCanvasHeight, setCanvasWidth, Rectangle(), Arc(),
   Context2D(), Canvas(), getCanvasElementById, TextAlign(..), LineCap(..))
 import Control.Monad.Eff
+import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Control.Arrow
 import Control.Monad (when)
 import Control.Monad.Reader.Class (reader)
-import Optic.Getter ((^.))
-import Optic.At (at)
-import Optic.Refractor.Prism (_Just)
+import Data.Lens.Getter ((^.))
+import Data.Lens.At (at)
+import Data.Lens.Prism.Maybe (_Just)
 import Math (pi, floor, ceil)
 
 import LevelMap
@@ -26,10 +29,9 @@ import Utils
 import Game
 import Style
 
-
-halfBlock     = floor (pxPerBlock / 2)
-halfPxPerTile = floor (pxPerTile / 2)
-halfCanvas    = floor (canvasSize / 2)
+halfBlock     = pxPerBlock / 2
+halfPxPerTile = pxPerTile / 2
+halfCanvas    = canvasSize / 2
 
 scaleRect :: Number -> Position -> Rectangle
 scaleRect scale (Position p) =
@@ -39,18 +41,18 @@ toPosition :: Rectangle -> Position
 toPosition r = Position {x:r.x, y:r.y}
 
 getRectAt :: Position -> Rectangle
-getRectAt = scaleRect pxPerBlock
+getRectAt = scaleRect (Int.toNumber pxPerBlock)
 
 getCentredRectAt :: Position -> Rectangle
 getCentredRectAt p =
   let r = getRectAt p
-  in  r {x = r.x + halfBlock, y = r.y + halfBlock}
+  in  r {x = r.x + Int.toNumber halfBlock, y = r.y + Int.toNumber halfBlock}
 
 getRectAt' :: Number -> Number -> Rectangle
 getRectAt' x y = getRectAt (Position {x: x, y: y})
 
 getTileRectAt :: Position -> Rectangle
-getTileRectAt = scaleRect pxPerTile
+getTileRectAt = scaleRect (Int.toNumber pxPerTile)
 
 getTileRectAt' :: Number -> Number -> Rectangle
 getTileRectAt' x y = getTileRectAt (Position {x: x, y: y})
@@ -66,19 +68,19 @@ setupRenderingById :: forall e.
   String -> Eff (canvas :: Canvas | e) Context2D
 setupRenderingById elId =
   getCanvasElementById elId
-    >>= justOrError
-    >>= setCanvasHeight canvasSize
-    >>= setCanvasWidth canvasSize
+    >>= justOrErr
+    >>= setCanvasHeight (Int.toNumber canvasSize)
+    >>= setCanvasWidth (Int.toNumber canvasSize)
     >>= getContext2D
 
   where
-  justOrError (Just x) = return x
-  justOrError Nothing = error $ "no canvas element found with id = " <> elId
+  justOrErr (Just x) = return x
+  justOrErr Nothing = unsafeThrow $ "no canvas element found with id = " <> elId
 
 clearBackground :: forall e. CanvasM e Unit
 clearBackground = do
   setFillStyle backgroundColor
-  fillRect {x: 0, y: 0, h: canvasSize, w: canvasSize}
+  fillRect wholeCanvas
 
 data CornerType
   = CRO -- rounded outer
@@ -125,8 +127,8 @@ renderMap map = do
                               below belowLeft left aboveLeft
           let es = getEdges above right below left
           withContext $ do
-            translate { translateX: (i + 0.5) * pxPerTile
-                      , translateY: (j + 0.5) * pxPerTile
+            translate { translateX: (Int.toNumber i + 0.5) * Int.toNumber pxPerTile
+                      , translateY: (Int.toNumber j + 0.5) * Int.toNumber pxPerTile
                       }
             renderCorners cs
             renderEdges es
@@ -162,7 +164,7 @@ renderCorners cs = do
               rotate a
           , go:
               arc { start: pi
-                  , end:   3*pi/2
+                  , end:   1.5 * pi
                   , x:     cornerMid
                   , y:     cornerMid
                   , r:     cornerRadius
@@ -173,8 +175,8 @@ renderCorners cs = do
               translate t
               rotate a
           , go:
-              arc { start: 0
-                  , end:   pi/2
+              arc { start: 0.0
+                  , end:   pi/2.0
                   , x:     -cornerMid
                   , y:     -cornerMid
                   , r:     cornerRadius
@@ -183,29 +185,29 @@ renderCorners cs = do
         CSH ->
           { prep: translate t
           , go: do
-              moveTo (-cornerMid -1) 0
-              lineTo (cornerMid + 1)  0
+              moveTo (-cornerMid -1.0) 0.0
+              lineTo (cornerMid + 1.0) 0.0
           }
         CSV ->
           { prep: translate t
           , go: do
-              moveTo 0 (-cornerMid - 1)
-              lineTo 0 (cornerMid + 1)
+              moveTo 0.0 (-cornerMid - 1.0)
+              lineTo 0.0 (cornerMid + 1.0)
           }
         NON ->
           { prep: return unit
           , go: return unit
           }
 
-  let s = (pxPerTile - cornerSize) / 2
+  let s = (Int.toNumber pxPerTile - cornerSize) / 2.0
   let cs' =
       [ { c: cs.tl
-        , a: 0
+        , a: 0.0
         , t: {translateX: -s, translateY: -s}
         },
 
         { c: cs.tr
-        , a: pi/2
+        , a: pi/2.0
         , t: {translateX: s, translateY: -s}
         },
 
@@ -215,7 +217,7 @@ renderCorners cs = do
         },
 
         { c: cs.bl
-        , a: 3*pi/2
+        , a: 1.5*pi
         , t: {translateX: -s, translateY: s}
         }
         ]
@@ -233,9 +235,9 @@ getEdges above right below left =
   { t: above, r: right, b: below, l: left }
 
 renderEdges es =
-  let s = (pxPerTile / 2) - cornerSize
-      x1 = -s - 1
-      y1 = -s - (cornerSize / 2)
+  let s = (Int.toNumber pxPerTile / 2.0) - cornerSize
+      x1 = -s - 1.0
+      y1 = -s - (cornerSize / 2.0)
       x2 = s
       y2 = y1
 
@@ -245,10 +247,10 @@ renderEdges es =
           lineTo x2 y2
 
       es' =
-        [ { e: es.t, a: 0 }
-        , { e: es.r, a: pi/2 }
+        [ { e: es.t, a: 0.0 }
+        , { e: es.r, a: pi/2.0 }
         , { e: es.b, a: pi }
-        , { e: es.l, a: 3*pi/2 }
+        , { e: es.l, a: 1.5*pi }
         ]
 
   in
@@ -276,7 +278,7 @@ renderPlayer isRampaging isFleeing pId player = do
   fill
 
   when (isRampaging pId) $ do
-    setLineWidth 2
+    setLineWidth 2.0
     setStrokeStyle rampagePlayerColor
     stroke
 
@@ -286,22 +288,28 @@ playerRenderParameters player =
 
       baseAngle = directionToRadians direction
       index = player ^. pNomIndex
-      half = floor (nomIndexMax / 2)
-      maxAngle = pi / 2
-      halfAngle = maxAngle / 2
-      multiplier = nomIndexMax / maxAngle
+      half = nomIndexMax / 2
+      maxAngle = pi / 2.0
+      halfAngle = maxAngle / 2.0
+      multiplier = Int.toNumber nomIndexMax / maxAngle
       delta =
         case player ^. pRespawnCounter of
           Just ctr ->
-            halfAngle + ((1 - (ctr / respawnLength)) * (pi - halfAngle))
+            let
+              ratio = Int.toNumber ctr / Int.toNumber respawnLength
+            in 
+              halfAngle + ((1.0 - ratio) * (pi - halfAngle))
           Nothing ->
-            multiplier * (if index <= half
-                            then index
-                            else (nomIndexMax - index)) + 0.001
+            let
+              x = if index <= half
+                    then index
+                    else nomIndexMax - index
+            in
+              multiplier * Int.toNumber x + 0.001
 
 
       op = dirToPos $ opposite direction
-      start = add (scalePos (playerRadius / 2) op) (toPosition centre)
+      start = addPos (scalePos (playerRadius / 2.0) op) (toPosition centre)
   in
     { arc: { x: centre.x
            , y: centre.y
@@ -319,8 +327,8 @@ enlargeRect :: Number -> Rectangle -> Rectangle
 enlargeRect delta r =
   { x: r.x - delta
   , y: r.y - delta
-  , w: r.w + (2 * delta)
-  , h: r.h + (2 * delta)
+  , w: r.w + (2.0 * delta)
+  , h: r.h + (2.0 * delta)
   }
 
 renderItems :: forall e. Game -> CanvasM e Unit
@@ -336,9 +344,9 @@ renderItem rampaging item = do
     beginPath
     arc { x: centre.x
         , y: centre.y
-        , start: 0
-        , end: 2 * pi
-        , r: dotRadiusFor (item ^. iType)
+        , start: 0.0
+        , end: 2.0 * pi
+        , r: Int.toNumber $ dotRadiusFor (item ^. iType)
         }
     fill
 
@@ -369,10 +377,12 @@ renderPlayers game = do
   step = 8
   flashes = iterateN 5 initial (f *** f)
 
+wholeCanvas =
+  {x: 0.0, y: 0.0, h: Int.toNumber canvasSize, w: Int.toNumber canvasSize}
 
 clearCanvas :: forall e. CanvasM e Unit
 clearCanvas =
-  clearRect {x: 0, y: 0, h: canvasSize, w: canvasSize}
+  clearRect wholeCanvas
 
 renderCountdown :: forall e. Game -> PlayerId -> CanvasM e Unit
 renderCountdown game pId = do
@@ -387,14 +397,14 @@ setFontSize x =
 
 
 renderCounter cd = do
-  setFontSize $ pxPerTile * 3
+  setFontSize $ Int.toNumber (pxPerTile * 3)
   setTextAlign AlignCenter
-  setLineWidth 3
+  setLineWidth 3.0
   setFillStyle fontColor
   setStrokeStyle "black"
-  let text = show (ceil (cd / 30))
-  let x = halfCanvas
-  let y = floor (halfCanvas / 2)
+  let text = show (cd / 30)
+  let x = Int.toNumber halfCanvas
+  let y = Int.toNumber halfCanvas
   fillText   text x y
   strokeText text x y
 
@@ -407,31 +417,31 @@ renderReminderArrow game pId = do
       let playerX = pos ^. pX
       let y = pos ^. pY
 
-      let greater = playerX > mapSize / 2
-      let d = 1.5 * tileSize
+      let greater = playerX > Int.toNumber (mapSize / 2)
+      let d = 1.5 * Int.toNumber tileSize
       let x = playerX + (if greater then d else -d)
 
       let centre = getCentredRectAt (Position {x:x, y:y})
 
-      setLineWidth 1
+      setLineWidth 1.0
       beginPath
       arrowPath greater centre.x centre.y 30 10
       fill
       stroke
 
 arrowPath toRight x y length width = do
-  let halfLen = floor (length / 2)
-  let halfWid = floor (width / 2)
+  let halfLen = Int.toNumber (length / 2)
+  let halfWid = Int.toNumber (width / 2)
   let f z = if toRight then x + z else x - z
 
-  moveTo (f halfLen)           (y - halfWid)
-  lineTo (f (- halfLen))       (y - halfWid)
-  lineTo (f (- halfLen))       (y - (2 * halfWid))
-  lineTo (f (- (2 * halfLen))) (y)
-  lineTo (f (- halfLen))       (y + (2 * halfWid))
-  lineTo (f (- halfLen))       (y + halfWid)
-  lineTo (f halfLen)           (y + halfWid)
-  lineTo (f halfLen)           (y - halfWid)
+  moveTo (f halfLen)             (y - halfWid)
+  lineTo (f (- halfLen))         (y - halfWid)
+  lineTo (f (- halfLen))         (y - (2.0 * halfWid))
+  lineTo (f (- (2.0 * halfLen))) (y)
+  lineTo (f (- halfLen))         (y + (2.0 * halfWid))
+  lineTo (f (- halfLen))         (y + halfWid)
+  lineTo (f halfLen)             (y + halfWid)
+  lineTo (f halfLen)             (y - halfWid)
 
 
 render :: forall e.
@@ -443,7 +453,7 @@ render :: forall e.
 render ctx game pId redrawMap = do
   when redrawMap $ do
     runCanvasM ctx.background $
-      renderMap game.map
+      renderMap (unwrapLevelMap game.map)
 
   runCanvasM ctx.foreground $ do
     clearCanvas
@@ -459,5 +469,5 @@ clearBoth ctx = do
   runCanvasM ctx.foreground clearCanvas
 
 setTextStyle = do
-  setFontSize $ floor (0.6 * pxPerTile)
+  setFontSize $ floor (0.6 * Int.toNumber pxPerTile)
   setFillStyle fontColor

@@ -1,26 +1,30 @@
 module Game where
 
+import Prelude
 import Data.Tuple
 import Data.Maybe
 import Data.Maybe.Unsafe (fromJust)
 import Data.Array ((!!), range, filter, length, take)
-import qualified Data.Map as M
-import qualified Data.Sequence as S
+import Data.List as List
+import Data.Int (toNumber, fromNumber)
+import Data.Map as M
+import Data.Sequence as S
 import Data.Foldable
+import Data.Profunctor.Strong ((&&&))
 import Control.Arrow
 import Control.Alt
 import Control.Monad
 import Control.Monad.Reader.Class
-import Optic.Core (LensP(), Lens(), lens, (.~))
---                   (.~), (^.), (%~))
-import Optic.Getter ((^.))
-import Optic.Setter ((%~))
-import Optic.At (at)
-import Optic.Refractor.Lens (_1, _2)
-import Optic.Refractor.Prism (_Just)
-import Math (ceil, floor, pi)
+import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
+import Data.Lens (LensP(), Lens(), TraversalP(), lens, (.~), _1, _2)
+import Data.Lens.Getter ((^.))
+import Data.Lens.Setter ((%~))
+import Data.Lens.At (at)
+import Data.Lens.Prism.Maybe (_Just)
+import Math (ceil, floor, pi, (%))
 
 import Types
+import GenericMap
 import LevelMap
 import Utils
 
@@ -32,7 +36,7 @@ respawnLength = 60
 
 -- minimum squared distance that a player needs to be from another player in
 -- order to eat them, in blocks.
-minEatingQuadrance = 4
+minEatingQuadrance = 4.0
 
 -- update signalling
 
@@ -64,7 +68,7 @@ applyGameUpdates :: S.Seq GameUpdate -> Game -> Game
 applyGameUpdates updates game = foldr applyGameUpdate game updates
 
 removePlayer :: PlayerId -> Game -> Game
-removePlayer pId = players <<< at pId .~ Nothing
+removePlayer pId = players <<< at pId .~ (Nothing :: Maybe Player)
 
 applyPlayerUpdate :: PlayerUpdate -> Player -> Player
 applyPlayerUpdate u =
@@ -98,15 +102,15 @@ changeIntendedDirection :: PlayerId -> Maybe Direction -> GameUpdateM Unit
 changeIntendedDirection pId d =
   applyGameUpdateM (GUPU pId (ChangedIntendedDirection d))
 
-changeScore :: PlayerId -> Number -> GameUpdateM Unit
+changeScore :: PlayerId -> Int -> GameUpdateM Unit
 changeScore pId s =
   applyGameUpdateM (GUPU pId (ChangedScore s))
 
-changeCountdown :: Maybe Number -> GameUpdateM Unit
+changeCountdown :: Maybe Int -> GameUpdateM Unit
 changeCountdown =
   applyGameUpdateM <<< ChangedCountdown
 
-changeNomIndex :: PlayerId -> Number -> GameUpdateM Unit
+changeNomIndex :: PlayerId -> Int -> GameUpdateM Unit
 changeNomIndex pId i =
   applyGameUpdateM (GUPU pId (ChangedNomIndex i))
 
@@ -114,7 +118,7 @@ eat :: ItemId -> GameUpdateM Unit
 eat iId =
   applyGameUpdateM (GUIU iId Eaten)
 
-changeRespawnCounter :: PlayerId -> Maybe Number -> GameUpdateM Unit
+changeRespawnCounter :: PlayerId -> Maybe Int -> GameUpdateM Unit
 changeRespawnCounter pId x =
   applyGameUpdateM (GUPU pId (ChangedRespawnCounter x))
 
@@ -129,29 +133,32 @@ changeRampage =
 initialGame :: Game
 initialGame =
   { map: levelmap
-  , players: M.fromList $ f <$> starts
-  , items:   M.fromList $ zipNumbers $ makeItems levelmap safeZone bigDots
+  , players: toMap $ f <$> starts
+  , items:   toMap $ zipIndices $ makeItems levelmap safeZone bigDots
   , countdown: Just 90
   , rampage: Nothing
   , safeZone: safeZone
   }
   where
-  levelmap = basicMap2
+  levelmap = WrappedLevelMap basicMap2
   f (Tuple pId position) = Tuple pId (mkPlayer position)
+  toMap :: forall f k v. (Ord k, Foldable f) => f (Tuple k v) -> GenericMap k v
+  toMap = GenericMap <<< M.fromFoldable
   starts =
-    [ P1 ~ tilePositionToBlock (Position {x:7, y:7})
-    , P2 ~ tilePositionToBlock (Position {x:9, y:7})
-    , P3 ~ tilePositionToBlock (Position {x:7, y:8})
-    , P4 ~ tilePositionToBlock (Position {x:9, y:8})
+    [ P1 ~ tilePositionToBlock (Position {x:7.0, y:7.0})
+    , P2 ~ tilePositionToBlock (Position {x:9.0, y:7.0})
+    , P3 ~ tilePositionToBlock (Position {x:7.0, y:8.0})
+    , P4 ~ tilePositionToBlock (Position {x:9.0, y:8.0})
     ]
   safeZone = do
-    x <- [7,8,9]
-    y <- [6,7,8,9]
+    x <- map toNumber [7,8,9]
+    y <- map toNumber [6,7,8,9]
     return (tilePositionToBlock (Position {x:x, y:y}))
   bigDots = do
-    x <- [3, tilesAlongSide - 4]
-    y <- [3, tilesAlongSide - 4]
+    x <- map toNumber [3, tilesAlongSide - 4]
+    y <- map toNumber [3, tilesAlongSide - 4]
     return (tilePositionToBlock (Position {x:x, y:y}))
+
 
 
 stepGame :: Input -> Game -> Tuple Game (S.Seq GameUpdate)
@@ -196,7 +203,7 @@ movePlayer pId p =
     ok <- canMoveInDirection pId p dir
     when ok $ do
       changePosition pId $ moveInDirection dir (p ^. pPosition)
-      changeNomIndex pId $ ((p ^. pNomIndex) + 1) % nomIndexMax
+      changeNomIndex pId $ ((p ^. pNomIndex) + 1) `mod` nomIndexMax
 
 isRampage :: PlayerId -> GameUpdateM Boolean
 isRampage pId = do
@@ -235,7 +242,7 @@ eatOtherPlayers pId p = do
           takeHalfPoints pId p pId' p'
   where
   takeHalfPoints pId p pId' p' = do
-    let delta = floor (p' ^. pScore / 2)
+    let delta = p' ^. pScore / 2
     changeScore pId $ p ^. pScore + delta
     changeScore pId' $ p' ^. pScore - delta
 
@@ -274,7 +281,7 @@ canMoveInDirection pId p d =
       immobilised game = isRespawning p || isFleeing game
       isFleeing game   =
         case game.rampage of
-          Just (Rampaging pId' count) -> pId' /= pId && count % 3 == 0
+          Just (Rampaging pId' count) -> pId' /= pId && count `mod` 3 == 0
           _ -> false
       both (Tuple x y) = x && y
 
@@ -298,14 +305,14 @@ inSafeZone :: Game -> Position -> Boolean
 inSafeZone g pos = pos `elem` g.safeZone
 
 moveInDirection :: Direction -> Position -> Position
-moveInDirection d p = add p (dirToPos d)
+moveInDirection d p = addPos p (dirToPos d)
 
-isFree :: LevelMap -> Position -> Boolean
-isFree levelmap pos =
+isFree :: WrappedLevelMap -> Position -> Boolean
+isFree (WrappedLevelMap levelmap) pos =
   let block = getBlockAt pos levelmap
   in  maybe false (not <<< isWall) block
 
-makeItems :: LevelMap -> Array Position -> Array Position -> Array Item
+makeItems :: WrappedLevelMap -> Array Position -> Array Position -> Array Item
 makeItems levelmap safeZone bigDotPositions =
   littleDots <> bigDots
   where
@@ -317,7 +324,7 @@ makeItems levelmap safeZone bigDotPositions =
       then [Item { itemType: LittleDot, position: pos }]
       else []
 
-  r = range 0 (tilesAlongSide - 1)
+  r = map toNumber $ range 0 (tilesAlongSide - 1)
 
   shouldHaveLittleDot pos =
     isFree levelmap pos &&
@@ -329,25 +336,29 @@ makeItems levelmap safeZone bigDotPositions =
 
 makeGame :: Array PlayerId -> Game
 makeGame pIds =
-  let players' =
-    deleteWhere (\pId _ -> not (elem pId pIds)) (initialGame.players)
-  in initialGame { players = players' }
+  let
+    f = deleteWhere (\pId _ -> not (elem pId pIds))
+  in
+    initialGame # players %~ f
 
 inCountdown :: Game -> Boolean
 inCountdown g = isJust g.countdown
 
 checkEnded :: Game -> Maybe GameEndReason
 checkEnded g
-  | M.isEmpty g.items && isNothing g.rampage  = Just Completed
-  | length (M.values g.players) < minPlayers  = Just TooManyPlayersDisconnected
-  | otherwise                                 = Nothing
+  | M.isEmpty (g ^. items) && isNothing g.rampage       = Just Completed
+  | List.length (M.values (g ^. players)) < minPlayers  = Just TooManyPlayersDisconnected
+  | otherwise                                           = Nothing
 
 isEnded = isJust <<< checkEnded
 
 -- TODO: performance
 lookupItemByPosition :: Position -> Game -> Maybe (Tuple ItemId Item)
 lookupItemByPosition pos g =
-  case filter (\i -> (i ^. _2 ^. iPosition) == pos) (M.toList g.items) of
-      [i] -> Just i
-      []  -> Nothing
-      x   -> error $ "lookupItemByPosition: items stacked: " <> show x
+  case List.filter (\i -> (i ^. _2 ^. iPosition) == pos) (M.toList (g ^. items)) of
+      List.Cons i List.Nil ->
+        Just i
+      List.Nil ->
+        Nothing
+      other ->
+        unsafeThrow $ "lookupItemByPosition: items stacked: " <> show other

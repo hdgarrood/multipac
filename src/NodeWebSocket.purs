@@ -10,6 +10,13 @@ foreign import data Connection :: *
 foreign import data Request :: *
 foreign import data Close :: *
 
+type Url =
+  { href :: String
+  , search :: String
+  , query :: String
+  , pathname :: String
+  }
+
 import Node.HTTP as Http
 
 -- for now, only UTF8 messages are supported
@@ -61,6 +68,8 @@ onClose conn callback =
 foreign import reject :: forall e. Request -> Eff (ws :: WebSocket | e) Unit
 
 foreign import accept :: forall e. Request -> Eff (ws :: WebSocket | e) Connection
+
+foreign import resourceUrl :: forall e. Request -> Eff (ws :: WebSocket | e) Url
 
 foreign import sendImpl :: forall e.
   Fn2 Connection String (Eff (ws :: WebSocket | e) Unit)

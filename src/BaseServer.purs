@@ -1,28 +1,31 @@
 module BaseServer where
 
-import Debug.Trace (Trace(), trace)
+import Prelude
 import Data.Maybe
 import Data.Tuple
 import Data.Foldable (for_, find)
-import Data.Array (map, head, null, filter, (\\))
+import Data.Array (head, null, filter, (\\))
 import qualified Data.Either as E
 import qualified Data.String as S
 import qualified Data.Map as M
 import Data.Monoid (Monoid, mempty)
-import Data.Argonaut.Codecs
+import Data.Argonaut.Encode
+import Data.Argonaut.Decode
 import Control.Monad (when)
 import Control.Monad.RWS
+import Control.Monad.RWS.Trans
 import Control.Monad.RWS.Class
 import qualified Control.Monad.Writer.Class as W
 import qualified Control.Monad.Reader.Class as R
 import Control.Monad.Eff (Eff())
-import Control.Monad.Eff.Ref (newRef, readRef, writeRef, modifyRef, Ref(),
-                              RefVal())
-import Control.Timer (Timer(), interval)
-import Optic.Core (lens, LensP())
-import Optic.Getter ((^.))
-import Optic.Setter ((%~), (.~))
-import Optic.At (at)
+import Control.Monad.Eff.Console
+import Control.Monad.Eff.Ref (newRef, readRef, writeRef, modifyRef, REF(),
+                              Ref())
+import DOM.Timer (Timer(), interval)
+import Data.Lens (lens, LensP())
+import Data.Lens.Getter ((^.))
+import Data.Lens.Setter ((%~), (.~))
+import Data.Lens.At (at)
 import Global (decodeURIComponent)
 
 import Types
@@ -35,7 +38,7 @@ idleInterval = 30 * 1000
 type Server st =
   { connections :: Array Connection
   , state       :: st
-  , timeCounter :: Number -- for tracking whether players are idle
+  , timeCounter :: Int -- for tracking whether players are idle
   }
 
 connections = lens (\s -> s.connections) (\s x -> s { connections = x })
@@ -46,7 +49,7 @@ newtype Connection =
     { wsConn      :: WS.Connection
     , pId         :: PlayerId
     , name        :: String
-    , timeCounter :: Number -- for tracking whether the player is idle
+    , timeCounter :: Int -- for tracking whether the player is idle
     }
 
 cWsConn = lens
@@ -84,7 +87,7 @@ newtype SendMessages outg
     }
 
 instance semigroupSendMsgs :: Semigroup (SendMessages outg) where
-  (<>) (SendMessages a) (SendMessages b) =
+  append (SendMessages a) (SendMessages b) =
     SendMessages { toAll: a.toAll <> b.toAll
                  , toOne: unionWith (<>) a.toOne b.toOne
                  }
@@ -104,11 +107,12 @@ type ServerMResult st outg a =
 runServerM :: forall st outg a.
   Array Connection -> st -> ServerM st outg a -> ServerMResult st outg a
 runServerM conns state action =
-  let r = runRWS action conns state
-  in { nextState: r.state
-     , messages:  r.log
-     , result:    r.result
-     }
+  case runRWS action conns state of
+    RWSResult nextState result messages ->
+      { nextState
+      , messages
+      , result
+      }
 
 mkServer :: forall st. st -> Server st
 mkServer initialState =
@@ -117,8 +121,8 @@ mkServer initialState =
   , timeCounter: 0
   }
 
-runCallback :: forall st outg args e. (ToJSON outg) =>
-  RefVal (Server st) -> ServerM st outg Unit
+runCallback :: forall st outg args e. (EncodeJson outg) =>
+  Ref (Server st) -> ServerM st outg Unit
   -> Eff (ServerEffects e) Unit
 runCallback refSrv callback = do
   srv <- readRef refSrv
@@ -130,7 +134,7 @@ messagesFor :: forall outg. PlayerId -> SendMessages outg -> Array outg
 messagesFor pId (SendMessages sm) =
   sm.toAll <> fromMaybe [] (M.lookup pId sm.toOne)
 
-sendAllMessages :: forall e st outg. (ToJSON outg) =>
+sendAllMessages :: forall e st outg. (EncodeJson outg) =>
   Server st -> SendMessages outg
   -> Eff (ServerEffects e) Unit
 sendAllMessages srv sm = do
@@ -162,17 +166,17 @@ askPlayers =
 stepsPerSecond = 30
 
 type ServerEffects e =
-  (timer :: Timer, ref :: Ref, trace :: Trace, ws :: WS.WebSocket | e)
+  (timer :: Timer, ref :: REF, console :: CONSOLE, ws :: WS.WebSocket | e)
 
-startServer :: forall st inc outg e. (FromJSON inc, ToJSON outg) =>
-  ServerCallbacks st inc outg -> RefVal (Server st)
+startServer :: forall st inc outg e. (DecodeJson inc, EncodeJson outg) =>
+  ServerCallbacks st inc outg -> Ref (Server st)
   -> Eff (ServerEffects e) WS.Server
 startServer cs refSrv = do
   server <- WS.mkServer
 
   WS.onRequest server $ \req -> do
-    trace "got a request"
-    let playerName = decodeUriComponent (S.drop 1 (WS.resourceUrl req).search)
+    log "got a request"
+    let playerName = decodeURIComponent (S.drop 1 (WS.resourceUrl req).search)
 
     if S.null playerName
       then WS.reject req
@@ -182,7 +186,7 @@ startServer cs refSrv = do
 
         case maybePId of
           Just pId -> do
-            trace $ "opened connection for player " <>
+            log $ "opened connection for player " <>
                         show pId <> ": " <> playerName
             handleNewPlayer refSrv pId
             runCallback refSrv $ cs.onNewPlayer pId
@@ -191,14 +195,14 @@ startServer cs refSrv = do
               updatePlayerTimeCounter refSrv pId
               case decodeJson msg of
                 E.Right val -> runCallback refSrv $ cs.onMessage val pId
-                E.Left err  -> trace err
+                E.Left err  -> log err
 
             WS.onClose   conn $ \close -> do
               closeConnection refSrv pId
               runCallback refSrv $ cs.onClose pId
 
           Nothing -> do
-            trace "rejecting connection, no player ids available"
+            log "rejecting connection, no player ids available"
             WS.close conn
 
 
@@ -234,7 +238,7 @@ getNextPlayerId srv =
 
 
 handleNewPlayer :: forall st e.
-  RefVal (Server st) -> PlayerId -> Eff (ServerEffects e) Unit
+  Ref (Server st) -> PlayerId -> Eff (ServerEffects e) Unit
 handleNewPlayer refSrv pId = do
   srv <- readRef refSrv
   let playersMap = connectionsToPlayersMap srv.connections
@@ -243,16 +247,16 @@ handleNewPlayer refSrv pId = do
   let msgs = SendMessages { toAll: [msgAll]
                           , toOne: M.singleton pId [msgOne]
                           }
-  trace $ "new player connected, sending to all: " <> encode msgAll
-  trace $ "                      sending to one: " <> encode msgOne
+  log $ "new player connected, sending to all: " <> encodeJson msgAll
+  log $ "                      sending to one: " <> encodeJson msgOne
   sendAllMessages srv msgs
 
 
 closeConnection :: forall st e.
-  RefVal (Server st) -> PlayerId -> Eff (ServerEffects e) Unit
+  Ref (Server st) -> PlayerId -> Eff (ServerEffects e) Unit
 closeConnection refSrv pId = do
   modifyRef refSrv $ connections %~ filter (\c -> pId /= c ^. cPId)
-  trace $ "closed connection for " <> show pId
+  log $ "closed connection for " <> show pId
 
 
 updatePlayerTimeCounter refSrv pId = do

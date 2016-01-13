@@ -1,13 +1,14 @@
 module HtmlViews where
 
+import Prelude hiding (div)
 import Data.Foldable (foldr, for_)
 import Prelude hiding (id)
-import Optic.Getter ((^.))
+import Data.Lens.Getter ((^.))
 import Control.Monad (when)
 import Data.Tuple
 import Data.Maybe
 import Data.String (replace, joinWith)
-import Data.Array (sortBy, reverse, map, catMaybes)
+import Data.Array (sortBy, reverse, catMaybes)
 import Data.Function (on)
 import qualified Data.Map as M
 import Text.Smolder.HTML
