@@ -9,10 +9,6 @@ import Data.Map (Map())
 import Data.Map as Map
 import Data.Either (Either())
 import Data.Either as E
-import Data.Argonaut.Core
-import Data.Argonaut.Encode
-import Data.Argonaut.Decode
-import Data.Argonaut.Combinators ((:=), (.?))
 import Data.Tuple
 import Data.String hiding (singleton, uncons)
 import Data.Array (singleton)
@@ -62,12 +58,6 @@ derive instance genericWrappedGame :: Generic WrappedGame
 unwrapGame :: WrappedGame -> Game
 unwrapGame (WrappedGame g) = g
 
-instance encodeJsonWrappedGame :: EncodeJson WrappedGame where
-  encodeJson = gEncodeJson
-
-instance decodeJsonWrappedGame :: DecodeJson WrappedGame where
-  decodeJson = gDecodeJson
-
 data PlayerId = P1 | P2 | P3 | P4
 
 derive instance genericPlayerId :: Generic PlayerId
@@ -101,12 +91,6 @@ instance eqPlayerId :: Eq PlayerId where
 instance ordPlayerId :: Ord PlayerId where
   compare = gCompare
 
-instance decodeJsonPlayerId :: DecodeJson PlayerId where
-  decodeJson = gDecodeJson
-
-instance encodeJsonPlayerId :: EncodeJson PlayerId where
-  encodeJson = gEncodeJson
-
 type ItemId = Int
 
 -- psc bug #1443
@@ -125,24 +109,12 @@ unwrapLevelMap (WrappedLevelMap m) = m
 
 derive instance genericLevelMap :: Generic WrappedLevelMap
 
-instance encodeJsonLevelMap :: EncodeJson WrappedLevelMap where
-  encodeJson = gEncodeJson
-
-instance decodeJsonLevelMap :: DecodeJson WrappedLevelMap where
-  decodeJson = gDecodeJson
-
 data Block = Wall | Empty
 
 derive instance genericBlock :: Generic Block
 
 instance showBlock :: Show Block where
   show = gShow
-
-instance encodeJsonBlock :: EncodeJson Block where
-  encodeJson = gEncodeJson
-
-instance decodeJSONBlock :: DecodeJson Block where
-  decodeJson = gDecodeJson
 
 -- A fixed size two-dimensional array of blocks.
 type BlockTile = Array (Array Block)
@@ -165,12 +137,6 @@ derive instance genericTile :: Generic Tile
 
 instance showTile :: Show Tile where
   show = gShow
-
-instance encodeJsonTile :: EncodeJson Tile where
-  encodeJson = gEncodeJson
-
-instance decodeJsonTile :: DecodeJson Tile where
-  decodeJson = gDecodeJson
 
 isWall :: Block -> Boolean
 isWall Wall = true
@@ -197,12 +163,6 @@ instance showPosition :: Show Position where
 instance eqPosition :: Eq Position where
   eq = gEq
 
-instance decodeJsonPosition :: DecodeJson Position where
-  decodeJson = gDecodeJson
-
-instance encodeJsonPosition :: EncodeJson Position where
-  encodeJson = gEncodeJson
-
 addPos :: Position -> Position -> Position
 addPos (Position p) (Position q) = Position {x: p.x + q.x, y: p.y + q.y}
 
@@ -228,12 +188,6 @@ newtype Player
       }
 
 derive instance genericPlayer :: Generic Player
-
-instance encodeJsonPlayer :: EncodeJson Player where
-  encodeJson = gEncodeJson
-
-instance decodeJsonPlayer :: DecodeJson Player where
-  decodeJson = gDecodeJson
 
 nomIndexMax = 10
 
@@ -304,12 +258,6 @@ derive instance genericItem :: Generic Item
 instance showItem :: Show Item where
   show = gShow
 
-instance decodeJsonItem :: DecodeJson Item where
-  decodeJson = gDecodeJson
-
-instance encodeJsonItem :: EncodeJson Item where
-  encodeJson = gEncodeJson
-
 iType :: LensP Item ItemType
 iType = lens
   (\(Item x) -> x.itemType)
@@ -342,12 +290,6 @@ derive instance genericDirection :: Generic Direction
 instance showDirection :: Show Direction where
   show = gShow
 
-instance decodeJsonDirection :: DecodeJson Direction where
-  decodeJson = gDecodeJson
-
-instance encodeJsonDirection :: EncodeJson Direction where
-  encodeJson = gEncodeJson
-
 data ItemType = LittleDot | BigDot | Cherry
 
 derive instance genericItemType :: Generic ItemType
@@ -357,12 +299,6 @@ instance showItemType :: Show ItemType where
 
 instance eqItemType :: Eq ItemType where
   eq = gEq
-
-instance encodeJsonItemType :: EncodeJson ItemType where
-  encodeJson = gEncodeJson
-
-instance decodeJsonItemType :: DecodeJson ItemType where
-  decodeJson = gDecodeJson
 
 dirToPos :: Direction -> Position
 dirToPos Up    = Position {x:  0.0, y: -1.0}
@@ -401,12 +337,6 @@ derive instance genericPlayerUpdate :: Generic PlayerUpdate
 instance showPlayerUpdate :: Show PlayerUpdate where
   show = gShow
 
-instance decodeJsonPlayerUpdate :: DecodeJson PlayerUpdate where
-  decodeJson = gDecodeJson
-
-instance encodeJsonPlayerUpdate :: EncodeJson PlayerUpdate where
-  encodeJson = gEncodeJson
-
 data ItemUpdate
   = Eaten
 
@@ -414,12 +344,6 @@ derive instance genericItemUpdate :: Generic ItemUpdate
 
 instance showItemUpdate :: Show ItemUpdate where
   show = gShow
-
-instance decodeJsonItemUpdate :: DecodeJson ItemUpdate where
-  decodeJson = gDecodeJson
-
-instance encodeJsonItemUpdate :: EncodeJson ItemUpdate where
-  encodeJson = gEncodeJson
 
 data GameEndReason
   = Completed
@@ -430,23 +354,11 @@ derive instance genericGameEndReason :: Generic GameEndReason
 instance showGameEndReason :: Show GameEndReason where
   show = gShow
 
-instance encodeJsonGameEndReason :: EncodeJson GameEndReason where
-  encodeJson = gEncodeJson
-
-instance decodeJsonGameEndReason :: DecodeJson GameEndReason where
-  decodeJson = gDecodeJson
-
 data Rampage
   = Rampaging PlayerId Int
   | Cooldown Int
 
 derive instance genericRampage :: Generic Rampage
-
-instance encodeJsonRampage :: EncodeJson Rampage where
-  encodeJson = gEncodeJson
-
-instance decodeJsonRampage :: DecodeJson Rampage where
-  decodeJson = gDecodeJson
 
 data GameUpdate
   = GUPU PlayerId PlayerUpdate
@@ -456,12 +368,6 @@ data GameUpdate
   | ChangedRampage (Maybe Rampage)
 
 derive instance genericGameUpdate :: Generic GameUpdate
-
-instance decodeJsonGameUpdate :: DecodeJson GameUpdate where
-  decodeJson = gDecodeJson
-
-instance encodeJsonGameUpdate :: EncodeJson GameUpdate where
-  encodeJson = gEncodeJson
 
 data ReadyState
   = Ready
@@ -482,12 +388,6 @@ instance ordReadyState :: Ord ReadyState where
 instance showReadyState :: Show ReadyState where
   show = gShow
 
-instance encodeJsonReadyState :: EncodeJson ReadyState where
-  encodeJson = gEncodeJson
-
-instance decodeJsonReadyState :: DecodeJson ReadyState where
-  decodeJson = gDecodeJson
-
 -- Sent by the server during the waiting stage, ie, after initial connection
 -- but before the game starts
 data WaitingUpdate
@@ -495,12 +395,6 @@ data WaitingUpdate
   | NewReadyStates (GenericMap PlayerId ReadyState)
 
 derive instance genericWaitingUpdate :: Generic WaitingUpdate
-
-instance encodeJsonWaitingUpdate :: EncodeJson WaitingUpdate where
-  encodeJson = gEncodeJson
-
-instance decodeJsonWaitingUpdate :: DecodeJson WaitingUpdate where
-  decodeJson = gDecodeJson
 
 type GameUpdateM a = WriterT (Array GameUpdate) (State WrappedGame) a
 
@@ -557,12 +451,6 @@ data ServerOutgoingMessage
 
 derive instance genericServerOutgoingMessage :: Generic ServerOutgoingMessage
 
-instance encodeJsonServerOutgoingMessage :: EncodeJson ServerOutgoingMessage where
-  encodeJson = gEncodeJson
-
-instance decodeJsonServerOutgoingMessage :: DecodeJson ServerOutgoingMessage where
-  decodeJson = gDecodeJson
-
 asWaitingMessageO :: ServerOutgoingMessage -> Maybe WaitingUpdate
 asWaitingMessageO (SOWaiting x) = Just x
 asWaitingMessageO _ = Nothing
@@ -577,12 +465,6 @@ data ServerIncomingMessage
 
 derive instance genericServerIncomingMessage :: Generic ServerIncomingMessage
 
-instance encodeJsonServerIncomingMessage :: EncodeJson ServerIncomingMessage where
-  encodeJson = gEncodeJson
-
-instance decodeJsonServerIncomingMessage :: DecodeJson ServerIncomingMessage where
-  decodeJson = gDecodeJson
-
 asWaitingMessage :: ServerIncomingMessage -> Maybe Unit
 asWaitingMessage (SIToggleReadyState) = Just unit
 asWaitingMessage _ = Nothing
@@ -591,7 +473,7 @@ asInProgressMessage :: ServerIncomingMessage -> Maybe Direction
 asInProgressMessage (SIInProgress d) = Just d
 asInProgressMessage _ = Nothing
 
-matchMessage :: forall m a b. (Monad m, EncodeJson a) =>
+matchMessage :: forall m a b. (Monad m) =>
   (a -> Maybe b) -> a -> (b -> m Unit) -> m Unit
 matchMessage f msg action =
   maybe (return unit) action (f msg)

@@ -2,7 +2,6 @@ module Server where
 
 import Prelude
 import Data.Tuple
-import Data.Argonaut.Core
 import Data.Function
 import Data.Maybe
 import Data.String as String

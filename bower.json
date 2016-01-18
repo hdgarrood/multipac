@@ -32,8 +32,6 @@
     "purescript-node-http": "~0.2.0",
     "purescript-dom": "~0.2.14",
     "purescript-websocket-simple": "~0.2.0",
-    "purescript-argonaut-core": "~0.2.3",
-    "purescript-argonaut-codecs": "hdgarrood/purescript-argonaut-codecs#9a075bcf6c6cde09e22a61577943ff24e943d103",
     "purescript-generics": "~0.7.0",
     "purescript-var": "~0.1.0",
     "purescript-simple-dom": "~0.1.3",
