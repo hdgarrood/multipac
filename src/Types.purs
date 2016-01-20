@@ -60,6 +60,15 @@ unwrapGame (WrappedGame g) = g
 
 data PlayerId = P1 | P2 | P3 | P4
 
+-- | For use in UIs, instead of the Show instance.
+displayPlayerId :: PlayerId -> String
+displayPlayerId x =
+  case x of
+    P1 -> "P1"
+    P2 -> "P2"
+    P3 -> "P3"
+    P4 -> "P4"
+
 derive instance genericPlayerId :: Generic PlayerId
 
 allPlayerIds :: Array PlayerId

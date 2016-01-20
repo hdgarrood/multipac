@@ -234,7 +234,7 @@ playerColorStyles =
     flip map allPlayerIds
       (\pId ->
         concat [".player-"
-               , show pId
+               , displayPlayerId pId
                , " { color: "
                , playerColor pId
                , ";}\n"
@@ -305,8 +305,9 @@ waitingMessageDoc sw pId playersMap = do
                     (if isJust mInfo then "" else " not-connected")
 
       div ! className cl $ do
-        let cl' = "player-" <> show pId'
-        p ! className cl' $ text (show pId')
+        let pId'str = displayPlayerId pId'
+        let cl' = "player-" <> pId'str
+        p ! className cl' $ text pId'str
         whenJust mInfo $ \info -> do
           p $ text info.name
           p $ text $ case info.ready of
@@ -332,7 +333,8 @@ scoresTable pId playersMap game =
       for_ (sortedPlayerInfos game) $ \info -> do
         let cl = "scores-row" <> (if info.pId == pId then " is-you" else "")
         div ! className cl $ do
-          scoresCellDiv ["cell-thin", "player-" <> show info.pId] (show info.pId)
+          let pIdStr = displayPlayerId info.pId
+          scoresCellDiv ["cell-thin", "player-" <> pIdStr] pIdStr
           scoresCellDiv ["cell-wide"] info.name
           scoresCellDiv ["cell-thin", "score"] (show info.score)
   where
@@ -367,7 +369,8 @@ simpleScoresMarkup :: M.Map PlayerId String -> Game -> Markup
 simpleScoresMarkup playersMap game = do
   div ! className "simple-scores" $ do
     for_ (playerInfos game playersMap) $ \info -> do
-      scoresCellDiv ["cell-thinnest", "player-" <> show info.pId] (show info.pId)
+      let pId = displayPlayerId info.pId
+      scoresCellDiv ["cell-thinnest", "player-" <> pId] pId
       scoresCellDiv ["cell-thinnest", "score"] (show info.score)
 
   where
