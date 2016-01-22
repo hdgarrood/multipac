@@ -58,7 +58,7 @@ that could benefit from a little bit of refactoring. Please feel free to ask if
 anything seems weird &mdash; I would like this project to function as a good
 learning resource as well as a fun experiment.
 
-## Notes
+## Required compiler version
 
 If you want to compile multipac, it currently requires the `master` version of
 the PureScript compiler, because of a bug in `Generic` instance deriving. At
@@ -68,6 +68,7 @@ bug. Any later releases will most probably contain the fix.
 [HTML5 WebSockets]: http://www.html5rocks.com/en/tutorials/websockets/basics/
 [`purescript-profunctor-lenses`]: http://pursuit.purescript.org/packages/purescript-profunctor-lenses
 [`purescript-transformers`]: http://pursuit.purescript.org/packages/purescript-transformers
+[`purescript-websocket-simple`]: http://pursuit.purescript.org/packages/purescript-websocket-simple
 [`purescript-node-http`]: http://pursuit.purescript.org/packages/purescript-node-http
 [`purescript-foreign-generic`]: http://pursuit.purescript.org/packages/purescript-foreign-generic
 [`Generic` instance deriving]: http://www.purescript.org/learn/generic/
