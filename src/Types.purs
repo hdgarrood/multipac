@@ -409,6 +409,7 @@ type GameUpdateM a = WriterT (Array GameUpdate) (State WrappedGame) a
 
 -- these are just here to shorten declarations that are required because of
 -- types that psc is not able to infer
+-- TODO: clean this up?
 type GameUpdateState = WrappedGame
 type GameUpdateModifier = GameUpdateState -> GameUpdateState
 

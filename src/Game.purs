@@ -161,6 +161,7 @@ initialGame =
 stepGame :: Input -> Game -> Tuple Game (Array GameUpdate)
 stepGame input game =
   let actions = [handleInput input, doLogic]
+      -- TODO: can we use sequence here?
       action = foldl (>>) (return unit) actions
   in  execGameUpdateM game action
 

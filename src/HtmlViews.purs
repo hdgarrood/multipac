@@ -28,6 +28,7 @@ replaceAll :: Array (Tuple String String) -> String -> String
 replaceAll = map (uncurry replace) >>> foldr (>>>) Prelude.id
 
 styles =
+  -- TODO: this is a bit silly. purescript-css?
   replaceAll
     [ "${linkColor}" ~ linkColor
     , "${backgroundColor}" ~ backgroundColor

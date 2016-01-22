@@ -80,11 +80,11 @@ step = do
       sendUpdate $ SOInProgress updates
 
       if isEnded game'
-              then do
-                players <- askPlayers
-                put $ WaitingForPlayers (const NotReady <$> players)
-              else do
-                put $ InProgress { game: game', input: M.empty }
+        then do
+          players <- askPlayers
+          put $ WaitingForPlayers (const NotReady <$> players)
+        else do
+          put $ InProgress { game: game', input: M.empty }
 
     WaitingForPlayers m -> do
       sendUpdate $ SOWaiting $ NewReadyStates $ mkGenericMap m
