@@ -41,7 +41,7 @@ If you want to browse the source code, here are some pointers:
   declarations and a few basic functions for all of the types involved, in
   particular, types for games, players, game items, messages sent between the
   server and clients, and so on. Most of the other modules import `Types`.
-* The `Game` module contains the bulk of the game logic. exporting functions
+* The `Game` module contains the bulk of the game logic, exporting functions
   such as `stepGame`, which advances the game by one step, returning a new game
   and a list of things that changed.
 * The `Rendering` module is for functions which draw a game onto an HTML canvas
