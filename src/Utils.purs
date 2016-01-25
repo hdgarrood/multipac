@@ -64,6 +64,7 @@ foreign import eachWithIndex_ :: forall a b e. Array a -> (a -> Number -> Eff e 
 whenJust :: forall a f. (Applicative f) => Maybe a -> (a -> f Unit) -> f Unit
 whenJust mx f = maybe (pure unit) f mx
 
+-- TODO: Remove this in favour of *>
 (>>) :: forall a b m. (Monad m) => m a -> m b -> m b
 (>>) a b = a >>= (\_ -> b)
 
@@ -72,10 +73,9 @@ fromEither (Left _) = Nothing
 fromEither (Right x) = Just x
 
 applyN :: forall a. Int -> (a -> a) -> a -> a
-applyN = go id
-  where
-  go f n _ | n <= 0 = f
-  go f n g = go (f >>> g) (n - 1) g
+applyN n f x
+  | n <= 0    = x
+  | otherwise = applyN (n - 1) f (f x)
 
 zipIndices :: forall a. Array a -> Array (Tuple Int a)
 zipIndices xs = zip (range 0 (length xs - 1)) xs
