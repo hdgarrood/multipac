@@ -64,10 +64,6 @@ foreign import eachWithIndex_ :: forall a b e. Array a -> (a -> Number -> Eff e 
 whenJust :: forall a f. (Applicative f) => Maybe a -> (a -> f Unit) -> f Unit
 whenJust mx f = maybe (pure unit) f mx
 
--- TODO: Remove this in favour of *>
-(>>) :: forall a b m. (Monad m) => m a -> m b -> m b
-(>>) a b = a >>= (\_ -> b)
-
 fromEither :: forall a b. Either a b -> Maybe b
 fromEither (Left _) = Nothing
 fromEither (Right x) = Just x

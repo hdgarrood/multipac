@@ -12,6 +12,7 @@ import Data.Foldable
 import Data.Profunctor.Strong ((&&&))
 import Control.Arrow
 import Control.Alt
+import Control.Apply
 import Control.Monad
 import Control.Monad.Reader.Class
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
@@ -160,10 +161,7 @@ initialGame =
 
 stepGame :: Input -> Game -> Tuple Game (Array GameUpdate)
 stepGame input game =
-  let actions = [handleInput input, doLogic]
-      -- TODO: can we use sequence here?
-      action = foldl (>>) (return unit) actions
-  in  execGameUpdateM game action
+  execGameUpdateM game (handleInput input *> doLogic)
 
 handleInput :: Input -> GameUpdateM Unit
 handleInput input =
