@@ -30,9 +30,9 @@ import Game
 import Style
 
 
-halfBlock     = floor (pxPerBlock / 2)
-halfPxPerTile = floor (pxPerTile / 2)
-halfCanvas    = floor (canvasSize / 2)
+halfBlock     = floor (pxPerBlock / 2.0)
+halfPxPerTile = floor (pxPerTile / 2.0)
+halfCanvas    = floor (canvasSize / 2.0)
 
 scaleRect :: Number -> Position -> Rectangle
 scaleRect scale (Position p) =
@@ -70,8 +70,8 @@ setupRenderingById :: forall e.
 setupRenderingById elId =
   getCanvasElementById elId
     >>= justOrErr
-    >>= setCanvasHeight (Int.toNumber canvasSize)
-    >>= setCanvasWidth (Int.toNumber canvasSize)
+    >>= setCanvasHeight canvasSize
+    >>= setCanvasWidth canvasSize
     >>= getContext2D
 
   where
@@ -129,8 +129,8 @@ renderMap map = do
                               below belowLeft left aboveLeft
           let es = getEdges above right below left
           withContext $ do
-            translate { translateX: (i + 0.5) * pxPerTile
-                      , translateY: (j + 0.5) * pxPerTile
+            translate { translateX: (Int.toNumber i + 0.5) * pxPerTile
+                      , translateY: (Int.toNumber j + 0.5) * pxPerTile
                       }
             renderCorners cs
             renderEdges es
@@ -201,7 +201,7 @@ renderCorners cs = do
           , go: return unit
           }
 
-  let s = (pxPerTile - cornerSize) / 2
+  let s = (pxPerTile - cornerSize) / 2.0
   let cs' =
       [ { c: cs.tl
         , a: 0.0
@@ -237,7 +237,7 @@ getEdges above right below left =
   { t: above, r: right, b: below, l: left }
 
 renderEdges es =
-  let s = (Int.toNumber pxPerTile / 2.0) - cornerSize
+  let s = (pxPerTile / 2.0) - cornerSize
       x1 = -s - 1.0
       y1 = -s - (cornerSize / 2.0)
       x2 = s
@@ -348,7 +348,7 @@ renderItem rampaging item = do
         , y: centre.y
         , start: 0.0
         , end: 2.0 * pi
-        , r: Int.toNumber $ dotRadiusFor (item ^. iType)
+        , r: dotRadiusFor (item ^. iType)
         }
     fill
 
@@ -380,7 +380,7 @@ renderPlayers game = do
   flashes = iterateN 5 initial (f *** f)
 
 wholeCanvas =
-  {x: 0.0, y: 0.0, h: Int.toNumber canvasSize, w: Int.toNumber canvasSize}
+  {x: 0.0, y: 0.0, h: canvasSize, w: canvasSize}
 
 clearCanvas :: forall e. CanvasM e Unit
 clearCanvas =
@@ -399,14 +399,14 @@ setFontSize x =
 
 
 renderCounter cd = do
-  setFontSize $ Int.toNumber (pxPerTile * 3)
+  setFontSize (pxPerTile * 3.0)
   setTextAlign AlignCenter
   setLineWidth 3.0
   setFillStyle fontColor
   setStrokeStyle "black"
   let text = show (cd / 30)
-  let x = Int.toNumber halfCanvas
-  let y = Int.toNumber halfCanvas
+  let x = halfCanvas
+  let y = halfCanvas
   fillText   text x y
   strokeText text x y
 

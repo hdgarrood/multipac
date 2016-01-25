@@ -28,19 +28,19 @@ playerColor pId =
          P4 -> 270
   in "hsl(" <> show hue <> ", 100%, 60%)"
 
-pxPerTile = 35
-pxPerBlock = pxPerTile / tileSize
-canvasSize = pxPerBlock * mapSize
+pxPerTile = 35.0
+pxPerBlock = pxPerTile / Int.toNumber tileSize
+canvasSize = pxPerBlock * Int.toNumber mapSize
 
 playerRadius = floor (pxPerTile / 2.2)
 littleDotRadius = pxPerBlock
-bigDotRadius = littleDotRadius * 3
+bigDotRadius = littleDotRadius * 3.0
 
 dotRadiusFor LittleDot = littleDotRadius
 dotRadiusFor BigDot = bigDotRadius
 
 -- parameters for corners of tiles
-cornerSize = floor (pxPerTile / 3)
-cornerMid = floor (cornerSize / 2)
+cornerSize = floor (pxPerTile / 3.0)
+cornerMid = floor (cornerSize / 2.0)
 cornerRadius = cornerMid
 
