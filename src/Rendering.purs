@@ -29,9 +29,10 @@ import Utils
 import Game
 import Style
 
-halfBlock     = pxPerBlock / 2
-halfPxPerTile = pxPerTile / 2
-halfCanvas    = canvasSize / 2
+
+halfBlock     = floor (pxPerBlock / 2)
+halfPxPerTile = floor (pxPerTile / 2)
+halfCanvas    = floor (canvasSize / 2)
 
 scaleRect :: Number -> Position -> Rectangle
 scaleRect scale (Position p) =
@@ -41,18 +42,18 @@ toPosition :: Rectangle -> Position
 toPosition r = Position {x:r.x, y:r.y}
 
 getRectAt :: Position -> Rectangle
-getRectAt = scaleRect (Int.toNumber pxPerBlock)
+getRectAt = scaleRect pxPerBlock
 
 getCentredRectAt :: Position -> Rectangle
 getCentredRectAt p =
   let r = getRectAt p
-  in  r {x = r.x + Int.toNumber halfBlock, y = r.y + Int.toNumber halfBlock}
+  in  r {x = r.x + halfBlock, y = r.y + halfBlock}
 
 getRectAt' :: Number -> Number -> Rectangle
 getRectAt' x y = getRectAt (Position {x: x, y: y})
 
 getTileRectAt :: Position -> Rectangle
-getTileRectAt = scaleRect (Int.toNumber pxPerTile)
+getTileRectAt = scaleRect pxPerTile
 
 getTileRectAt' :: Number -> Number -> Rectangle
 getTileRectAt' x y = getTileRectAt (Position {x: x, y: y})
@@ -128,8 +129,8 @@ renderMap map = do
                               below belowLeft left aboveLeft
           let es = getEdges above right below left
           withContext $ do
-            translate { translateX: (Int.toNumber i + 0.5) * Int.toNumber pxPerTile
-                      , translateY: (Int.toNumber j + 0.5) * Int.toNumber pxPerTile
+            translate { translateX: (i + 0.5) * pxPerTile
+                      , translateY: (j + 0.5) * pxPerTile
                       }
             renderCorners cs
             renderEdges es
@@ -200,7 +201,7 @@ renderCorners cs = do
           , go: return unit
           }
 
-  let s = (Int.toNumber pxPerTile - cornerSize) / 2.0
+  let s = (pxPerTile - cornerSize) / 2
   let cs' =
       [ { c: cs.tl
         , a: 0.0
@@ -470,5 +471,5 @@ clearBoth ctx = do
   runCanvasM ctx.foreground clearCanvas
 
 setTextStyle = do
-  setFontSize $ floor (0.6 * Int.toNumber pxPerTile)
+  setFontSize $ floor (0.6 * pxPerTile)
   setFillStyle fontColor

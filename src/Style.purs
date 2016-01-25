@@ -32,7 +32,7 @@ pxPerTile = 35
 pxPerBlock = pxPerTile / tileSize
 canvasSize = pxPerBlock * mapSize
 
-playerRadius = floor (Int.toNumber pxPerTile / 2.2)
+playerRadius = floor (pxPerTile / 2.2)
 littleDotRadius = pxPerBlock
 bigDotRadius = littleDotRadius * 3
 
@@ -40,7 +40,7 @@ dotRadiusFor LittleDot = littleDotRadius
 dotRadiusFor BigDot = bigDotRadius
 
 -- parameters for corners of tiles
-cornerSize = Int.toNumber (pxPerTile / 3)
-cornerMid = floor (cornerSize / 2.0)
+cornerSize = floor (pxPerTile / 3)
+cornerMid = floor (cornerSize / 2)
 cornerRadius = cornerMid
 
