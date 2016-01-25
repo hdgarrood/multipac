@@ -348,7 +348,6 @@ checkEnded g
 
 isEnded = isJust <<< checkEnded
 
--- TODO: performance
 lookupItemByPosition :: Position -> Game -> Maybe (Tuple ItemId Item)
 lookupItemByPosition pos g =
   case List.filter (\i -> (i ^. _2 ^. iPosition) == pos) (M.toList (g ^. items)) of
