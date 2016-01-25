@@ -407,12 +407,6 @@ derive instance genericWaitingUpdate :: Generic WaitingUpdate
 
 type GameUpdateM a = WriterT (Array GameUpdate) (State WrappedGame) a
 
--- these are just here to shorten declarations that are required because of
--- types that psc is not able to infer
--- TODO: clean this up?
-type GameUpdateState = WrappedGame
-type GameUpdateModifier = GameUpdateState -> GameUpdateState
-
 innerGame :: LensP WrappedGame Game
 innerGame = lens (\(WrappedGame g) -> g) (const WrappedGame)
 
@@ -420,16 +414,10 @@ tellGameUpdate :: GameUpdate -> GameUpdateM Unit
 tellGameUpdate = tell <<< singleton
 
 modifyGame :: (Game -> Game) -> GameUpdateM Unit
-modifyGame = modify <<< f
-  where
-  f :: (Game -> Game) -> GameUpdateModifier
-  f = over innerGame
+modifyGame = modify <<< over innerGame
 
 getGame :: GameUpdateM Game
-getGame = gets f
-  where
-  f :: GameUpdateState -> Game
-  f x = x ^. innerGame
+getGame = gets (\x -> x ^. innerGame)
 
 runGameUpdateM :: forall a.
   Game -> GameUpdateM a -> Tuple a (Tuple Game (Array GameUpdate))
