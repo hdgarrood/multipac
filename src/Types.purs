@@ -155,9 +155,6 @@ showRecord :: String -> Array String -> String
 showRecord name props =
     "(" <> name <> " {" <> joinWith ", " props <> "})"
 
-(.::) :: forall a. (Show a) => String -> a -> String
-(.::) name value = name <> ": " <> show value
-
 failJsonParse :: forall a b. (Show a) => a -> String -> Either String b
 failJsonParse value typ =
   E.Left $ "failed to parse " <> show value <> " as " <> typ <> "."

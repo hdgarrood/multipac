@@ -10,7 +10,7 @@ import Data.String (replace, joinWith)
 import Data.Array (sortBy, reverse, catMaybes)
 import Data.List as List
 import Data.Function (on)
-import qualified Data.Map as M
+import Data.Map as M
 import Text.Smolder.HTML
   (html, head, meta, script, style, body, div, h1, h2, canvas, title, link, p,
    input, a)

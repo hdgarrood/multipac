@@ -23,12 +23,6 @@ import Data.Foreign.Generic
 import Control.Monad.Eff
 import Node.Process as Process
 
-(~) :: forall a b. a -> b -> Tuple a b
-(~) = Tuple
-
-(..) :: forall a b c. (b -> c) -> (a -> b) -> (a -> c)
-(..) f g x = f (g x)
-
 iterateN :: forall a. Int -> a -> (a -> a) -> Array a
 iterateN n x f =
   if n <= 0

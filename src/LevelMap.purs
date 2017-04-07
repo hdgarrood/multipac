@@ -178,10 +178,10 @@ fail = Left
 parseLevelMapString :: String -> Either String (Array (Array BasicTile))
 parseLevelMapString str = do
   let toLines =
-    split "\n" >>>
-      map (trim >>> toCharArray) >>>
-      filter (not <<< null) >>>
-      transpose
+        split "\n" >>>
+          map (trim >>> toCharArray) >>>
+          filter (not <<< null) >>>
+          transpose
 
   let lines = toLines str
   unless (rightLength lines && all rightLength lines) $
@@ -266,4 +266,4 @@ getBlockAt (Position pos) levelmap =
     x = Int.floor pos.x
     y = Int.floor pos.y
   in
-    levelmap.blocks !! x >>= (!! y)
+    levelmap.blocks !! x >>= (_ !! y)

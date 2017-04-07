@@ -145,21 +145,29 @@ sendAllMessages srv sm = do
       for_ msgs $ \msg ->
         WS.send (conn ^. cWsConn) (encode msg)
 
-sendUpdate :: forall m outg. (Monad m, W.MonadWriter (SendMessages outg) m) =>
+sendUpdate :: forall m outg.
+  Monad m =>
+  W.MonadWriter (SendMessages outg) m =>
   outg -> m Unit
 sendUpdate m = sendUpdates [m]
 
-sendUpdates :: forall m outg. (Monad m, W.MonadWriter (SendMessages outg) m) =>
+sendUpdates :: forall m outg.
+  Monad m =>
+  W.MonadWriter (SendMessages outg) m =>
   Array outg -> m Unit
 sendUpdates ms =
   W.tell $ SendMessages { toAll: ms, toOne: M.empty }
 
-sendUpdateTo :: forall m outg. (Monad m, W.MonadWriter (SendMessages outg) m) =>
+sendUpdateTo :: forall m outg.
+  Monad m =>
+  W.MonadWriter (SendMessages outg) m =>
   PlayerId -> outg -> m Unit
 sendUpdateTo pId m =
   W.tell $ SendMessages { toAll: [], toOne: M.insert pId [m] M.empty }
 
-askPlayers :: forall m. (Monad m, R.MonadReader (Array Connection) m) =>
+askPlayers :: forall m.
+  Monad m =>
+  R.MonadReader (Array Connection) m =>
   m (M.Map PlayerId String)
 askPlayers =
   connectionsToPlayersMap <$> R.ask
@@ -169,7 +177,9 @@ stepsPerSecond = 30
 type ServerEffects e =
   (timer :: Timer, ref :: REF, console :: CONSOLE, ws :: WS.WebSocket | e)
 
-startServer :: forall st inc outg e. (Generic inc, Generic outg) =>
+startServer :: forall st inc outg e.
+  Generic inc =>
+  Generic outg =>
   ServerCallbacks st inc outg -> Ref (Server st)
   -> Eff (ServerEffects e) WS.Server
 startServer cs refSrv = do

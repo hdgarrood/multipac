@@ -101,23 +101,33 @@ sendAllMessages cln msgs =
   for_ msgs $ \msg ->
     wsSend cln.conn (encode msg)
 
-sendUpdate :: forall m outg. (Monad m, W.MonadWriter (Array outg) m) =>
+sendUpdate :: forall m outg.
+  Monad m =>
+  W.MonadWriter (Array outg) m =>
   outg -> m Unit
 sendUpdate m = sendUpdates [m]
 
-sendUpdates :: forall m outg. (Monad m, W.MonadWriter (Array outg) m) =>
+sendUpdates :: forall m outg.
+  Monad m =>
+  W.MonadWriter (Array outg) m =>
   Array outg -> m Unit
 sendUpdates = W.tell
 
-askPlayerId :: forall m. (Monad m, R.MonadReader ClientMReader m) =>
+askPlayerId :: forall m.
+  Monad m =>
+  R.MonadReader ClientMReader m =>
   m PlayerId
 askPlayerId = (\(ClientMReader c) -> c.playerId) <$> R.ask
 
-askPlayers :: forall m. (Monad m, R.MonadReader ClientMReader m) =>
+askPlayers :: forall m.
+  Monad m =>
+  R.MonadReader ClientMReader m =>
   m (M.Map PlayerId String)
 askPlayers = (\(ClientMReader c) -> c.players) <$> R.ask
 
-askPlayerName :: forall m. (Monad m, R.MonadReader ClientMReader m) =>
+askPlayerName :: forall m.
+  Monad m =>
+  R.MonadReader ClientMReader m =>
   m String
 askPlayerName = do
   pId <- askPlayerId
@@ -130,7 +140,9 @@ askPlayerName = do
 liftEff :: forall st outg e a. Eff (ClientEffects e) a -> ClientM st outg e a
 liftEff = lift
 
-startClient :: forall st inc outg e. (Generic inc, Generic outg) =>
+startClient :: forall st inc outg e.
+  Generic inc =>
+  Generic outg =>
   st -> ClientCallbacks st inc outg e -> String -> String
   -> Eff (ClientEffects e) Unit
 startClient initialState cs socketUrl playerName =
@@ -205,7 +217,7 @@ connectSocket url playerName cont = do
       E.Left _ -> modifyRef delayedMsgs $ \arr -> arr <> [msg]
 
 
-foreign import data AnimationLoop :: *
+foreign import data AnimationLoop :: Type
 
 foreign import startAnimationLoop :: forall a e. Eff e a -> Eff e AnimationLoop
 

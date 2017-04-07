@@ -95,7 +95,7 @@ step = do
       where
       readyToStart m =
         let ps = M.values m
-        in List.length ps >= minPlayers && all (== Ready) ps
+        in List.length ps >= minPlayers && all (_ == Ready) ps
 
 
 matchInProgress :: ServerIncomingMessage -> (Direction -> SM Unit) -> SM Unit

@@ -7,11 +7,11 @@ import Node.HTTP as Http
 
 import NodeUrl
 
-foreign import data WebSocket :: !
-foreign import data Server :: *
-foreign import data Connection :: *
-foreign import data Request :: *
-foreign import data Close :: *
+foreign import data WebSocket :: Effect
+foreign import data Server :: Type
+foreign import data Connection :: Type
+foreign import data Request :: Type
+foreign import data Close :: Type
 
 -- for now, only UTF8 messages are supported
 -- TODO: node buffers

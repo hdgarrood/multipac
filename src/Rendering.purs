@@ -140,7 +140,9 @@ renderMap map = do
 showCorners :: Corners -> String
 showCorners cs =
   showRecord "Corners"
-    ["tl" .:: cs.tl, "tr" .:: cs.tr, "br" .:: cs.br, "bl" .:: cs.bl]
+    ["tl" `assoc` cs.tl, "tr" `assoc` cs.tr, "br" `assoc` cs.br, "bl" `assoc` cs.bl]
+  where
+  assoc k v = k <> ": " <> show v
 
 getCorners above aboveRight right belowRight below belowLeft left aboveLeft =
   { tl: getCorner left above aboveLeft
@@ -158,8 +160,7 @@ getCorner E E _ = CRO
 
 renderCorners :: forall e.  Corners -> CanvasM e Unit
 renderCorners cs = do
-  let renderCorner c a t =
-    case c of
+  let renderCorner c a t = case c of
         CRO ->
           { prep: do
               translate t
@@ -203,25 +204,25 @@ renderCorners cs = do
 
   let s = (pxPerTile - cornerSize) / 2.0
   let cs' =
-      [ { c: cs.tl
-        , a: 0.0
-        , t: {translateX: -s, translateY: -s}
-        },
+        [ { c: cs.tl
+          , a: 0.0
+          , t: {translateX: -s, translateY: -s}
+          },
 
-        { c: cs.tr
-        , a: pi/2.0
-        , t: {translateX: s, translateY: -s}
-        },
+          { c: cs.tr
+          , a: pi/2.0
+          , t: {translateX: s, translateY: -s}
+          },
 
-        { c: cs.br
-        , a: pi
-        , t: {translateX: s, translateY: s}
-        },
+          { c: cs.br
+          , a: pi
+          , t: {translateX: s, translateY: s}
+          },
 
-        { c: cs.bl
-        , a: 1.5*pi
-        , t: {translateX: -s, translateY: s}
-        }
+          { c: cs.bl
+          , a: 1.5*pi
+          , t: {translateX: -s, translateY: s}
+          }
         ]
 
   for_ cs' $ \c -> do
@@ -355,19 +356,19 @@ renderItem rampaging item = do
 renderPlayers :: forall e. Game -> CanvasM e Unit
 renderPlayers game = do
   let isRampaging =
-      maybe (const false)
-            (\r -> case r of
-                Rampaging pId _ -> (==) pId
-                _ -> const false)
-            game.rampage
+        maybe (const false)
+              (\r -> case r of
+                  Rampaging pId _ -> (==) pId
+                  _ -> const false)
+              game.rampage
   let isFleeing =
-      maybe (const false)
-            (\r -> case r of
-                Rampaging pId ctr ->
-                  \pId' -> pId /= pId' && elem ctr flashCounts
-                _ ->
-                  const false)
-            game.rampage
+        maybe (const false)
+              (\r -> case r of
+                  Rampaging pId ctr ->
+                    \pId' -> pId /= pId' && elem ctr flashCounts
+                  _ ->
+                    const false)
+              game.rampage
 
   eachPlayer' game (renderPlayer isRampaging isFleeing)
 

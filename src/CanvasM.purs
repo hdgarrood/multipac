@@ -5,7 +5,7 @@ import Control.Monad.Eff (Eff())
 import Control.Monad.Trans (lift)
 import Control.Monad.Reader.Trans (ReaderT(), runReaderT)
 import Control.Monad.Reader.Class (ask)
-import qualified Graphics.Canvas as GC
+import Graphics.Canvas as GC
 
 liftReaderT :: forall r m a. (Monad m) => m a -> ReaderT r m a
 liftReaderT = lift
