@@ -13,32 +13,20 @@
     "tests"
   ],
   "dependencies": {
-    "purescript-index": "~0.4.0",
-    "purescript-timers": "~1.0.0",
-    "purescript-refs": "~0.2.0",
-    "purescript-canvas": "~0.4.0",
-    "purescript-smolder": "~3.0.1",
     "purescript-arrows": "~0.6.2",
-    "purescript-sequences": "~0.5.0",
-    "purescript-maps": "~0.5.4",
-    "purescript-tuples": "~0.4.0",
-    "purescript-foldable-traversable": "~0.4.2",
-    "purescript-monoid": "~0.3.2",
-    "purescript-sets": "~0.5.5",
-    "purescript-node-process": "~0.4.1",
-    "purescript-webstorage": "~0.4.0",
-    "purescript-profunctor-lenses": "~0.3.5",
-    "purescript-transformers": "~0.8.4",
-    "purescript-node-http": "~0.2.0",
-    "purescript-dom": "~0.2.14",
-    "purescript-websocket-simple": "~0.2.0",
-    "purescript-generics": "~0.7.0",
-    "purescript-var": "~0.1.0",
-    "purescript-simple-dom": "~0.1.3",
-    "purescript-foreign-generic": "~0.3.0"
-  },
-  "resolutions": {
-    "purescript-maps": "~0.5.4",
-    "purescript-strings": "~0.7.0"
+    "purescript-canvas": "~3.0.0",
+    "purescript-dom": "~4.0.0",
+    "purescript-foldable-traversable": "~3.0.0",
+    "purescript-maps": "~3.0.0",
+    "purescript-monoid": "~3.0.0",
+    "purescript-node-http": "~4.0.0",
+    "purescript-node-process": "~4.0.0",
+    "purescript-profunctor-lenses": "~3.0.0",
+    "purescript-refs": "~3.0.0",
+    "purescript-sets": "~3.0.0",
+    "purescript-smolder": "~6.0.1",
+    "purescript-js-timers": "~3.0.0",
+    "purescript-transformers": "~3.1.0",
+    "purescript-tuples": "~4.0.0"
   }
 }
