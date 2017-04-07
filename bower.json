@@ -13,7 +13,6 @@
     "tests"
   ],
   "dependencies": {
-    "purescript-arrows": "~0.6.2",
     "purescript-canvas": "~3.0.0",
     "purescript-dom": "~4.0.0",
     "purescript-foldable-traversable": "~3.0.0",
@@ -24,7 +23,6 @@
     "purescript-profunctor-lenses": "~3.0.0",
     "purescript-refs": "~3.0.0",
     "purescript-sets": "~3.0.0",
-    "purescript-smolder": "~6.0.1",
     "purescript-js-timers": "~3.0.0",
     "purescript-transformers": "~3.1.0",
     "purescript-tuples": "~4.0.0"
