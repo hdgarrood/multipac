@@ -17,8 +17,8 @@ import Text.Smolder.HTML
 import Text.Smolder.HTML.Attributes
   (lang, charset, httpEquiv, content, src, defer, type', id, className, name,
   rel, href)
-import Text.Smolder.Markup (text, (!), Markup())
-import Text.Smolder.Renderer.String (render)
+import Text.Smolder.Markup (text, (!), Markup)
+-- import Text.Smolder.Renderer.HTMLElement (renderMarkup)
 
 import Utils
 import Types
@@ -230,6 +230,7 @@ rawStyles = """
   }
 """
 
+playerColorStyles :: String
 playerColorStyles =
   concat $
     flip map allPlayerIds
@@ -243,7 +244,7 @@ playerColorStyles =
   where
   concat = joinWith ""
 
-
+indexDoc :: Html Unit
 indexDoc =
   html ! lang "en" $ do
     head $ do
@@ -364,10 +365,10 @@ getPlayerInfo playersMap (Tuple pId'' p) = do
 
 simpleScores :: M.Map PlayerId String -> Game -> String
 simpleScores m game =
-  render $ simpleScoresMarkup m game
+  render $ simpleScoresHtml m game
 
-simpleScoresMarkup :: M.Map PlayerId String -> Game -> Markup
-simpleScoresMarkup playersMap game = do
+simpleScoresHtml :: M.Map PlayerId String -> Game -> Html e
+simpleScoresHtml playersMap game = do
   div ! className "simple-scores" $ do
     for_ (playerInfos game playersMap) $ \info -> do
       let pId = displayPlayerId info.pId

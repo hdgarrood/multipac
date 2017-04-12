@@ -8,9 +8,7 @@ import Data.Array (insertAt)
 import Data.Map as M
 import Data.Either as E
 import Data.Generic (Generic)
-import Control.Monad.Trans
 import Control.Monad.RWS.Trans
-import Control.Monad.RWS.Class
 import Control.Monad.Writer.Class as W
 import Control.Monad.Reader.Class as R
 import Control.Monad.Eff (Eff())
@@ -18,16 +16,12 @@ import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Control.Monad.Eff.Console
 import Control.Monad.Eff.Ref (newRef, readRef, writeRef, modifyRef, REF(),
                               Ref())
-import Control.Monad.Eff.Var (set)
-import DOM (DOM())
-import Data.DOM.Simple.Types (DOMEvent())
-import Data.DOM.Simple.Events (addKeyboardEventListener, KeyboardEventType(..))
-import Data.DOM.Simple.Window (globalWindow)
-import Graphics.Canvas (Canvas())
+import DOM (DOM)
+import Graphics.Canvas (Canvas)
 
 import Types
 import GenericMap
-import WebSocket as WS
+import BrowserWebSocket as WS
 import BaseCommon
 import Utils
 

@@ -14,14 +14,13 @@ import Data.Generic (Generic)
 import Control.Monad (when)
 import Control.Monad.RWS
 import Control.Monad.RWS.Trans
-import Control.Monad.RWS.Class
 import Control.Monad.Writer.Class as W
 import Control.Monad.Reader.Class as R
 import Control.Monad.Eff (Eff())
 import Control.Monad.Eff.Console
 import Control.Monad.Eff.Ref (newRef, readRef, writeRef, modifyRef, REF(),
                               Ref())
-import DOM.Timer (Timer(), interval)
+import Control.Monad.Eff.Timer (Timer(), interval)
 import Data.Lens (lens, LensP())
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter ((%~), (.~))

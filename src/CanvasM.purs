@@ -2,7 +2,7 @@ module CanvasM where
 
 import Prelude
 import Control.Monad.Eff (Eff())
-import Control.Monad.Trans (lift)
+import Control.Monad.Trans.Class (lift)
 import Control.Monad.Reader.Trans (ReaderT(), runReaderT)
 import Control.Monad.Reader.Class (ask)
 import Graphics.Canvas as GC

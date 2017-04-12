@@ -14,7 +14,6 @@ import Graphics.Canvas
   Context2D(), Canvas(), getCanvasElementById, TextAlign(..), LineCap(..))
 import Control.Monad.Eff
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
-import Control.Arrow
 import Control.Monad (when)
 import Control.Monad.Reader.Class (reader)
 import Data.Lens.Getter ((^.))

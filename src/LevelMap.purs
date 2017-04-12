@@ -14,7 +14,6 @@ import Data.Int as Int
 import Data.Array (filter, null, reverse, (!!), range, concatMap,
                    concat, length, replicate)
 import Data.Maybe
-import Data.Maybe.Unsafe (fromJust)
 import Data.Traversable (for, sequence)
 import Data.Foldable (mconcat, all)
 

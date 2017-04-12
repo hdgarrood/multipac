@@ -2,34 +2,29 @@ module Client where
 
 import Prelude
 import Data.Maybe
-import Data.Maybe.Unsafe (fromJust)
 import Data.Either as E
 import Data.Tuple
 import Data.String as S
 import Data.Map as M
 import DOM (DOM())
---import DOM.HTML.Types (HTMLElement())
+import DOM.Node.Node (setTextContent)
+import DOM.Node.ParentNode (querySelector)
+import DOM.Node.Element (setAttribute)
+import DOM.Event.Types (Event)
 import DOM.HTML.Location (host, protocol)
-import Data.DOM.Simple.Events hiding (view)
-import Data.DOM.Simple.Types (DOMEvent(), DOMLocation())
-import Data.DOM.Simple.Window (globalWindow, location, document)
-import Data.DOM.Simple.Unsafe.Element (HTMLElement())
-import Data.DOM.Simple.Element
-  (setInnerHTML, querySelector, setAttribute, value, setValue, focus)
-import Data.DOM.Simple.Events
-  (keyCode, addKeyboardEventListener, KeyboardEventType(..))
+import DOM.HTML.Window (location, document)
+import DOM.HTML.HTMLInputElement (value, setValue, focus)
 import Control.Monad
 import Control.Monad.Eff
 import Control.Monad.Eff.Ref
-import Control.Monad.RWS.Class
 import Control.Monad.State.Class
 import Data.Lens (lens, LensP())
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter ((%~), (.~))
 import Data.Lens.At (at)
-import DOM.Timer
-import WebSocket as WS
-import Browser.WebStorage as Storage
+import Control.Monad.Eff.Timer
+import BrowserWebSocket as WS
+-- import Browser.WebStorage as Storage
 import Unsafe.Coerce (unsafeCoerce)
 
 import GenericMap
@@ -81,7 +76,7 @@ popupPromptInput msg val cont = do
   showElement (containerEl :: HTMLElement)
 
   messageEl <- q' "#prompt-message"
-  setInnerHTML msg (messageEl :: HTMLElement)
+  setTextContent msg (messageEl :: HTMLElement)
 
   inputEl <- q' "#prompt-input"
   setValue val (inputEl :: HTMLElement)

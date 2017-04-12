@@ -9,7 +9,7 @@ import Data.Maybe
 import Data.Tuple
 import Data.StrMap as StrMap
 import Data.Array hiding ((..))
-import Data.Array.Unsafe (unsafeIndex)
+import Data.Array.Partial (unsafeIndex)
 import Data.Either
 import Data.List as List
 import Data.List.ZipList (ZipList(..), runZipList)

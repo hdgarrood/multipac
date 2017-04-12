@@ -3,14 +3,12 @@ module Game where
 import Prelude
 import Data.Tuple
 import Data.Maybe
-import Data.Maybe.Unsafe (fromJust)
 import Data.Array ((!!), range, filter, length, take)
 import Data.List as List
 import Data.Int (toNumber, fromNumber)
 import Data.Map as M
 import Data.Foldable
 import Data.Profunctor.Strong ((&&&))
-import Control.Arrow
 import Control.Alt
 import Control.Apply
 import Control.Monad

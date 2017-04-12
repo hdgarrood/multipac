@@ -20,7 +20,7 @@ import Control.Monad.State
 import Control.Monad.State.Class
 import Control.Monad.Eff
 import Control.Monad.Eff.Ref
-import DOM.Timer
+import Control.Monad.Eff.Timer
 import Data.Lens
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter (over)
@@ -31,7 +31,7 @@ import Math (floor, pi, pow)
 import GenericMap
 import Utils
 import NodeWebSocket as WS
-import WebSocket as BWS
+import BrowserWebSocket as BWS
 
 -- newtype wrapper is just for instances. We have to duplicate the type synonym
 -- because of psc bug #1443

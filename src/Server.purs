@@ -16,7 +16,7 @@ import Control.Monad.Eff
 import Control.Monad.Eff.Console
 import Control.Monad.Eff.Ref
 import Control.Monad.Eff.Exception (throw, message)
-import DOM.Timer
+import Control.Monad.Eff.Timer
 import Data.Lens (lens, LensP())
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter ((%~), (.~))
