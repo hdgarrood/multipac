@@ -11,14 +11,14 @@ liftReaderT :: forall r m a. (Monad m) => m a -> ReaderT r m a
 liftReaderT = lift
 
 type CanvasM e a
-  = ReaderT GC.Context2D (Eff (canvas :: GC.Canvas | e)) a
+  = ReaderT GC.Context2D (Eff (canvas :: GC.CANVAS | e)) a
 
 liftC :: forall a e.
-  (GC.Context2D -> Eff (canvas :: GC.Canvas | e) a) -> CanvasM e Unit
+  (GC.Context2D -> Eff (canvas :: GC.CANVAS | e) a) -> CanvasM e Unit
 liftC action = void $ ask >>= \ctx -> liftReaderT (action ctx)
 
 runCanvasM :: forall a e.
-  GC.Context2D -> CanvasM e a -> Eff (canvas :: GC.Canvas | e) a
+  GC.Context2D -> CanvasM e a -> Eff (canvas :: GC.CANVAS | e) a
 runCanvasM = flip runReaderT
 
 beginPath :: forall e. CanvasM e Unit

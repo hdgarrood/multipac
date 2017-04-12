@@ -2,24 +2,25 @@ module Utils where
 
 import Prelude
 import Control.Bind ((>=>))
-import Data.Generic (Generic)
+import Data.Newtype (unwrap)
+import Data.Generic (class Generic)
 import Data.Function
 import Data.Int as Int
 import Data.Maybe
 import Data.Tuple
 import Data.StrMap as StrMap
 import Data.Array hiding ((..))
-import Data.Array.Partial (unsafeIndex)
 import Data.Either
 import Data.List as List
-import Data.List.ZipList (ZipList(..), runZipList)
+import Data.List.ZipList (ZipList(..))
 import Data.List.Lazy as LazyList
 import Data.Map as M
 import Data.Traversable (sequence)
-import Data.Unfoldable (Unfoldable)
-import Data.Foldable (Foldable, for_, foldMap, foldr, foldl)
+import Data.Unfoldable (class Unfoldable)
+import Data.Foldable (class Foldable, for_, foldMap, foldr, foldl)
 import Data.Foreign
 import Data.Foreign.Generic
+import Data.Foreign.Generic.Class (class GenericEncode, class GenericDecode)
 import Control.Monad.Eff
 import Node.Process as Process
 
@@ -46,7 +47,7 @@ transpose =
   toZipList = ZipList <<< LazyList.fromFoldable
 
   fromZipList :: forall f a'. (Unfoldable f) => ZipList a' -> f a'
-  fromZipList = LazyList.toUnfoldable <<< runZipList
+  fromZipList = LazyList.toUnfoldable <<< unwrap
 
 collectMaybes :: forall a. Array (Array (Maybe a)) -> Maybe (Array (Array a))
 collectMaybes = map sequence >>> sequence
@@ -73,29 +74,27 @@ zipIndices xs = zip (range 0 (length xs - 1)) xs
 deleteWhere :: forall k v. (Ord k) =>
   (k -> v -> Boolean) -> M.Map k v -> M.Map k v
 deleteWhere pred map =
-  foldr go map (M.toList map)
+  foldr go map (M.toUnfoldable map :: Array (Tuple k v))
   where
   go (Tuple k v) m =
     if pred k v
        then M.delete k m
        else m
 
-unionWith :: forall k v. (Ord k) => (v -> v -> v) -> M.Map k v -> M.Map k v -> M.Map k v
-unionWith f m1 m2 = foldl go m2 (M.toList m1)
- where
- go m (Tuple k v) = M.alter (Just <<< maybe v (f v)) k m
-
 portOrDefault :: forall e.
   Int -> Eff (process :: Process.PROCESS | e) Int
 portOrDefault default = do
   port <- Process.lookupEnv "PORT"
-  return $ fromMaybe default (port >>= Int.fromString)
+  pure $ fromMaybe default (port >>= Int.fromString)
 
--- object :: Array JAssoc -> Json
--- object = fromObject <<< StrMap.fromList <<< List.fromFoldable
+encode :: forall a rep.
+  Generic a rep =>
+  GenericEncode rep =>
+  a -> String
+encode = genericEncodeJSON defaultOptions
 
-encode :: forall a. (Generic a) => a -> String
-encode = toJSONGeneric defaultOptions
-
-decode :: forall a. (Generic a) => String -> F a
-decode = readJSONGeneric defaultOptions
+decode :: forall a rep.
+  Generic a rep =>
+  GenericDecode rep =>
+  String -> F a
+decode = genericDecodeJSON defaultOptions
