@@ -15,7 +15,7 @@ if check_status; then
     git checkout deploy
     git submodule update
     git merge master -m 'merging from master'
-    grunt
+    npm -s run build
     git add --force dist/ dist/node_modules static/ static/js/
     git commit -m 'deploying' || true
     git push heroku deploy:master
