@@ -17,7 +17,7 @@ import Control.Monad.Eff.Console
 import Control.Monad.Eff.Ref
 import Control.Monad.Eff.Exception (throw, message)
 import Control.Monad.Eff.Timer
-import Data.Lens (lens, LensP())
+import Data.Lens (lens, Lens'())
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter ((%~), (.~))
 import Data.Lens.At (at)
@@ -125,7 +125,7 @@ onNewPlayer pId = do
     WaitingForPlayers m -> do
       let m' = M.insert pId NotReady m
       put $ WaitingForPlayers m'
-    _ -> return unit
+    _ -> pure unit
 
 
 onClose :: PlayerId -> SM Unit

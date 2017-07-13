@@ -14,7 +14,7 @@ import Control.Apply
 import Control.Monad
 import Control.Monad.Reader.Class
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
-import Data.Lens (LensP(), Lens(), TraversalP(), lens, (.~), _1, _2)
+import Data.Lens (Lens'(), Lens(), Traversal'(), lens, (.~), _1, _2)
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter ((%~))
 import Data.Lens.At (at)
@@ -38,10 +38,10 @@ minEatingQuadrance = 4.0
 
 -- update signalling
 
-player :: PlayerId -> TraversalP Game Player
+player :: PlayerId -> Traversal' Game Player
 player pId = players .. at pId .. _Just
 
-item :: ItemId -> TraversalP Game Item
+item :: ItemId -> Traversal' Game Item
 item iId = items .. at iId .. _Just
 
 applyGameUpdate :: GameUpdate -> Game -> Game
@@ -149,11 +149,11 @@ initialGame =
   safeZone = do
     x <- map toNumber [7,8,9]
     y <- map toNumber [6,7,8,9]
-    return (tilePositionToBlock (Position {x:x, y:y}))
+    pure (tilePositionToBlock (Position {x:x, y:y}))
   bigDots = do
     x <- map toNumber [3, tilesAlongSide - 4]
     y <- map toNumber [3, tilesAlongSide - 4]
-    return (tilePositionToBlock (Position {x:x, y:y}))
+    pure (tilePositionToBlock (Position {x:x, y:y}))
 
 
 
@@ -202,10 +202,10 @@ movePlayer pId p =
 isRampage :: PlayerId -> GameUpdateM Boolean
 isRampage pId = do
   g <- getGame
-  maybe (return false) isRampaging g.rampage
+  maybe (pure false) isRampaging g.rampage
   where
   isRampaging rampage =
-    return $ case rampage of
+    pure $ case rampage of
       Rampaging pId' _ -> pId' == pId
       Cooldown _       -> false
 

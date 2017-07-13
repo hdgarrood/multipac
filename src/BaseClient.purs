@@ -7,7 +7,7 @@ import Data.Foldable (for_)
 import Data.Array (insertAt)
 import Data.Map as M
 import Data.Either as E
-import Data.Generic (Generic)
+import Data.Generic.Rep (class Generic)
 import Control.Monad.RWS.Trans
 import Control.Monad.Writer.Class as W
 import Control.Monad.Reader.Class as R
@@ -17,7 +17,7 @@ import Control.Monad.Eff.Console
 import Control.Monad.Eff.Ref (newRef, readRef, writeRef, modifyRef, REF(),
                               Ref())
 import DOM (DOM)
-import Graphics.Canvas (Canvas)
+import Graphics.Canvas (CANVAS)
 
 import Types
 import GenericMap
@@ -60,14 +60,14 @@ type ClientMResult st outg a =
 
 type ClientEffects e =
   (ref :: REF, console :: CONSOLE, ws :: WS.WEBSOCKET, dom :: DOM,
-   canvas :: Canvas | e)
+   canvas :: CANVAS | e)
 
 runClientM :: forall st outg e a.
   ClientMReader -> st -> ClientM st outg e a
   -> Eff (ClientEffects e) (ClientMResult st outg a)
 runClientM rdr state action = do
   RWSResult nextState result messages <- runRWST action rdr state
-  return $
+  pure $
     { nextState
     , result
     , messages
@@ -170,9 +170,9 @@ startClient initialState cs socketUrl playerName =
           E.Right intMsg ->
             handleInternalMessage ref intMsg
           E.Left err2 ->
-            error ("Unable to parse message:\n" ++
-              "data: " ++ msg ++ "\n" ++
-              "errors: " ++ show err ++ "\n" ++ show err2)
+            error ("Unable to parse message:\n" <>
+              "data: " <> msg <> "\n" <>
+              "errors: " <> show err <> "\n" <> show err2)
 
 
 handleInternalMessage :: forall st e.

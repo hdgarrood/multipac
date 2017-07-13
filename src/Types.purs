@@ -24,7 +24,7 @@ import Control.Monad.Eff.Timer
 import Data.Lens
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter (over)
-import Data.Lens.Types (LensP())
+import Data.Lens.Types (Lens'())
 import DOM (DOM())
 import Math (floor, pi, pow)
 
@@ -207,38 +207,38 @@ mkPlayer pos =
          , respawnCounter: Nothing
          }
 
-players :: LensP Game (Map PlayerId Player)
+players :: Lens' Game (Map PlayerId Player)
 players = lens (\o -> runGenericMap o.players) (\o x -> o { players = mkGenericMap x })
 
-items :: LensP Game (Map ItemId Item)
+items :: Lens' Game (Map ItemId Item)
 items = lens (\o -> runGenericMap o.items) (\o x -> o { items = mkGenericMap x })
 
-pPosition :: LensP Player Position
+pPosition :: Lens' Player Position
 pPosition = lens
   (\(Player p) -> p.position)
   (\(Player p) pos -> Player $ p { position = pos })
 
-pDirection :: LensP Player (Maybe Direction)
+pDirection :: Lens' Player (Maybe Direction)
 pDirection = lens
   (\(Player p) -> p.direction)
   (\(Player p) dir -> Player $ p { direction = dir })
 
-pIntendedDirection :: LensP Player (Maybe Direction)
+pIntendedDirection :: Lens' Player (Maybe Direction)
 pIntendedDirection = lens
   (\(Player p) -> p.intendedDirection)
   (\(Player p) dir -> Player $ p { intendedDirection = dir })
 
-pScore :: LensP Player Int
+pScore :: Lens' Player Int
 pScore = lens
   (\(Player p) -> p.score)
   (\(Player p) s -> Player $ p { score = s })
 
-pNomIndex :: LensP Player Int
+pNomIndex :: Lens' Player Int
 pNomIndex = lens
   (\(Player p) -> p.nomIndex)
   (\(Player p) s -> Player $ p { nomIndex = s })
 
-pRespawnCounter :: LensP Player (Maybe Int)
+pRespawnCounter :: Lens' Player (Maybe Int)
 pRespawnCounter = lens
   (\(Player p) -> p.respawnCounter)
   (\(Player p) s -> Player $ p { respawnCounter = s })
@@ -246,7 +246,12 @@ pRespawnCounter = lens
 eachPlayer' :: forall f. (Applicative f) =>
   Game -> (PlayerId -> Player -> f Unit) -> f Unit
 eachPlayer' game action =
-  for_ (Map.toList $ game ^. players) $ uncurry action
+  let
+    ps :: Array (Tuple PlayerId Player)
+    ps = Map.toUnfoldable $ game ^. players
+  in
+    for_ ps $ uncurry action
+
 
 eachPlayer :: (PlayerId -> Player -> GameUpdateM Unit) -> GameUpdateM Unit
 eachPlayer action = do
@@ -264,22 +269,22 @@ derive instance genericItem :: Generic Item
 instance showItem :: Show Item where
   show = gShow
 
-iType :: LensP Item ItemType
+iType :: Lens' Item ItemType
 iType = lens
   (\(Item x) -> x.itemType)
   (\(Item x) typ -> Item $ x { itemType = typ })
 
-iPosition :: LensP Item Position
+iPosition :: Lens' Item Position
 iPosition = lens
   (\(Item x) -> x.position)
   (\(Item x) pos -> Item $ x { position = pos })
 
-pX :: LensP Position Number
+pX :: Lens' Position Number
 pX = lens
   (\(Position p) -> p.x)
   (\(Position p) x -> Position $ p { x = x })
 
-pY :: LensP Position Number
+pY :: Lens' Position Number
 pY = lens
   (\(Position p) -> p.y)
   (\(Position p) y -> Position $ p { y = y })
@@ -404,7 +409,7 @@ derive instance genericWaitingUpdate :: Generic WaitingUpdate
 
 type GameUpdateM a = WriterT (Array GameUpdate) (State WrappedGame) a
 
-innerGame :: LensP WrappedGame Game
+innerGame :: Lens' WrappedGame Game
 innerGame = lens (\(WrappedGame g) -> g) (const WrappedGame)
 
 tellGameUpdate :: GameUpdate -> GameUpdateM Unit
@@ -471,7 +476,7 @@ asInProgressMessage _ = Nothing
 matchMessage :: forall m a b. (Monad m) =>
   (a -> Maybe b) -> a -> (b -> m Unit) -> m Unit
 matchMessage f msg action =
-  maybe (return unit) action (f msg)
+  maybe (pure unit) action (f msg)
 
 data ClientState
   = CWaitingForPlayers ClientStateWaiting

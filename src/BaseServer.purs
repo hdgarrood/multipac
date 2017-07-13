@@ -21,7 +21,7 @@ import Control.Monad.Eff.Console
 import Control.Monad.Eff.Ref (newRef, readRef, writeRef, modifyRef, REF(),
                               Ref())
 import Control.Monad.Eff.Timer (Timer(), interval)
-import Data.Lens (lens, LensP())
+import Data.Lens (lens, Lens'())
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter ((%~), (.~))
 import Data.Lens.At (at)
@@ -223,7 +223,7 @@ startServer cs refSrv = do
     kickIdlePlayers refSrv
     updateServerTimeCounter refSrv
 
-  return server
+  pure server
 
 
 tryAddPlayer conn refSrv name = do
@@ -237,9 +237,9 @@ tryAddPlayer conn refSrv name = do
                                           , timeCounter: srv.timeCounter
                                           }] }
       writeRef refSrv srv'
-      return (Just pId)
+      pure (Just pId)
     Nothing ->
-      return Nothing
+      pure Nothing
 
 getNextPlayerId :: forall st. Server st -> Maybe PlayerId
 getNextPlayerId srv =

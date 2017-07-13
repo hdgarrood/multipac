@@ -18,7 +18,7 @@ import Control.Monad
 import Control.Monad.Eff
 import Control.Monad.Eff.Ref
 import Control.Monad.State.Class
-import Data.Lens (lens, LensP())
+import Data.Lens (lens, Lens'())
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter ((%~), (.~))
 import Data.Lens.At (at)

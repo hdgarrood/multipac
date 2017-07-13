@@ -16,7 +16,7 @@ import Type.Proxy (Proxy(..))
 newtype GenericMap k v = GenericMap (Array (Tuple k v))
 
 mkGenericMap :: forall k v. (Ord k) => Map k v -> GenericMap k v
-mkGenericMap = GenericMap <<< List.toUnfoldable <<< Map.toList
+mkGenericMap = GenericMap <<< Map.toUnfoldable
 
 runGenericMap :: forall k v. (Ord k) => GenericMap k v -> Map k v
 runGenericMap (GenericMap m) = Map.fromFoldable m

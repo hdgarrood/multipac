@@ -3,7 +3,9 @@ module LevelMap where
 import Prelude
 import Data.Either
 import Data.Tuple
+import Data.Tuple.Nested
 import Data.String (split, trim, toCharArray, joinWith)
+import Data.String as String
 import Data.Char as Char
 import Data.Lens.Getter ((^.))
 import Control.Monad (unless)
@@ -15,7 +17,8 @@ import Data.Array (filter, null, reverse, (!!), range, concatMap,
                    concat, length, replicate)
 import Data.Maybe
 import Data.Traversable (for, sequence)
-import Data.Foldable (mconcat, all)
+import Data.Foldable (fold, all)
+import Partial.Unsafe (unsafePartial)
 
 import Utils
 import Types hiding (Direction(..))
@@ -39,18 +42,18 @@ tilePositionToBlock (Position p) =
 normalize :: Tile -> Tuple Int Tile
 normalize t =
   case t of
-    Intersection       -> (0 ~ Intersection)
-    TeeJunctionUp      -> (0 ~ TeeJunctionUp)
-    TeeJunctionRight   -> (1 ~ TeeJunctionUp)
-    TeeJunctionDown    -> (2 ~ TeeJunctionUp)
-    TeeJunctionLeft    -> (3 ~ TeeJunctionUp)
-    CornerUpRight      -> (0 ~ CornerUpRight)
-    CornerRightDown    -> (1 ~ CornerUpRight)
-    CornerDownLeft     -> (2 ~ CornerUpRight)
-    CornerLeftUp       -> (3 ~ CornerUpRight)
-    StraightHorizontal -> (0 ~ StraightHorizontal)
-    StraightVertical   -> (1 ~ StraightHorizontal)
-    Inaccessible       -> (0 ~ Inaccessible)
+    Intersection       -> (0 /\ Intersection)
+    TeeJunctionUp      -> (0 /\ TeeJunctionUp)
+    TeeJunctionRight   -> (1 /\ TeeJunctionUp)
+    TeeJunctionDown    -> (2 /\ TeeJunctionUp)
+    TeeJunctionLeft    -> (3 /\ TeeJunctionUp)
+    CornerUpRight      -> (0 /\ CornerUpRight)
+    CornerRightDown    -> (1 /\ CornerUpRight)
+    CornerDownLeft     -> (2 /\ CornerUpRight)
+    CornerLeftUp       -> (3 /\ CornerUpRight)
+    StraightHorizontal -> (0 /\ StraightHorizontal)
+    StraightVertical   -> (1 /\ StraightHorizontal)
+    Inaccessible       -> (0 /\ Inaccessible)
 
 toBlockTile :: Tile -> BlockTile
 toBlockTile t =
@@ -58,7 +61,7 @@ toBlockTile t =
     Tuple n t' -> applyN n rotateCW (convert t')
   where
   convert t =
-    case t of
+    unsafePartial $ case t of
       Intersection       -> intersectionB
       TeeJunctionUp      -> teeJunctionUpB
       CornerUpRight      -> cornerUpRightB
@@ -94,7 +97,7 @@ concatTileRow ts =
     let r = range 0 (tileSize - 1)
         getRow n t = t !! n
         getRowComponents n = map (getRow n) ts
-        maybes = map (getRowComponents >>> mconcat) r
+        maybes = map (getRowComponents >>> fold) r
     in  sequence maybes
 
 -- The number of blocks along one side of a tile in the level map. This allows
@@ -177,7 +180,7 @@ fail = Left
 parseLevelMapString :: String -> Either String (Array (Array BasicTile))
 parseLevelMapString str = do
   let toLines =
-        split "\n" >>>
+        split (String.Pattern "\n") >>>
           map (trim >>> toCharArray) >>>
           filter (not <<< null) >>>
           transpose
@@ -190,9 +193,9 @@ parseLevelMapString str = do
   for lines $ \line ->
     for line $ \char ->
       case char of
-        '#' -> return W
-        '_' -> return E
-        _   -> fail $ "unexpected char '" <> Char.toString char <>
+        '#' -> pure W
+        '_' -> pure E
+        _   -> fail $ "unexpected char '" <> String.singleton char <>
                       "'; expected '#' or '_'"
 
   where
@@ -206,7 +209,7 @@ constructLevelMap basicTiles = do
 
   for tileIndices $ \i ->
     for tileIndices $ \j ->
-      let centre = fromJust $ b i j
+      let centre = unsafePartial $ fromJust $ b i j
           above = fromMaybe W $ b i (j-1)
           below = fromMaybe W $ b i (j+1)
           right = fromMaybe W $ b (i+1) j
@@ -216,23 +219,23 @@ constructLevelMap basicTiles = do
 -- order is: centre, above, right, below, left
 toTile :: BasicTile -> BasicTile -> BasicTile -> BasicTile -> BasicTile ->
           Either String Tile
-toTile W _ _ _ _ = return Inaccessible
-toTile E E E E E = return Intersection
-toTile E W E E E = return TeeJunctionDown
-toTile E E W E E = return TeeJunctionLeft
-toTile E E E W E = return TeeJunctionUp
-toTile E E E E W = return TeeJunctionRight
-toTile E W W E E = return CornerDownLeft
-toTile E W E W E = return StraightHorizontal
-toTile E W E E W = return CornerRightDown
-toTile E E W W E = return CornerLeftUp
-toTile E E W E W = return StraightVertical
-toTile E E E W W = return CornerUpRight
+toTile W _ _ _ _ = pure Inaccessible
+toTile E E E E E = pure Intersection
+toTile E W E E E = pure TeeJunctionDown
+toTile E E W E E = pure TeeJunctionLeft
+toTile E E E W E = pure TeeJunctionUp
+toTile E E E E W = pure TeeJunctionRight
+toTile E W W E E = pure CornerDownLeft
+toTile E W E W E = pure StraightHorizontal
+toTile E W E E W = pure CornerRightDown
+toTile E E W W E = pure CornerLeftUp
+toTile E E W E W = pure StraightVertical
+toTile E E E W W = pure CornerUpRight
 toTile E _ _ _ _ = fail "dead ends are not supported"
 
 basicMap2 :: LevelMap
 basicMap2 =
-  fromJust $ mkLevelMap $ either unsafeThrow id $ fromString $
+  unsafePartial $ fromJust $ mkLevelMap $ either unsafeThrow id $ fromString $
   """
   #################
   #_______________#
@@ -257,7 +260,7 @@ mkLevelMap :: Array (Array Tile) -> Maybe LevelMap
 mkLevelMap ts = map (\bs -> { blocks: bs, tiles: ts }) (concatTiles ts)
 
 basicMap :: LevelMap
-basicMap = fromJust (mkLevelMap basicTileMap)
+basicMap = unsafePartial $ fromJust (mkLevelMap basicTileMap)
 
 getBlockAt :: Position -> LevelMap -> Maybe Block
 getBlockAt (Position pos) levelmap =

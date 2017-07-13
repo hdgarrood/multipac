@@ -61,7 +61,7 @@ setupRendering :: forall e. Eff (canvas :: Canvas | e) RenderingContext
 setupRendering = do
   fg <- setupRenderingById "foreground"
   bg <- setupRenderingById "background"
-  return { foreground: fg, background: bg }
+  pure { foreground: fg, background: bg }
 
 -- set up a canvas with the correct dimensions and return its context
 setupRenderingById :: forall e.
@@ -74,7 +74,7 @@ setupRenderingById elId =
     >>= getContext2D
 
   where
-  justOrErr (Just x) = return x
+  justOrErr (Just x) = pure x
   justOrErr Nothing = unsafeThrow $ "no canvas element found with id = " <> elId
 
 clearBackground :: forall e. CanvasM e Unit
@@ -134,7 +134,7 @@ renderMap map = do
             renderCorners cs
             renderEdges es
         _ ->
-          return unit
+          pure unit
 
 showCorners :: Corners -> String
 showCorners cs =
@@ -197,8 +197,8 @@ renderCorners cs = do
               lineTo 0.0 (cornerMid + 1.0)
           }
         NON ->
-          { prep: return unit
-          , go: return unit
+          { prep: pure unit
+          , go: pure unit
           }
 
   let s = (pxPerTile - cornerSize) / 2.0

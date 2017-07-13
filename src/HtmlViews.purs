@@ -319,7 +319,7 @@ waitingMessageDoc sw pId playersMap = do
   getPlayerInfo pId'' = do
     ready <- M.lookup pId'' sw.readyStates
     name <- M.lookup pId'' playersMap
-    return $ { ready: ready, name: name }
+    pure $ { ready: ready, name: name }
 
 type PlayerScoreInfo
   = { score :: Int
@@ -360,7 +360,7 @@ getPlayerInfo ::
   M.Map PlayerId String -> Tuple PlayerId Player -> Maybe PlayerScoreInfo
 getPlayerInfo playersMap (Tuple pId'' p) = do
   name <- M.lookup pId'' playersMap
-  return $ { score: p ^. pScore, name: name, pId: pId'' }
+  pure $ { score: p ^. pScore, name: name, pId: pId'' }
 
 
 simpleScores :: M.Map PlayerId String -> Game -> String

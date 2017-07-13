@@ -3,7 +3,7 @@ module Utils where
 import Prelude
 import Control.Bind ((>=>))
 import Data.Newtype (unwrap)
-import Data.Generic (class Generic)
+import Data.Generic.Rep (class Generic)
 import Data.Function
 import Data.Int as Int
 import Data.Maybe
