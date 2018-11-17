@@ -1,30 +1,31 @@
 module Game where
 
-import Prelude
-import Data.Tuple
-import Data.Maybe
-import Data.Array ((!!), range, filter, length, take)
-import Data.List as List
-import Data.Int (toNumber, fromNumber)
-import Data.Map as M
-import Data.Foldable
-import Data.Profunctor.Strong ((&&&))
 import Control.Alt
 import Control.Apply
 import Control.Monad
 import Control.Monad.Reader.Class
-import Effect.Exception.Unsafe (unsafeThrow)
-import Data.Lens (Lens'(), Lens(), Traversal'(), lens, (.~), _1, _2)
-import Data.Lens.Getter ((^.))
-import Data.Lens.Setter ((%~))
-import Data.Lens.At (at)
-import Data.Lens.Prism.Maybe (_Just)
-import Math (ceil, floor, pi, (%))
-
-import Types
+import Data.Foldable
+import Data.Maybe
+import Data.Tuple
 import LevelMap
+import Prelude
+import Types
 import Utils
 
+import Data.Array ((!!), range, filter, length, take)
+import Data.Int (toNumber, fromNumber)
+import Data.Lens (Lens', Lens, Traversal', lens, (.~), _1, _2)
+import Data.Lens.At (at)
+import Data.Lens.Getter ((^.))
+import Data.Lens.Prism.Maybe (_Just)
+import Data.Lens.Setter ((%~))
+import Data.List (List)
+import Data.List as List
+import Data.Map as M
+import Data.Profunctor.Strong ((&&&))
+import Data.Tuple.Nested ((/\))
+import Effect.Exception.Unsafe (unsafeThrow)
+import Math (ceil, floor, pi, (%))
 
 minPlayers = 2
 rampageLength = 180
@@ -38,10 +39,10 @@ minEatingQuadrance = 4.0
 -- update signalling
 
 player :: PlayerId -> Traversal' Game Player
-player pId = players .. at pId .. _Just
+player pId = players <<< at pId <<< _Just
 
 item :: ItemId -> Traversal' Game Item
-item iId = items .. at iId .. _Just
+item iId = items <<< at iId <<< _Just
 
 applyGameUpdate :: GameUpdate -> Game -> Game
 applyGameUpdate u =
@@ -55,7 +56,7 @@ applyGameUpdate u =
     ChangedCountdown x ->
       setCountdown x
     GameEnded _ ->
-      id
+      identity
     ChangedRampage r ->
       \g -> g { rampage = r }
   where
@@ -70,12 +71,13 @@ removePlayer pId = players <<< at pId .~ (Nothing :: Maybe Player)
 applyPlayerUpdate :: PlayerUpdate -> Player -> Player
 applyPlayerUpdate u =
   case u of
-    (ChangedPosition p)          -> pPosition .~ p
-    (ChangedDirection d)         -> pDirection .~ d
-    (ChangedIntendedDirection d) -> pIntendedDirection .~ d
-    (ChangedScore s)             -> pScore .~ s
-    (ChangedNomIndex a)          -> pNomIndex .~ a
-    (ChangedRespawnCounter x)    -> pRespawnCounter .~ x
+    ChangedPosition p          -> pPosition .~ p
+    ChangedDirection d         -> pDirection .~ d
+    ChangedIntendedDirection d -> pIntendedDirection .~ d
+    ChangedScore s             -> pScore .~ s
+    ChangedNomIndex a          -> pNomIndex .~ a
+    ChangedRespawnCounter x    -> pRespawnCounter .~ x
+    PlayerLeft                 -> identity
 
 applyItemUpdate :: ItemUpdate -> Maybe Item -> Maybe Item
 applyItemUpdate u =
@@ -130,8 +132,8 @@ changeRampage =
 initialGame :: Game
 initialGame =
   { map: levelmap
-  , players: f <$> starts
-  , items:   zipIndices $ makeItems levelmap safeZone bigDots
+  , players: M.fromFoldable $ f <$> starts
+  , items:   M.fromFoldable $ zipIndices $ makeItems levelmap safeZone bigDots
   , countdown: Just 90
   , rampage: Nothing
   , safeZone: safeZone
@@ -140,10 +142,10 @@ initialGame =
   levelmap = WrappedLevelMap basicMap2
   f (Tuple pId position) = Tuple pId (mkPlayer position)
   starts =
-    [ P1 ~ tilePositionToBlock (Position {x:7.0, y:7.0})
-    , P2 ~ tilePositionToBlock (Position {x:9.0, y:7.0})
-    , P3 ~ tilePositionToBlock (Position {x:7.0, y:8.0})
-    , P4 ~ tilePositionToBlock (Position {x:9.0, y:8.0})
+    [ P1 /\ tilePositionToBlock (Position {x:7.0, y:7.0})
+    , P2 /\ tilePositionToBlock (Position {x:9.0, y:7.0})
+    , P3 /\ tilePositionToBlock (Position {x:7.0, y:8.0})
+    , P4 /\ tilePositionToBlock (Position {x:9.0, y:8.0})
     ]
   safeZone = do
     x <- map toNumber [7,8,9]
@@ -162,7 +164,7 @@ stepGame input game =
 
 handleInput :: Input -> GameUpdateM Unit
 handleInput input =
-  for_ (M.toList input) $ \(Tuple pId maybeDir) ->
+  for_ (M.toUnfoldable input :: List _) $ \(Tuple pId maybeDir) ->
     whenJust maybeDir $ \newDirection ->
       changeIntendedDirection pId (Just newDirection)
 
@@ -347,7 +349,7 @@ isEnded = isJust <<< checkEnded
 
 lookupItemByPosition :: Position -> Game -> Maybe (Tuple ItemId Item)
 lookupItemByPosition pos g =
-  case List.filter (\i -> (i ^. _2 ^. iPosition) == pos) (M.toList (g ^. items)) of
+  case List.filter (\i -> (i ^. _2 ^. iPosition) == pos) (M.toUnfoldable (g ^. items)) of
       List.Cons i List.Nil ->
         Just i
       List.Nil ->

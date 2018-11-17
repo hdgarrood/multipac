@@ -298,7 +298,7 @@ derive instance genericDirection :: Generic Direction _
 instance showDirection :: Show Direction where
   show = genericShow
 
-data ItemType = LittleDot | BigDot | Cherry
+data ItemType = LittleDot | BigDot
 
 derive instance eqItemType :: Eq ItemType
 derive instance genericItemType :: Generic ItemType _
