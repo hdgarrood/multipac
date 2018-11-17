@@ -2,12 +2,11 @@ module NodeWebSocket where
 
 import Prelude
 import Data.Function.Uncurried (Fn2, runFn2, Fn5, runFn5)
-import Control.Monad.Eff
+import Effect
 import Node.HTTP as Http
 
 import NodeUrl
 
-foreign import data WebSocket :: Effect
 foreign import data Server :: Type
 foreign import data Connection :: Type
 foreign import data Request :: Type
@@ -21,21 +20,21 @@ type CloseReasonCode = Number
 type CloseReasonDescription = String
 
 -- TODO: options
-foreign import mkServer :: forall e. Eff (ws :: WebSocket | e) Server
+foreign import mkServer :: forall e. Effect Server
 
 foreign import registerEventHandlerUnsafe :: forall receiver param x y eff.
   Fn5
     receiver
     String
     String
-    (param -> Eff (ws :: WebSocket | eff) x)
+    (param -> Effect x)
     (y -> param)
     (Eff (ws :: WebSocket | eff) Unit)
 
 type RegisterHandler receiver param = forall e a.
   receiver
-  -> (param -> Eff (ws :: WebSocket | e) a)
-  -> Eff (ws :: WebSocket | e) Unit
+  -> (param -> Effect a)
+  -> Effect Unit
 
 onRequest :: RegisterHandler Server Request
 onRequest server callback =
@@ -59,23 +58,23 @@ onClose conn callback =
   runFn5 registerEventHandlerUnsafe
     conn "on" "close" callback id
 
-foreign import reject :: forall e. Request -> Eff (ws :: WebSocket | e) Unit
+foreign import reject :: forall e. Request -> Effect Unit
 
-foreign import accept :: forall e. Request -> Eff (ws :: WebSocket | e) Connection
+foreign import accept :: forall e. Request -> Effect Connection
 
 foreign import resourceUrl :: Request -> Url
 
 foreign import sendImpl :: forall e.
-  Fn2 Connection String (Eff (ws :: WebSocket | e) Unit)
+  Fn2 Connection String (Effect Unit)
 
-send :: forall e. Connection -> String -> Eff (ws :: WebSocket | e) Unit
+send :: forall e. Connection -> String -> Effect Unit
 send conn msg = runFn2 sendImpl conn msg
 
 foreign import mountImpl :: forall e.
-  Fn2 Server Http.Server (Eff (ws :: WebSocket, http :: Http.HTTP | e) Unit)
+  Fn2 Server Http.Server (Effect Unit)
 
 mount :: forall e.
-  Server -> Http.Server -> Eff (ws :: WebSocket, http :: Http.HTTP | e) Unit
+  Server -> Http.Server -> Effect Unit
 mount wsServer httpServer = runFn2 mountImpl wsServer httpServer
 
-foreign import close :: forall e. Connection -> Eff (ws :: WebSocket | e) Unit
+foreign import close :: forall e. Connection -> Effect Unit

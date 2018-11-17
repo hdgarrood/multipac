@@ -12,8 +12,8 @@ import Data.Foldable
 import Graphics.Canvas
   (getContext2D, setCanvasHeight, setCanvasWidth, Rectangle(), Arc(),
   Context2D(), Canvas(), getCanvasElementById, TextAlign(..), LineCap(..))
-import Control.Monad.Eff
-import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
+import Effect
+import Effect.Exception.Unsafe (unsafeThrow)
 import Control.Monad (when)
 import Control.Monad.Reader.Class (reader)
 import Data.Lens.Getter ((^.))

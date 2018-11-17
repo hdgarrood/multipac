@@ -5,40 +5,36 @@ import Data.Maybe
 import Data.Traversable
 import Data.Foldable
 import Data.Function
-import Data.Map (Map())
+import Data.Map (Map)
 import Data.Map as Map
-import Data.Either (Either())
+import Data.Either (Either)
 import Data.Either as E
 import Data.Tuple
 import Data.String hiding (singleton, uncons)
 import Data.Array (singleton)
-import Data.Generic
 import Graphics.Canvas
 import Control.Monad.Writer.Trans
 import Control.Monad.Writer.Class
 import Control.Monad.State
 import Control.Monad.State.Class
-import Control.Monad.Eff
-import Control.Monad.Eff.Ref
-import Control.Monad.Eff.Timer
+import Effect
+import Effect.Ref
+import Effect.Timer
 import Data.Lens
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter (over)
-import Data.Lens.Types (Lens'())
-import DOM (DOM())
+import Data.Lens.Types (Lens')
+import Web.DOM (DOM)
 import Math (floor, pi, pow)
 
-import GenericMap
 import Utils
-import NodeWebSocket as WS
-import BrowserWebSocket as BWS
 
 -- newtype wrapper is just for instances. We have to duplicate the type synonym
 -- because of psc bug #1443
 type Game =
   { map :: WrappedLevelMap
-  , players :: GenericMap PlayerId Player
-  , items   :: GenericMap ItemId Item
+  , players :: Map PlayerId Player
+  , items   :: Map ItemId Item
   , countdown :: Maybe Int
   , rampage :: Maybe Rampage
   , safeZone :: Array Position
@@ -46,8 +42,8 @@ type Game =
 
 newtype WrappedGame = WrappedGame
   { map :: WrappedLevelMap
-  , players :: GenericMap PlayerId Player
-  , items   :: GenericMap ItemId Item
+  , players :: Map PlayerId Player
+  , items   :: Map ItemId Item
   , countdown :: Maybe Int
   , rampage :: Maybe Rampage
   , safeZone :: Array Position
@@ -208,10 +204,10 @@ mkPlayer pos =
          }
 
 players :: Lens' Game (Map PlayerId Player)
-players = lens (\o -> runGenericMap o.players) (\o x -> o { players = mkGenericMap x })
+players = lens (\o -> runMap o.players) (\o x -> o { players = mkMap x })
 
 items :: Lens' Game (Map ItemId Item)
-items = lens (\o -> runGenericMap o.items) (\o x -> o { items = mkGenericMap x })
+items = lens (\o -> runMap o.items) (\o x -> o { items = mkMap x })
 
 pPosition :: Lens' Player Position
 pPosition = lens
@@ -403,7 +399,7 @@ instance showReadyState :: Show ReadyState where
 -- but before the game starts
 data WaitingUpdate
   = GameStarting WrappedGame
-  | NewReadyStates (GenericMap PlayerId ReadyState)
+  | NewReadyStates (Map PlayerId ReadyState)
 
 derive instance genericWaitingUpdate :: Generic WaitingUpdate
 

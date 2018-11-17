@@ -28,6 +28,9 @@
     "purescript-smolder": "^11.0.1",
     "purescript-transformers": "^4.1.0",
     "purescript-tuples": "^5.1.0",
-    "purescript-smolder-dom": "^3.0.0"
+    "purescript-smolder-dom": "^3.0.0",
+    "purescript-node-fs": "^5.0.0",
+    "purescript-console": "^4.2.0",
+    "purescript-web-html": "^1.2.0"
   }
 }

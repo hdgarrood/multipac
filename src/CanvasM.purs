@@ -1,9 +1,9 @@
 module CanvasM where
 
 import Prelude
-import Control.Monad.Eff (Eff())
+import Effect (Effect)
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.Reader.Trans (ReaderT(), runReaderT)
+import Control.Monad.Reader.Trans (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (ask)
 import Graphics.Canvas as GC
 
@@ -11,14 +11,14 @@ liftReaderT :: forall r m a. (Monad m) => m a -> ReaderT r m a
 liftReaderT = lift
 
 type CanvasM e a
-  = ReaderT GC.Context2D (Eff (canvas :: GC.CANVAS | e)) a
+  = ReaderT GC.Context2D Effect a
 
 liftC :: forall a e.
-  (GC.Context2D -> Eff (canvas :: GC.CANVAS | e) a) -> CanvasM e Unit
+  (GC.Context2D -> Effect a) -> CanvasM e Unit
 liftC action = void $ ask >>= \ctx -> liftReaderT (action ctx)
 
 runCanvasM :: forall a e.
-  GC.Context2D -> CanvasM e a -> Eff (canvas :: GC.CANVAS | e) a
+  GC.Context2D -> CanvasM e a -> Effect a
 runCanvasM = flip runReaderT
 
 beginPath :: forall e. CanvasM e Unit

@@ -10,25 +10,22 @@ import Data.Either as E
 import Data.String as S
 import Data.Map as M
 import Data.Monoid (Monoid, mempty)
-import Data.Generic (Generic)
 import Control.Monad (when)
 import Control.Monad.RWS
 import Control.Monad.RWS.Trans
 import Control.Monad.Writer.Class as W
 import Control.Monad.Reader.Class as R
-import Control.Monad.Eff (Eff())
-import Control.Monad.Eff.Console
-import Control.Monad.Eff.Ref (newRef, readRef, writeRef, modifyRef, REF(),
-                              Ref())
-import Control.Monad.Eff.Timer (Timer(), interval)
-import Data.Lens (lens, Lens'())
+import Effect (Effect)
+import Effect.Console
+import Effect.Ref (newRef, readRef, writeRef, modifyRef, REF, Ref)
+import Effect.Timer (Timer, interval)
+import Data.Lens (lens, Lens')
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter ((%~), (.~))
 import Data.Lens.At (at)
 import Global (decodeURIComponent)
 
 import Types
-import GenericMap
 import BaseCommon
 import NodeWebSocket as WS
 import Utils
@@ -252,7 +249,7 @@ handleNewPlayer :: forall st e.
 handleNewPlayer refSrv pId = do
   srv <- readRef refSrv
   let playersMap = connectionsToPlayersMap srv.connections
-  let msgAll = NewPlayer (mkGenericMap playersMap)
+  let msgAll = NewPlayer playersMap
   let msgOne = YourPlayerIdIs pId
   let msgs = SendMessages { toAll: [msgAll]
                           , toOne: M.singleton pId [msgOne]

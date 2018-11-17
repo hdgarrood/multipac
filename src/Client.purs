@@ -6,28 +6,26 @@ import Data.Either as E
 import Data.Tuple
 import Data.String as S
 import Data.Map as M
-import DOM (DOM())
-import DOM.Node.Node (setTextContent)
-import DOM.Node.ParentNode (querySelector)
-import DOM.Node.Element (setAttribute)
-import DOM.Event.Types (Event)
-import DOM.HTML.Location (host, protocol)
-import DOM.HTML.Window (location, document)
-import DOM.HTML.HTMLInputElement (value, setValue, focus)
+import Web.DOM (DOM)
+import Web.DOM.Node (setTextContent)
+import Web.DOM.ParentNode (querySelector)
+import Web.DOM.Element (setAttribute)
+import Web.Event.Event (Event)
+import Web.HTML.Location (host, protocol)
+import Web.HTML.Window (location, document)
+import Web.HTML.HTMLInputElement (value, setValue, focus)
 import Control.Monad
-import Control.Monad.Eff
-import Control.Monad.Eff.Ref
+import Effect
+import Effect.Ref
+import Effect.Timer
 import Control.Monad.State.Class
 import Data.Lens (lens, Lens'())
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter ((%~), (.~))
 import Data.Lens.At (at)
-import Control.Monad.Eff.Timer
-import BrowserWebSocket as WS
 -- import Browser.WebStorage as Storage
 import Unsafe.Coerce (unsafeCoerce)
 
-import GenericMap
 import Rendering as R
 import HtmlViews as V
 import BaseClient
@@ -199,7 +197,7 @@ onMessage msg = do
               showSimpleScoresDiv
             put $ CInProgress $ startNewGame $ unwrapGame game
           NewReadyStates m -> do
-            put $ CWaitingForPlayers (g # readyStates .~ runGenericMap m)
+            put $ CWaitingForPlayers (g # readyStates .~ m)
 
 
 startNewGame game =

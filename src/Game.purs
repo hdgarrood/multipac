@@ -13,7 +13,7 @@ import Control.Alt
 import Control.Apply
 import Control.Monad
 import Control.Monad.Reader.Class
-import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
+import Effect.Exception.Unsafe (unsafeThrow)
 import Data.Lens (Lens'(), Lens(), Traversal'(), lens, (.~), _1, _2)
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter ((%~))
@@ -22,7 +22,6 @@ import Data.Lens.Prism.Maybe (_Just)
 import Math (ceil, floor, pi, (%))
 
 import Types
-import GenericMap
 import LevelMap
 import Utils
 
@@ -131,8 +130,8 @@ changeRampage =
 initialGame :: Game
 initialGame =
   { map: levelmap
-  , players: GenericMap $ f <$> starts
-  , items:   GenericMap $ zipIndices $ makeItems levelmap safeZone bigDots
+  , players: f <$> starts
+  , items:   zipIndices $ makeItems levelmap safeZone bigDots
   , countdown: Just 90
   , rampage: Nothing
   , safeZone: safeZone

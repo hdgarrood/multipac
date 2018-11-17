@@ -11,17 +11,14 @@ import Data.Generic.Rep (class Generic)
 import Control.Monad.RWS.Trans
 import Control.Monad.Writer.Class as W
 import Control.Monad.Reader.Class as R
-import Control.Monad.Eff (Eff())
-import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
-import Control.Monad.Eff.Console
-import Control.Monad.Eff.Ref (newRef, readRef, writeRef, modifyRef, REF(),
-                              Ref())
-import DOM (DOM)
+import Effect (Effect)
+import Effect.Exception.Unsafe (unsafeThrow)
+import Effect.Console
+import Effect.Ref (newRef, readRef, writeRef, modifyRef, REF, Ref)
+import Web.DOM (DOM)
 import Graphics.Canvas (CANVAS)
 
 import Types
-import GenericMap
-import BrowserWebSocket as WS
 import BaseCommon
 import Utils
 

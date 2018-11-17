@@ -9,7 +9,7 @@ import Data.String as String
 import Data.Char as Char
 import Data.Lens.Getter ((^.))
 import Control.Monad (unless)
-import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
+import Effect.Exception.Unsafe (unsafeThrow)
 import Math (floor)
 import Data.Int (toNumber)
 import Data.Int as Int

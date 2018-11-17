@@ -12,11 +12,11 @@ import Data.Map as M
 import Data.Foldable (for_, all, find)
 import Control.Monad
 import Control.Monad.State.Class (get, put, modify)
-import Control.Monad.Eff
-import Control.Monad.Eff.Console
-import Control.Monad.Eff.Ref
-import Control.Monad.Eff.Exception (throw, message)
-import Control.Monad.Eff.Timer
+import Effect
+import Effect.Console
+import Effect.Ref
+import Effect.Exception (throw, message)
+import Effect.Timer
 import Data.Lens (lens, Lens'())
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter ((%~), (.~))
@@ -26,7 +26,6 @@ import Node.Stream as Stream
 import Node.FS.Async as FS
 import Node.Encoding (Encoding(..))
 
-import GenericMap
 import NodeWebSocket as WS
 import NodeUrl
 import Types
@@ -87,7 +86,7 @@ step = do
           put $ InProgress { game: game', input: M.empty }
 
     WaitingForPlayers m -> do
-      sendUpdate $ SOWaiting $ NewReadyStates $ mkGenericMap m
+      sendUpdate $ SOWaiting $ NewReadyStates m
       when (readyToStart m) do
         let game = makeGame (M.keys m)
         sendUpdate $ SOWaiting $ GameStarting $ WrappedGame game
