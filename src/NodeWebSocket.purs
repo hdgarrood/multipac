@@ -2,10 +2,10 @@ module NodeWebSocket where
 
 import Prelude
 import Data.Function.Uncurried (Fn2, runFn2, Fn5, runFn5)
-import Effect
+import Effect (Effect)
 import Node.HTTP as Http
 
-import NodeUrl
+import NodeUrl (Url)
 
 foreign import data Server :: Type
 foreign import data Connection :: Type
@@ -29,7 +29,7 @@ foreign import registerEventHandlerUnsafe :: forall receiver param x y eff.
     String
     (param -> Effect x)
     (y -> param)
-    (Eff (ws :: WebSocket | eff) Unit)
+    (Effect Unit)
 
 type RegisterHandler receiver param = forall e a.
   receiver
@@ -39,7 +39,7 @@ type RegisterHandler receiver param = forall e a.
 onRequest :: RegisterHandler Server Request
 onRequest server callback =
   runFn5 registerEventHandlerUnsafe
-    server "on" "request" callback id
+    server "on" "request" callback identity
 
 onMessage :: RegisterHandler Connection String
 onMessage conn callback =
@@ -56,7 +56,7 @@ foreign import getMessageData :: Message -> String
 onClose :: RegisterHandler Connection Close
 onClose conn callback =
   runFn5 registerEventHandlerUnsafe
-    conn "on" "close" callback id
+    conn "on" "close" callback identity
 
 foreign import reject :: forall e. Request -> Effect Unit
 

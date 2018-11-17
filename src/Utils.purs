@@ -82,7 +82,7 @@ deleteWhere pred map =
        else m
 
 portOrDefault :: forall e.
-  Int -> Eff (process :: Process.PROCESS | e) Int
+  Int -> Effect Int
 portOrDefault default = do
   port <- Process.lookupEnv "PORT"
   pure $ fromMaybe default (port >>= Int.fromString)

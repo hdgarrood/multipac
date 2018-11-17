@@ -12,22 +12,21 @@ import Data.Either as E
 import Data.Tuple
 import Data.String hiding (singleton, uncons)
 import Data.Array (singleton)
+import Data.Generic.Rep (class Generic)
+import Data.Generic.Rep.Show (genericShow)
 import Graphics.Canvas
 import Control.Monad.Writer.Trans
 import Control.Monad.Writer.Class
 import Control.Monad.State
 import Control.Monad.State.Class
 import Effect
-import Effect.Ref
+import Effect.Ref (Ref)
 import Effect.Timer
 import Data.Lens
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter (over)
 import Data.Lens.Types (Lens')
-import Web.DOM (DOM)
 import Math (floor, pi, pow)
-
-import Utils
 
 -- newtype wrapper is just for instances. We have to duplicate the type synonym
 -- because of psc bug #1443
@@ -49,7 +48,8 @@ newtype WrappedGame = WrappedGame
   , safeZone :: Array Position
   }
 
-derive instance genericWrappedGame :: Generic WrappedGame
+derive instance eqWrappedGame :: Eq WrappedGame
+derive instance genericWrappedGame :: Generic WrappedGame rep
 
 unwrapGame :: WrappedGame -> Game
 unwrapGame (WrappedGame g) = g
@@ -65,7 +65,9 @@ displayPlayerId x =
     P3 -> "P3"
     P4 -> "P4"
 
-derive instance genericPlayerId :: Generic PlayerId
+derive instance eqPlayerId :: Eq PlayerId
+derive instance ordPlayerId :: Ord PlayerId
+derive instance genericPlayerId :: Generic PlayerId rep
 
 allPlayerIds :: Array PlayerId
 allPlayerIds = [P1, P2, P3, P4]
@@ -88,13 +90,7 @@ intToPlayerId x =
     _ -> Nothing
 
 instance showPlayerId :: Show PlayerId where
-  show = gShow
-
-instance eqPlayerId :: Eq PlayerId where
-  eq = gEq
-
-instance ordPlayerId :: Ord PlayerId where
-  compare = gCompare
+  show = genericShow
 
 type ItemId = Int
 
@@ -112,14 +108,16 @@ newtype WrappedLevelMap = WrappedLevelMap
 unwrapLevelMap :: WrappedLevelMap -> LevelMap
 unwrapLevelMap (WrappedLevelMap m) = m
 
-derive instance genericLevelMap :: Generic WrappedLevelMap
+derive instance eqLevelMap :: Eq WrappedLevelMap
+derive instance genericLevelMap :: Generic WrappedLevelMap rep
 
 data Block = Wall | Empty
 
-derive instance genericBlock :: Generic Block
+derive instance eqBlock :: Eq Block
+derive instance genericBlock :: Generic Block rep
 
 instance showBlock :: Show Block where
-  show = gShow
+  show = genericShow
 
 -- A fixed size two-dimensional array of blocks.
 type BlockTile = Array (Array Block)
@@ -138,10 +136,11 @@ data Tile
   | StraightVertical
   | Inaccessible
 
-derive instance genericTile :: Generic Tile
+derive instance eqTime :: Eq Tile
+derive instance genericTile :: Generic Tile rep
 
 instance showTile :: Show Tile where
-  show = gShow
+  show = genericShow
 
 isWall :: Block -> Boolean
 isWall Wall = true
@@ -157,13 +156,11 @@ failJsonParse value typ =
 
 newtype Position = Position {x :: Number, y :: Number}
 
-derive instance genericPosition :: Generic Position
+derive instance eqPosition :: Eq Position
+derive instance genericPosition :: Generic Position rep
 
 instance showPosition :: Show Position where
-  show = gShow
-
-instance eqPosition :: Eq Position where
-  eq = gEq
+  show = genericShow
 
 addPos :: Position -> Position -> Position
 addPos (Position p) (Position q) = Position {x: p.x + q.x, y: p.y + q.y}
@@ -177,7 +174,8 @@ quadrance (Position p) (Position q) =
 
 data GameObject = GOPlayer Player | GOItem Item
 
-derive instance genericGameObject :: Generic GameObject
+derive instance eqGameObject :: Eq GameObject
+derive instance genericGameObject :: Generic GameObject rep
 
 newtype Player
   = Player
@@ -189,7 +187,8 @@ newtype Player
       , respawnCounter :: Maybe Int
       }
 
-derive instance genericPlayer :: Generic Player
+derive instance eqPlayer :: Eq Player
+derive instance genericPlayer :: Generic Player rep
 
 nomIndexMax = 10
 
@@ -204,10 +203,10 @@ mkPlayer pos =
          }
 
 players :: Lens' Game (Map PlayerId Player)
-players = lens (\o -> runMap o.players) (\o x -> o { players = mkMap x })
+players = lens _.players (\o x -> o { players = x })
 
 items :: Lens' Game (Map ItemId Item)
-items = lens (\o -> runMap o.items) (\o x -> o { items = mkMap x })
+items = lens _.items (\o x -> o { items = x })
 
 pPosition :: Lens' Player Position
 pPosition = lens
@@ -260,10 +259,11 @@ newtype Item
      , itemType :: ItemType
      }
 
-derive instance genericItem :: Generic Item
+derive instance eqItem :: Eq Item
+derive instance genericItem :: Generic Item rep
 
 instance showItem :: Show Item where
-  show = gShow
+  show = genericShow
 
 iType :: Lens' Item ItemType
 iType = lens
@@ -292,20 +292,19 @@ eachItem' game action =
 
 data Direction = Up | Down | Left | Right
 
-derive instance genericDirection :: Generic Direction
+derive instance eqDirection :: Eq Direction
+derive instance genericDirection :: Generic Direction rep
 
 instance showDirection :: Show Direction where
-  show = gShow
+  show = genericShow
 
 data ItemType = LittleDot | BigDot | Cherry
 
-derive instance genericItemType :: Generic ItemType
+derive instance eqItemType :: Eq ItemType
+derive instance genericItemType :: Generic ItemType rep
 
 instance showItemType :: Show ItemType where
-  show = gShow
-
-instance eqItemType :: Eq ItemType where
-  eq = gEq
+  show = genericShow
 
 dirToPos :: Direction -> Position
 dirToPos Up    = Position {x:  0.0, y: -1.0}
@@ -339,33 +338,35 @@ data PlayerUpdate
   | ChangedRespawnCounter (Maybe Int)
   | PlayerLeft
 
-derive instance genericPlayerUpdate :: Generic PlayerUpdate
+derive instance eqPlayerUpdate :: Eq PlayerUpdate
+derive instance genericPlayerUpdate :: Generic PlayerUpdate rep
 
 instance showPlayerUpdate :: Show PlayerUpdate where
-  show = gShow
+  show = genericShow
 
 data ItemUpdate
   = Eaten
 
+derive instance eqItemUpdate :: Eq ItemUpdate
 derive instance genericItemUpdate :: Generic ItemUpdate
 
 instance showItemUpdate :: Show ItemUpdate where
-  show = gShow
+  show = genericShow
 
 data GameEndReason
   = Completed
   | TooManyPlayersDisconnected
 
-derive instance genericGameEndReason :: Generic GameEndReason
+derive instance genericGameEndReason :: Generic GameEndReason rep
 
 instance showGameEndReason :: Show GameEndReason where
-  show = gShow
+  show = genericShow
 
 data Rampage
   = Rampaging PlayerId Int
   | Cooldown Int
 
-derive instance genericRampage :: Generic Rampage
+derive instance genericRampage :: Generic Rampage rep
 
 data GameUpdate
   = GUPU PlayerId PlayerUpdate
@@ -374,7 +375,7 @@ data GameUpdate
   | GameEnded GameEndReason
   | ChangedRampage (Maybe Rampage)
 
-derive instance genericGameUpdate :: Generic GameUpdate
+derive instance genericGameUpdate :: Generic GameUpdate rep
 
 data ReadyState
   = Ready
@@ -384,16 +385,12 @@ invertReadyState :: ReadyState -> ReadyState
 invertReadyState Ready = NotReady
 invertReadyState NotReady = Ready
 
-derive instance genericReadyState :: Generic ReadyState
-
-instance eqReadyState :: Eq ReadyState where
-  eq = gEq
-
-instance ordReadyState :: Ord ReadyState where
-  compare = gCompare
+derive instance eqReadyState :: Eq ReadyState
+derive instance ordReadyState :: Ord ReadyState
+derive instance genericReadyState :: Generic ReadyState rep
 
 instance showReadyState :: Show ReadyState where
-  show = gShow
+  show = genericShow
 
 -- Sent by the server during the waiting stage, ie, after initial connection
 -- but before the game starts
@@ -445,7 +442,7 @@ data ServerOutgoingMessage
   = SOWaiting WaitingUpdate
   | SOInProgress (Array GameUpdate)
 
-derive instance genericServerOutgoingMessage :: Generic ServerOutgoingMessage
+derive instance genericServerOutgoingMessage :: Generic ServerOutgoingMessage rep
 
 asWaitingMessageO :: ServerOutgoingMessage -> Maybe WaitingUpdate
 asWaitingMessageO (SOWaiting x) = Just x
@@ -459,7 +456,7 @@ data ServerIncomingMessage
   = SIToggleReadyState
   | SIInProgress Direction
 
-derive instance genericServerIncomingMessage :: Generic ServerIncomingMessage
+derive instance genericServerIncomingMessage :: Generic ServerIncomingMessage rep
 
 asWaitingMessage :: ServerIncomingMessage -> Maybe Unit
 asWaitingMessage (SIToggleReadyState) = Just unit

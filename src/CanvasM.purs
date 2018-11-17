@@ -35,7 +35,7 @@ translate tt =
 
 rotate :: forall e. Number -> CanvasM e Unit
 rotate a =
-  liftC $ GC.rotate a
+  liftC $ \ctx -> GC.rotate ctx a
 
 arc :: forall e. GC.Arc -> CanvasM e Unit
 arc a =
@@ -47,7 +47,7 @@ moveTo x y =
 
 setFillStyle :: forall e. String -> CanvasM e Unit
 setFillStyle style =
-  liftC $ GC.setFillStyle style
+  liftC $ \ctx -> GC.setFillStyle ctx style
 
 setStrokeStyle :: forall e. String -> CanvasM e Unit
 setStrokeStyle style =
