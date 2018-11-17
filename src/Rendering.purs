@@ -7,15 +7,15 @@ import Data.Map as M
 import Data.Int as Int
 import Data.Profunctor.Strong ((***))
 import Data.Tuple
+import Data.Tuple.Nested ((/\))
 import Data.Maybe
 import Data.Foldable
 import Graphics.Canvas
-  (getContext2D, setCanvasHeight, setCanvasWidth, Rectangle(), Arc(),
-  Context2D(), Canvas(), getCanvasElementById, TextAlign(..), LineCap(..))
+  (getContext2D, setCanvasHeight, setCanvasWidth, Rectangle, Arc,
+  Context2D, getCanvasElementById, TextAlign(..), LineCap(..))
 import Effect
 import Effect.Exception.Unsafe (unsafeThrow)
 import Control.Monad (when)
-import Control.Monad.Reader.Class (reader)
 import Data.Lens.Getter ((^.))
 import Data.Lens.At (at)
 import Data.Lens.Prism.Maybe (_Just)
@@ -57,23 +57,23 @@ getTileRectAt = scaleRect pxPerTile
 getTileRectAt' :: Number -> Number -> Rectangle
 getTileRectAt' x y = getTileRectAt (Position {x: x, y: y})
 
-setupRendering :: forall e. Eff (canvas :: Canvas | e) RenderingContext
+setupRendering :: Effect RenderingContext
 setupRendering = do
   fg <- setupRenderingById "foreground"
   bg <- setupRenderingById "background"
   pure { foreground: fg, background: bg }
 
 -- set up a canvas with the correct dimensions and return its context
-setupRenderingById :: forall e.
-  String -> Eff (canvas :: Canvas | e) Context2D
+setupRenderingById :: String -> Effect Context2D
 setupRenderingById elId =
   getCanvasElementById elId
     >>= justOrErr
-    >>= setCanvasHeight canvasSize
-    >>= setCanvasWidth canvasSize
+    >>= flip setCanvasHeight canvasSize
+    >>= flip setCanvasWidth canvasSize
     >>= getContext2D
 
   where
+  justOrErr :: forall a f. Applicative f => Maybe a -> f a
   justOrErr (Just x) = pure x
   justOrErr Nothing = unsafeThrow $ "no canvas element found with id = " <> elId
 
@@ -374,7 +374,7 @@ renderPlayers game = do
   where
   flashCounts = concatMap (uncurry range) flashes
 
-  initial = rampageLength ~ (rampageLength - step)
+  initial = rampageLength /\ (rampageLength - step)
   f x = x - (2 * step)
   step = 8
   flashes = iterateN 5 initial (f *** f)
@@ -413,7 +413,7 @@ renderCounter cd = do
 
 renderReminderArrow :: forall e. Game -> PlayerId -> CanvasM e Unit
 renderReminderArrow game pId = do
-  whenJust (game ^. (players .. at pId)) $ \pl ->
+  whenJust (game ^. (players <<< at pId)) $ \pl ->
     withContext $ do
       let pos = pl ^. pPosition
       let playerX = pos ^. pX
@@ -451,7 +451,7 @@ render :: forall e.
   -> Game
   -> PlayerId
   -> Boolean
-  -> Eff (canvas :: Canvas | e) Unit
+  -> Effect Unit
 render ctx game pId redrawMap = do
   when redrawMap $ do
     runCanvasM ctx.background $
@@ -465,7 +465,7 @@ render ctx game pId redrawMap = do
 
 clearBoth :: forall e.
   RenderingContext
-  -> Eff (canvas :: Canvas | e) Unit
+  -> Effect Unit
 clearBoth ctx = do
   runCanvasM ctx.background clearCanvas
   runCanvasM ctx.foreground clearCanvas

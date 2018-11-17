@@ -1,12 +1,13 @@
 module HtmlViews where
 
-import Prelude hiding (id, div)
+import Prelude hiding (div)
 import Data.Foldable (foldr, for_)
 import Data.Lens.Getter ((^.))
 import Control.Monad (when)
 import Data.Tuple
+import Data.Tuple.Nested ((/\))
 import Data.Maybe
-import Data.String (replace, joinWith)
+import Data.String as String
 import Data.Array (sortBy, reverse, catMaybes)
 import Data.List as List
 import Data.Function (on)
@@ -17,33 +18,36 @@ import Text.Smolder.HTML
 import Text.Smolder.HTML.Attributes
   (lang, charset, httpEquiv, content, src, defer, type', id, className, name,
   rel, href)
-import Text.Smolder.Markup (text, (!), Markup)
--- import Text.Smolder.Renderer.HTMLElement (renderMarkup)
+import Text.Smolder.Markup (text, (!))
+import Text.Smolder.HTML (Html)
+import Text.Smolder.Renderer.String (render)
 
 import Utils
 import Types
 import Style
 
 replaceAll :: Array (Tuple String String) -> String -> String
-replaceAll = map (uncurry replace) >>> foldr (>>>) Prelude.id
+replaceAll =
+  map (\(var /\ value) -> String.replace (String.Pattern var) (String.Replacement value)) >>>
+  foldr (>>>) identity
 
 styles =
   -- TODO: this is a bit silly. purescript-css?
   replaceAll
-    [ "${linkColor}" ~ linkColor
-    , "${backgroundColor}" ~ backgroundColor
-    , "${backgroundColor}" ~ backgroundColor
-    , "${backgroundColorLighter}" ~ backgroundColorLighter
-    , "${fontColor}" ~ fontColor
-    , "${fontColor}" ~ fontColor
-    , "${fontColor}" ~ fontColor
-    , "${fontName}" ~ fontName
-    , "${tileColor}" ~ tileColor
-    , "${canvasSize}" ~ (show canvasSize)
-    , "${canvasSize}" ~ (show canvasSize)
-    , "${canvasSize}" ~ (show canvasSize)
-    , "${canvasSize}" ~ (show canvasSize)
-    , "${canvasSize}" ~ (show canvasSize)
+    [ "${linkColor}" /\ linkColor
+    , "${backgroundColor}" /\ backgroundColor
+    , "${backgroundColor}" /\ backgroundColor
+    , "${backgroundColorLighter}" /\ backgroundColorLighter
+    , "${fontColor}" /\ fontColor
+    , "${fontColor}" /\ fontColor
+    , "${fontColor}" /\ fontColor
+    , "${fontName}" /\ fontName
+    , "${tileColor}" /\ tileColor
+    , "${canvasSize}" /\ (show canvasSize)
+    , "${canvasSize}" /\ (show canvasSize)
+    , "${canvasSize}" /\ (show canvasSize)
+    , "${canvasSize}" /\ (show canvasSize)
+    , "${canvasSize}" /\ (show canvasSize)
     ] $ rawStyles <> playerColorStyles
 
 rawStyles = """
@@ -242,7 +246,7 @@ playerColorStyles =
                , ";}\n"
                ])
   where
-  concat = joinWith ""
+  concat = String.joinWith ""
 
 indexDoc :: Html Unit
 indexDoc =
@@ -278,6 +282,7 @@ indexDoc =
 
         div ! id "scores-container" $ text ""
 
+indexHtml :: String
 indexHtml = render indexDoc
 
 type PlayerReadyInfo
@@ -290,7 +295,7 @@ waitingMessage ::
 waitingMessage sw pId ps = render $ waitingMessageDoc sw pId ps
 
 waitingMessageDoc ::
-  ClientStateWaiting -> PlayerId -> M.Map PlayerId String -> Markup
+  ClientStateWaiting -> PlayerId -> M.Map PlayerId String -> Html Unit
 waitingMessageDoc sw pId playersMap = do
   whenJust sw.prevGame (scoresTable pId playersMap)
 
@@ -327,7 +332,7 @@ type PlayerScoreInfo
     , pId   :: PlayerId
     }
 
-scoresTable :: PlayerId -> M.Map PlayerId String -> Game -> Markup
+scoresTable :: PlayerId -> M.Map PlayerId String -> Game -> Html Unit
 scoresTable pId playersMap game =
   div ! className "scores clearfix" $ do
     h2 ! className "scores-header" $ text "scores"
@@ -346,14 +351,14 @@ scoresTable pId playersMap game =
   score i = i.score
 
   scoresCellDiv classes innerText =
-    div ! className (joinWith " " $ ["scores-cell"] <> classes) $
+    div ! className (String.joinWith " " $ ["scores-cell"] <> classes) $
       text innerText
 
 
 playerInfos game playersMap =
   List.catMaybes $ map (getPlayerInfo playersMap) allPlayers
   where
-  allPlayers = M.toList (game ^. players)
+  allPlayers = M.toUnfoldable (game ^. players)
 
 
 getPlayerInfo ::
@@ -367,7 +372,7 @@ simpleScores :: M.Map PlayerId String -> Game -> String
 simpleScores m game =
   render $ simpleScoresHtml m game
 
-simpleScoresHtml :: M.Map PlayerId String -> Game -> Html e
+simpleScoresHtml :: forall e. M.Map PlayerId String -> Game -> Html e
 simpleScoresHtml playersMap game = do
   div ! className "simple-scores" $ do
     for_ (playerInfos game playersMap) $ \info -> do
@@ -377,5 +382,5 @@ simpleScoresHtml playersMap game = do
 
   where
   scoresCellDiv classes innerText =
-    div ! className (joinWith " " $ ["scores-cell"] <> classes) $
+    div ! className (String.joinWith " " $ ["scores-cell"] <> classes) $
       text innerText

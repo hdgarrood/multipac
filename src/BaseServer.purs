@@ -1,34 +1,35 @@
 module BaseServer where
 
-import Prelude
-import Data.Maybe
-import Data.Tuple
-import Data.Foldable (for_, find)
-import Data.Array (head, null, filter, (\\))
-import Data.List as List
-import Data.Either as E
-import Data.String as S
-import Data.Map as M
-import Data.Monoid (Monoid, mempty)
-import Control.Monad (when)
+import BaseCommon
 import Control.Monad.RWS
 import Control.Monad.RWS.Trans
-import Control.Monad.Writer.Class as W
-import Control.Monad.Reader.Class as R
-import Effect (Effect)
+import Data.Maybe
+import Data.Tuple
 import Effect.Console
-import Effect.Ref (newRef, readRef, writeRef, modifyRef, REF, Ref)
-import Effect.Timer (Timer, interval)
+import Prelude
+import Types
+import Utils
+
+import Control.Monad (when)
+import Control.Monad.Reader.Class as R
+import Control.Monad.Writer.Class as W
+import Data.Array (head, null, filter, (\\))
+import Data.Either as E
+import Data.Foldable (for_, find)
 import Data.Lens (lens, Lens')
+import Data.Lens.At (at)
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter ((%~), (.~))
-import Data.Lens.At (at)
-import Global (decodeURIComponent)
-
-import Types
-import BaseCommon
+import Data.List as List
+import Data.Generic.Rep (class Generic)
+import Data.Map as M
+import Data.String as S
+import Effect (Effect)
+import Effect.Ref (Ref)
+import Effect.Ref as Ref
+import Effect.Timer (setInterval)
+import Global.Unsafe (unsafeDecodeURIComponent)
 import NodeWebSocket as WS
-import Utils
 
 idleInterval = 30 * 1000
 
@@ -68,7 +69,7 @@ cTimeCounter = lens
 
 connectionsToPlayersMap :: Array Connection -> M.Map PlayerId String
 connectionsToPlayersMap =
-  map (\(Connection c) -> Tuple c.pId c.name) >>> List.fromFoldable >>> M.fromList
+  map (\(Connection c) -> Tuple c.pId c.name) >>> M.fromFoldable
 
 type ServerCallbacks st inc outg =
   { step        :: ServerM st outg Unit
@@ -86,7 +87,7 @@ newtype SendMessages outg
 instance semigroupSendMsgs :: Semigroup (SendMessages outg) where
   append (SendMessages a) (SendMessages b) =
     SendMessages { toAll: a.toAll <> b.toAll
-                 , toOne: unionWith (<>) a.toOne b.toOne
+                 , toOne: M.unionWith (<>) a.toOne b.toOne
                  }
 
 instance monoidSendMsgs :: Monoid (SendMessages outg) where
@@ -120,20 +121,20 @@ mkServer initialState =
 
 runCallback :: forall st outg args e. (Generic outg) =>
   Ref (Server st) -> ServerM st outg Unit
-  -> Eff (ServerEffects e) Unit
+  -> Effect Unit
 runCallback refSrv callback = do
-  srv <- readRef refSrv
+  srv <- Ref.read refSrv
   let res = runServerM srv.connections srv.state callback
   sendAllMessages srv res.messages
-  writeRef refSrv $ srv { state = res.nextState }
+  Ref.write refSrv $ srv { state = res.nextState }
 
 messagesFor :: forall outg. PlayerId -> SendMessages outg -> Array outg
 messagesFor pId (SendMessages sm) =
   sm.toAll <> fromMaybe [] (M.lookup pId sm.toOne)
 
-sendAllMessages :: forall e st outg. (Generic outg) =>
+sendAllMessages :: forall st outg rep. (Generic outg rep) =>
   Server st -> SendMessages outg
-  -> Eff (ServerEffects e) Unit
+  -> Effect Unit
 sendAllMessages srv sm = do
   for_ srv.connections $ \conn ->
     let msgs = messagesFor (conn ^. cPId) sm
@@ -170,20 +171,17 @@ askPlayers =
 
 stepsPerSecond = 30
 
-type ServerEffects e =
-  (timer :: Timer, ref :: REF, console :: CONSOLE, ws :: WS.WebSocket | e)
-
 startServer :: forall st inc outg e.
   Generic inc =>
   Generic outg =>
   ServerCallbacks st inc outg -> Ref (Server st)
-  -> Eff (ServerEffects e) WS.Server
+  -> Effect WS.Server
 startServer cs refSrv = do
   server <- WS.mkServer
 
   WS.onRequest server $ \req -> do
     log "got a request"
-    let playerName = decodeURIComponent (S.drop 1 (WS.resourceUrl req).search)
+    let playerName = unsafeDecodeURIComponent (S.drop 1 (WS.resourceUrl req).search)
 
     if S.null playerName
       then WS.reject req
@@ -202,7 +200,7 @@ startServer cs refSrv = do
               updatePlayerTimeCounter refSrv pId
               case decode msg of
                 E.Right val -> runCallback refSrv $ cs.onMessage val pId
-                E.Left err  -> print err
+                E.Left err  -> log (show err)
 
             WS.onClose   conn $ \close -> do
               closeConnection refSrv pId
@@ -213,10 +211,10 @@ startServer cs refSrv = do
             WS.close conn
 
 
-  void $ interval (1000 / stepsPerSecond) $
+  void $ setInterval (1000 / stepsPerSecond) $
     runCallback refSrv $ cs.step
 
-  interval idleInterval $ do
+  setInterval idleInterval $ do
     kickIdlePlayers refSrv
     updateServerTimeCounter refSrv
 
@@ -224,7 +222,7 @@ startServer cs refSrv = do
 
 
 tryAddPlayer conn refSrv name = do
-  srv <- readRef refSrv
+  srv <- Ref.read refSrv
   case getNextPlayerId srv of
     Just pId -> do
       let srv' = srv { connections = srv.connections <>
@@ -233,7 +231,7 @@ tryAddPlayer conn refSrv name = do
                                           , name: name
                                           , timeCounter: srv.timeCounter
                                           }] }
-      writeRef refSrv srv'
+      Ref.write srv' refSrv
       pure (Just pId)
     Nothing ->
       pure Nothing
@@ -244,10 +242,10 @@ getNextPlayerId srv =
   in  head $ allPlayerIds \\ playerIdsInUse
 
 
-handleNewPlayer :: forall st e.
-  Ref (Server st) -> PlayerId -> Eff (ServerEffects e) Unit
+handleNewPlayer :: forall st.
+  Ref (Server st) -> PlayerId -> Effect Unit
 handleNewPlayer refSrv pId = do
-  srv <- readRef refSrv
+  srv <- Ref.read refSrv
   let playersMap = connectionsToPlayersMap srv.connections
   let msgAll = NewPlayer playersMap
   let msgOne = YourPlayerIdIs pId
@@ -259,29 +257,29 @@ handleNewPlayer refSrv pId = do
   sendAllMessages srv msgs
 
 
-closeConnection :: forall st e.
-  Ref (Server st) -> PlayerId -> Eff (ServerEffects e) Unit
+closeConnection :: forall st.
+  Ref (Server st) -> PlayerId -> Effect Unit
 closeConnection refSrv pId = do
-  modifyRef refSrv $ connections %~ filter (\c -> pId /= c ^. cPId)
+  void $ Ref.modify (connections %~ filter (\c -> pId /= c ^. cPId)) refSrv
   log $ "closed connection for " <> show pId
 
 
 updatePlayerTimeCounter refSrv pId = do
-  srv <- readRef refSrv
+  srv <- Ref.read refSrv
   let mConn = find (\c -> c ^. cPId == pId) srv.connections
   whenJust mConn $ \conn -> do
     let conn' = conn # cTimeCounter .~ srv.timeCounter
     let conns' = filter (\c -> pId /= c ^. cPId) srv.connections
     let conns'' = conns' <> [conn']
-    modifyRef refSrv $ connections .~ conns''
+    Ref.modify refSrv $ connections .~ conns''
 
 
 kickIdlePlayers refSrv = do
-  srv <- readRef refSrv
+  srv <- Ref.read refSrv
   let idles = filter (\c -> c ^. cTimeCounter /= srv.timeCounter)
                      srv.connections
   for_ idles $ \c -> do
     WS.close (c ^. cWsConn)
 
-updateServerTimeCounter refSrv =
-  modifyRef refSrv $ timeCounter %~ ((+) 1)
+updateServerTimeCounter =
+  Ref.modify (timeCounter %~ ((+) 1))
