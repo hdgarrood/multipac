@@ -1,10 +1,10 @@
 module Types where
 
 import Prelude
-import Data.Maybe
-import Data.Traversable
+import Data.Maybe (Maybe(..), maybe)
 import Data.Foldable
-import Data.Function
+import Data.Traversable
+import Data.Function 
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Either (Either)
@@ -49,7 +49,7 @@ newtype WrappedGame = WrappedGame
   }
 
 derive instance eqWrappedGame :: Eq WrappedGame
-derive instance genericWrappedGame :: Generic WrappedGame rep
+derive instance genericWrappedGame :: Generic WrappedGame _
 
 unwrapGame :: WrappedGame -> Game
 unwrapGame (WrappedGame g) = g
@@ -67,7 +67,7 @@ displayPlayerId x =
 
 derive instance eqPlayerId :: Eq PlayerId
 derive instance ordPlayerId :: Ord PlayerId
-derive instance genericPlayerId :: Generic PlayerId rep
+derive instance genericPlayerId :: Generic PlayerId _
 
 allPlayerIds :: Array PlayerId
 allPlayerIds = [P1, P2, P3, P4]
@@ -109,12 +109,12 @@ unwrapLevelMap :: WrappedLevelMap -> LevelMap
 unwrapLevelMap (WrappedLevelMap m) = m
 
 derive instance eqLevelMap :: Eq WrappedLevelMap
-derive instance genericLevelMap :: Generic WrappedLevelMap rep
+derive instance genericLevelMap :: Generic WrappedLevelMap _
 
 data Block = Wall | Empty
 
 derive instance eqBlock :: Eq Block
-derive instance genericBlock :: Generic Block rep
+derive instance genericBlock :: Generic Block _
 
 instance showBlock :: Show Block where
   show = genericShow
@@ -137,7 +137,7 @@ data Tile
   | Inaccessible
 
 derive instance eqTime :: Eq Tile
-derive instance genericTile :: Generic Tile rep
+derive instance genericTile :: Generic Tile _
 
 instance showTile :: Show Tile where
   show = genericShow
@@ -157,7 +157,7 @@ failJsonParse value typ =
 newtype Position = Position {x :: Number, y :: Number}
 
 derive instance eqPosition :: Eq Position
-derive instance genericPosition :: Generic Position rep
+derive instance genericPosition :: Generic Position _
 
 instance showPosition :: Show Position where
   show = genericShow
@@ -175,7 +175,7 @@ quadrance (Position p) (Position q) =
 data GameObject = GOPlayer Player | GOItem Item
 
 derive instance eqGameObject :: Eq GameObject
-derive instance genericGameObject :: Generic GameObject rep
+derive instance genericGameObject :: Generic GameObject _
 
 newtype Player
   = Player
@@ -188,7 +188,7 @@ newtype Player
       }
 
 derive instance eqPlayer :: Eq Player
-derive instance genericPlayer :: Generic Player rep
+derive instance genericPlayer :: Generic Player _
 
 nomIndexMax = 10
 
@@ -260,7 +260,7 @@ newtype Item
      }
 
 derive instance eqItem :: Eq Item
-derive instance genericItem :: Generic Item rep
+derive instance genericItem :: Generic Item _
 
 instance showItem :: Show Item where
   show = genericShow
@@ -293,7 +293,7 @@ eachItem' game action =
 data Direction = Up | Down | Left | Right
 
 derive instance eqDirection :: Eq Direction
-derive instance genericDirection :: Generic Direction rep
+derive instance genericDirection :: Generic Direction _
 
 instance showDirection :: Show Direction where
   show = genericShow
@@ -301,7 +301,7 @@ instance showDirection :: Show Direction where
 data ItemType = LittleDot | BigDot | Cherry
 
 derive instance eqItemType :: Eq ItemType
-derive instance genericItemType :: Generic ItemType rep
+derive instance genericItemType :: Generic ItemType _
 
 instance showItemType :: Show ItemType where
   show = genericShow
@@ -339,7 +339,7 @@ data PlayerUpdate
   | PlayerLeft
 
 derive instance eqPlayerUpdate :: Eq PlayerUpdate
-derive instance genericPlayerUpdate :: Generic PlayerUpdate rep
+derive instance genericPlayerUpdate :: Generic PlayerUpdate _
 
 instance showPlayerUpdate :: Show PlayerUpdate where
   show = genericShow
@@ -348,7 +348,7 @@ data ItemUpdate
   = Eaten
 
 derive instance eqItemUpdate :: Eq ItemUpdate
-derive instance genericItemUpdate :: Generic ItemUpdate
+derive instance genericItemUpdate :: Generic ItemUpdate _
 
 instance showItemUpdate :: Show ItemUpdate where
   show = genericShow
@@ -357,7 +357,7 @@ data GameEndReason
   = Completed
   | TooManyPlayersDisconnected
 
-derive instance genericGameEndReason :: Generic GameEndReason rep
+derive instance genericGameEndReason :: Generic GameEndReason _
 
 instance showGameEndReason :: Show GameEndReason where
   show = genericShow
@@ -366,7 +366,8 @@ data Rampage
   = Rampaging PlayerId Int
   | Cooldown Int
 
-derive instance genericRampage :: Generic Rampage rep
+derive instance eqRampage :: Eq Rampage
+derive instance genericRampage :: Generic Rampage _
 
 data GameUpdate
   = GUPU PlayerId PlayerUpdate
@@ -375,7 +376,7 @@ data GameUpdate
   | GameEnded GameEndReason
   | ChangedRampage (Maybe Rampage)
 
-derive instance genericGameUpdate :: Generic GameUpdate rep
+derive instance genericGameUpdate :: Generic GameUpdate _
 
 data ReadyState
   = Ready
@@ -387,7 +388,7 @@ invertReadyState NotReady = Ready
 
 derive instance eqReadyState :: Eq ReadyState
 derive instance ordReadyState :: Ord ReadyState
-derive instance genericReadyState :: Generic ReadyState rep
+derive instance genericReadyState :: Generic ReadyState _
 
 instance showReadyState :: Show ReadyState where
   show = genericShow
@@ -398,7 +399,7 @@ data WaitingUpdate
   = GameStarting WrappedGame
   | NewReadyStates (Map PlayerId ReadyState)
 
-derive instance genericWaitingUpdate :: Generic WaitingUpdate
+derive instance genericWaitingUpdate :: Generic WaitingUpdate _
 
 type GameUpdateM a = WriterT (Array GameUpdate) (State WrappedGame) a
 
@@ -409,7 +410,7 @@ tellGameUpdate :: GameUpdate -> GameUpdateM Unit
 tellGameUpdate = tell <<< singleton
 
 modifyGame :: (Game -> Game) -> GameUpdateM Unit
-modifyGame = modify <<< over innerGame
+modifyGame = void <<< modify <<< over innerGame
 
 getGame :: GameUpdateM Game
 getGame = gets (\x -> x ^. innerGame)
@@ -442,7 +443,7 @@ data ServerOutgoingMessage
   = SOWaiting WaitingUpdate
   | SOInProgress (Array GameUpdate)
 
-derive instance genericServerOutgoingMessage :: Generic ServerOutgoingMessage rep
+derive instance genericServerOutgoingMessage :: Generic ServerOutgoingMessage _
 
 asWaitingMessageO :: ServerOutgoingMessage -> Maybe WaitingUpdate
 asWaitingMessageO (SOWaiting x) = Just x
@@ -456,7 +457,7 @@ data ServerIncomingMessage
   = SIToggleReadyState
   | SIInProgress Direction
 
-derive instance genericServerIncomingMessage :: Generic ServerIncomingMessage rep
+derive instance genericServerIncomingMessage :: Generic ServerIncomingMessage _
 
 asWaitingMessage :: ServerIncomingMessage -> Maybe Unit
 asWaitingMessage (SIToggleReadyState) = Just unit

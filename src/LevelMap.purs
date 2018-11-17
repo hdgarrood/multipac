@@ -4,8 +4,8 @@ import Prelude
 import Data.Either
 import Data.Tuple
 import Data.Tuple.Nested
-import Data.String (split, trim, toCharArray, joinWith)
 import Data.String as String
+import Data.String.CodeUnits as StringCU
 import Data.Char as Char
 import Data.Lens.Getter ((^.))
 import Control.Monad (unless)
@@ -60,8 +60,8 @@ toBlockTile t =
   case normalize t of
     Tuple n t' -> applyN n rotateCW (convert t')
   where
-  convert t =
-    unsafePartial $ case t of
+  convert =
+    unsafePartial <<< case _ of
       Intersection       -> intersectionB
       TeeJunctionUp      -> teeJunctionUpB
       CornerUpRight      -> cornerUpRightB
@@ -81,12 +81,12 @@ rotateCW = map reverse >>> transpose
 debugShowBlockTile :: BlockTile -> String
 debugShowBlockTile bt =
   let rows = transpose bt
-      showRow = map showBlock >>> joinWith ""
+      showRow = map showBlock >>> String.joinWith ""
       showBlock b =
         case b of
           Wall -> "#"
           Empty -> " "
-  in  joinWith "\n" (map showRow rows)
+  in  String.joinWith "\n" (map showRow rows)
 
 concatTiles :: Array (Array Tile) -> Maybe (Array (Array Block))
 concatTiles =
@@ -180,8 +180,8 @@ fail = Left
 parseLevelMapString :: String -> Either String (Array (Array BasicTile))
 parseLevelMapString str = do
   let toLines =
-        split (String.Pattern "\n") >>>
-          map (trim >>> toCharArray) >>>
+        String.split (String.Pattern "\n") >>>
+          map (String.trim >>> StringCU.toCharArray) >>>
           filter (not <<< null) >>>
           transpose
 
@@ -195,7 +195,7 @@ parseLevelMapString str = do
       case char of
         '#' -> pure W
         '_' -> pure E
-        _   -> fail $ "unexpected char '" <> String.singleton char <>
+        _   -> fail $ "unexpected char '" <> StringCU.singleton char <>
                       "'; expected '#' or '_'"
 
   where
@@ -235,7 +235,7 @@ toTile E _ _ _ _ = fail "dead ends are not supported"
 
 basicMap2 :: LevelMap
 basicMap2 =
-  unsafePartial $ fromJust $ mkLevelMap $ either unsafeThrow id $ fromString $
+  unsafePartial $ fromJust $ mkLevelMap $ either unsafeThrow identity $ fromString $
   """
   #################
   #_______________#

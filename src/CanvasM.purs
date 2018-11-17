@@ -31,7 +31,7 @@ fillRect rect =
 
 translate :: forall e. GC.TranslateTransform -> CanvasM e Unit
 translate tt =
-  liftC $ GC.translate tt
+  liftC $ \ctx -> GC.translate ctx tt
 
 rotate :: forall e. Number -> CanvasM e Unit
 rotate a =
@@ -51,7 +51,7 @@ setFillStyle style =
 
 setStrokeStyle :: forall e. String -> CanvasM e Unit
 setStrokeStyle style =
-  liftC $ GC.setStrokeStyle style
+  liftC $ \ctx -> GC.setStrokeStyle ctx style
 
 lineTo :: forall e. Number -> Number -> CanvasM e Unit
 lineTo x y =
@@ -87,12 +87,12 @@ setTextAlign align =
 
 setFont :: forall e. String -> CanvasM e Unit
 setFont font =
-  liftC $ \ctx -> GC.setFont font ctx
+  liftC $ \ctx -> GC.setFont ctx font
 
 setLineWidth :: forall e. Number -> CanvasM e Unit
 setLineWidth width =
-  liftC $ \ctx -> GC.setLineWidth width ctx
+  liftC $ \ctx -> GC.setLineWidth ctx width
 
 setLineCap :: forall e. GC.LineCap -> CanvasM e Unit
 setLineCap lc =
-  liftC $ GC.setLineCap lc
+  liftC $ \ctx -> GC.setLineCap ctx lc
