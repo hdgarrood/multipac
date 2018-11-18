@@ -147,7 +147,7 @@ rawStyles = """
     transform: translate(-50%, -50%);
     z-index: 101;
 
-    width: ${canvasSize}px;
+    width: calc(${canvasSize}px - 5px);
     background-color: ${backgroundColor};
     display: none;
 

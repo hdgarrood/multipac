@@ -1,7 +1,7 @@
 {
   "private": true,
   "dependencies": {
-    "websocket": "*"
+    "websocket": "^1.0.28"
   },
   "scripts": {
     "build": "npm run build:client && npm run build:server",
