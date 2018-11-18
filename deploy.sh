@@ -15,9 +15,9 @@ if check_status; then
     git checkout deploy
     git merge master -m 'merging from master'
     npm -s run build
-    git add --force dist/ static/ static/js/
+    git add --force dist/
     git commit -m 'deploying' || true
-    git push heroku deploy:master
+    git push origin deploy
 
     echo "switching back to ${BRANCH}..."
     git checkout "$BRANCH"
