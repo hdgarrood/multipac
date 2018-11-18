@@ -1,62 +1,64 @@
 module Client where
 
-import Prelude
-import Data.Maybe
-import Data.Maybe.Unsafe (fromJust)
-import Data.Either as E
-import Data.Tuple
-import Data.String as S
-import Data.Map as M
-import DOM (DOM())
---import DOM.HTML.Types (HTMLElement())
-import DOM.HTML.Location (host, protocol)
-import Data.DOM.Simple.Events hiding (view)
-import Data.DOM.Simple.Types (DOMEvent(), DOMLocation())
-import Data.DOM.Simple.Window (globalWindow, location, document)
-import Data.DOM.Simple.Unsafe.Element (HTMLElement())
-import Data.DOM.Simple.Element
-  (setInnerHTML, querySelector, setAttribute, value, setValue, focus)
-import Data.DOM.Simple.Events
-  (keyCode, addKeyboardEventListener, KeyboardEventType(..))
-import Control.Monad
-import Control.Monad.Eff
-import Control.Monad.Eff.Ref
-import Control.Monad.RWS.Class
-import Control.Monad.State.Class
-import Data.Lens (lens, LensP())
-import Data.Lens.Getter ((^.))
-import Data.Lens.Setter ((%~), (.~))
-import Data.Lens.At (at)
-import DOM.Timer
-import WebSocket as WS
-import Browser.WebStorage as Storage
-import Unsafe.Coerce (unsafeCoerce)
-
-import GenericMap
-import Rendering as R
-import HtmlViews as V
 import BaseClient
+import Control.Monad
+import Control.Monad.State.Class
+import Data.Maybe
+import Data.Tuple
+import Effect
+import Effect.Timer
 import Game
+import Prelude
 import Types
 import Utils
 
-type ClientEffects2 e =
-  ClientEffects
-  ( webStorage :: Storage.WebStorage
-  | e
-  )
+import Data.Either as E
+import Data.Foldable (for_)
+import Data.Lens (lens, Lens')
+import Data.Lens.At (at)
+import Data.Lens.Getter ((^.))
+import Data.Lens.Setter ((%~), (.~))
+import Data.List (List)
+import Data.Map as M
+import Data.String as S
+import Data.Tuple.Nested ((/\))
+import Effect.Exception (throw)
+import Effect.Ref as Ref
+import HtmlViews as V
+import Rendering as R
+import Text.Smolder.Renderer.DOM (patch)
+import Unsafe.Coerce (unsafeCoerce)
+import Web.DOM (Node)
+import Web.DOM.Element (Element)
+import Web.DOM.Element (setAttribute)
+import Web.DOM.Element as Element
+import Web.DOM.Node as Node
+import Web.DOM.ParentNode (QuerySelector(..), querySelector)
+import Web.Event.Event (Event)
+import Web.Event.EventTarget (EventListener, EventTarget, addEventListener, eventListener)
+import Web.HTML (window)
+import Web.HTML.HTMLDocument as Document
+import Web.HTML.HTMLElement (HTMLElement, focus)
+import Web.HTML.HTMLInputElement (value, setValue, select)
+import Web.HTML.HTMLInputElement as HTMLInputElement
+import Web.HTML.Location as Location
+import Web.HTML.Window (localStorage)
+import Web.HTML.Window as Window
+import Web.Storage.Storage as Storage
+import Web.UIEvent.KeyboardEvent (KeyboardEvent)
+import Web.UIEvent.KeyboardEvent as KBDEvent
+import Web.UIEvent.KeyboardEvent.EventTypes (keydown)
 
 initialState =
   CWaitingForPlayers
     { prevGame: Nothing
     , backgroundCleared: false
     , readyStates: M.empty
-    , cachedHtml: ""
     }
 
 main = do
   hideSimpleScoresDiv
-  startRef <- newRef false
+  startRef <- Ref.new false
   loop startRef
   where
   loop startRef =
@@ -65,50 +67,52 @@ main = do
          then loop startRef
          else start startRef name
 
-promptScreenName :: forall e.
-  String -> (String -> Eff (ClientEffects2 e) Unit)
-  -> Eff (ClientEffects2 e) Unit
+promptScreenName :: String -> (String -> Effect Unit) -> Effect Unit
 promptScreenName msg cont = do
   let key = "screenName"
-  mVal <- Storage.getItem Storage.localStorage key
+  localStorage <- window >>= Window.localStorage
+  mVal <- Storage.getItem key localStorage
   let val = fromMaybe "" mVal
   popupPromptInput msg val $ \name -> do
-    Storage.setItem Storage.localStorage "screenName" name
+    Storage.setItem key name localStorage
     cont name
 
+-- TODO: Use an actual form here
 popupPromptInput msg val cont = do
   containerEl <- q' "#prompt"
-  showElement (containerEl :: HTMLElement)
+  showElement containerEl
 
   messageEl <- q' "#prompt-message"
-  setInnerHTML msg (messageEl :: HTMLElement)
+  Node.setTextContent msg (Element.toNode messageEl)
 
-  inputEl <- q' "#prompt-input"
-  setValue val (inputEl :: HTMLElement)
+  minputEl <- map (\el -> el >>= HTMLInputElement.fromElement) (q "#prompt-input")
+  case minputEl of
+    Nothing ->
+      throw "Could not locate HTML input element #prompt-input"
+    Just inputEl -> do
+      setValue val inputEl
+      focus (HTMLInputElement.toHTMLElement inputEl)
+      select inputEl
 
-  focus inputEl
-  selectElement inputEl
+      keydownListener <- eventListener \evt ->
+        for_ (KBDEvent.fromEvent evt) (handleKeydown containerEl inputEl)
+      addEventListener keydown keydownListener false (HTMLInputElement.toEventTarget inputEl)
 
-  addKeyboardEventListener
-    KeydownEvent
-    (handleKeydown containerEl inputEl)
-    inputEl
   where
   handleKeydown cEl iEl event = do
-    code <- keyCode (event :: DOMEvent)
-    when (code == keyCodeEnter) $ do
+    when (KBDEvent.key event == keyEnter) $ do
       hideElement cEl
       value iEl >>= cont
 
 start startedRef name = do
-  started <- readRef startedRef
+  started <- Ref.read startedRef
   when (not started) $ do
-    writeRef startedRef true
+    Ref.write true startedRef
 
     callbacks <- mkCallbacks
-    l <- unsafeCoerce <$> location globalWindow
-    h <- host l
-    p <- protocol l
+    loc <- window >>= Window.location
+    h <- Location.host loc
+    p <- Location.protocol loc
 
     let wsProtocol = if p == "https:" then "wss:" else "ws:"
     let socketUrl = wsProtocol <> "//" <> h <> "/"
@@ -125,7 +129,7 @@ mkCallbacks =
     , onClose: onClose
     }
 
-render :: forall e. RenderingContext -> CM e Unit
+render :: forall e. RenderingContext -> CM Unit
 render ctx = do
   state <- get
   pId <- askPlayerId
@@ -136,9 +140,7 @@ render ctx = do
 
       players <- askPlayers
       let html = V.simpleScores players g.game
-      when (g.cachedHtml /= html) $ do
-        liftEff $ q' "#scores-container" >>= setInnerHTML html
-        put $ CInProgress (g # cachedHtml .~ html)
+      liftEff $ q' "#scores-container" >>= flip patch html
 
     CWaitingForPlayers sw -> do
       when (not (sw ^. backgroundCleared)) $ do
@@ -147,35 +149,33 @@ render ctx = do
 
       players <- askPlayers
       let html = V.waitingMessage sw pId players
-      when (sw.cachedHtml /= html) $ do
-        liftEff $ do
-          el <- q "#waiting-message"
-          whenJust el $ setInnerHTML html
-        put $ CWaitingForPlayers (sw # cachedHtml .~ html)
+      liftEff $ do
+        el <- q "#waiting-message"
+        whenJust el $ flip patch html
 
 
-onKeyDown :: forall e. DOMEvent -> CM e Unit
+onKeyDown :: forall e. KeyboardEvent -> CM Unit
 onKeyDown event = do
-  state <- get
-  code <- liftEff $ keyCode event
+  let key = KBDEvent.key event
 
+  state <- get
   case state of
     CInProgress _ -> do
-      whenJust (directionFromKeyCode code) $ \direction ->
+      whenJust (directionFromKey key) $ \direction ->
         sendUpdate (SIInProgress direction)
 
     CWaitingForPlayers sw -> do
-      when (code == keyCodeSpace) do
+      when (key == keySpace) do
         sendUpdate SIToggleReadyState
 
-type CM e a = ClientM ClientState ServerIncomingMessage e a
+type CM a = ClientM ClientState ServerIncomingMessage a
 
 matchInProgress :: forall e.
-  ServerOutgoingMessage -> (Array GameUpdate -> CM e Unit) -> CM e Unit
+  ServerOutgoingMessage -> (Array GameUpdate -> CM Unit) -> CM Unit
 matchInProgress = matchMessage asInProgressMessageO
 
 matchWaiting :: forall e.
-  ServerOutgoingMessage -> (WaitingUpdate -> CM e Unit) -> CM e Unit
+  ServerOutgoingMessage -> (WaitingUpdate -> CM Unit) -> CM Unit
 matchWaiting = matchMessage asWaitingMessageO
 
 onMessage :: ServerOutgoingMessage -> _
@@ -204,14 +204,13 @@ onMessage msg = do
               showSimpleScoresDiv
             put $ CInProgress $ startNewGame $ unwrapGame game
           NewReadyStates m -> do
-            put $ CWaitingForPlayers (g # readyStates .~ runGenericMap m)
+            put $ CWaitingForPlayers (g # readyStates .~ m)
 
 
 startNewGame game =
   { game: game
   , prevGame: game
   , redrawMap: true
-  , cachedHtml: ""
   }
 
 
@@ -222,44 +221,53 @@ onError = liftEff $ do
 onClose = onError
 
 
-putWaitingState :: forall e. Maybe Game -> CM e Unit
+putWaitingState :: forall e. Maybe Game -> CM Unit
 putWaitingState prevGame =
   put $ CWaitingForPlayers
           { prevGame: prevGame
           , backgroundCleared: false
           , readyStates: getStates prevGame
-          , cachedHtml: ""
           }
   where
   getStates mg =
     case mg of
-      Just g -> M.fromList $
-        (\(Tuple pId _) -> pId ~ NotReady) <$> (M.toList (g ^. players))
+      Just g -> M.fromFoldable $
+        (\(Tuple pId _) -> pId /\ NotReady) <$> (asList (g ^. players))
       Nothing -> M.empty
 
+  asList = M.toUnfoldable :: M.Map _ _ -> List _
 
-directionFromKeyCode :: Int -> Maybe Direction
-directionFromKeyCode code =
+directionFromKey :: String -> Maybe Direction
+directionFromKey code =
   case code of
-    38 -> Just Up
-    40 -> Just Down
-    37 -> Just Left
-    39 -> Just Right
+    "ArrowUp" -> Just Up
+    "ArrowDown" -> Just Down
+    "ArrowLeft" -> Just Left
+    "ArrowRight" -> Just Right
     _  -> Nothing
 
-keyCodeSpace = 32
-keyCodeEnter = 13
+keySpace = " "
+keyEnter = "Enter"
 
-q sel = document globalWindow >>= querySelector sel
+q :: String -> Effect (Maybe Element)
+q sel =
+  window
+  >>= Window.document
+  >>= (querySelector (QuerySelector sel) <<< Document.toParentNode)
 
-q' sel = fromJust <$> q sel
+q' :: String -> Effect Element
+q' sel = do
+  el <- q sel
+  case el of
+    Just el -> pure el
+    Nothing -> throw $ "Could not find an element matching " <> sel
 
 withEl f sel = do
   el <- q sel
   whenJust el $ f
 
-showElement el = setAttribute "style" "display: block;" (el :: HTMLElement)
-hideElement el = setAttribute "style" "display: none;" (el :: HTMLElement)
+showElement el = setAttribute "style" "display: block;" el
+hideElement el = setAttribute "style" "display: none;" el
 
 showWaitingMessageDiv = withEl showElement "#waiting-message"
 hideWaitingMessageDiv = withEl hideElement "#waiting-message"
@@ -267,4 +275,12 @@ hideWaitingMessageDiv = withEl hideElement "#waiting-message"
 showSimpleScoresDiv = withEl showElement "#scores-container"
 hideSimpleScoresDiv = withEl hideElement "#scores-container"
 
-foreign import selectElement :: forall e. HTMLElement -> Eff (ClientEffects2 e) Unit
+removeAllChildren :: Node -> Effect Unit
+removeAllChildren node = do
+  mchild <- Node.firstChild node
+  case mchild of
+    Just child -> do
+      void $ Node.removeChild child node
+      removeAllChildren node
+    Nothing ->
+      pure unit

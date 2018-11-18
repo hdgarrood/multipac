@@ -1,33 +1,30 @@
 module Rendering where
 
-import Prelude
-import Data.Array hiding ((..))
-import Data.Function
-import Data.Map as M
-import Data.Int as Int
-import Data.Profunctor.Strong ((***))
-import Data.Tuple
-import Data.Maybe
-import Data.Foldable
-import Graphics.Canvas
-  (getContext2D, setCanvasHeight, setCanvasWidth, Rectangle(), Arc(),
-  Context2D(), Canvas(), getCanvasElementById, TextAlign(..), LineCap(..))
-import Control.Monad.Eff
-import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
-import Control.Arrow
-import Control.Monad (when)
-import Control.Monad.Reader.Class (reader)
-import Data.Lens.Getter ((^.))
-import Data.Lens.At (at)
-import Data.Lens.Prism.Maybe (_Just)
-import Math (pi, floor, ceil)
-
-import LevelMap
-import Types
 import CanvasM
-import Utils
+import Data.Array hiding ((..))
+import Data.Foldable
+import Data.Function
+import Data.Maybe
+import Data.Tuple
+import Effect
 import Game
+import LevelMap
+import Prelude
 import Style
+import Types
+import Utils
+
+import Control.Monad (when)
+import Data.Int as Int
+import Data.Lens.At (at)
+import Data.Lens.Getter ((^.))
+import Data.Lens.Prism.Maybe (_Just)
+import Data.Map as M
+import Data.Profunctor.Strong ((***))
+import Data.Tuple.Nested ((/\))
+import Effect.Exception (throw)
+import Graphics.Canvas (Arc, Context2D, LineCap(..), TextAlign(..), Rectangle, getCanvasElementById, getContext2D, setCanvasHeight, setCanvasWidth)
+import Math (pi, floor, ceil)
 
 
 halfBlock     = floor (pxPerBlock / 2.0)
@@ -36,7 +33,7 @@ halfCanvas    = floor (canvasSize / 2.0)
 
 scaleRect :: Number -> Position -> Rectangle
 scaleRect scale (Position p) =
-  {x: p.x * scale, y: p.y * scale, h: scale, w: scale}
+  {x: p.x * scale, y: p.y * scale, height: scale, width: scale}
 
 toPosition :: Rectangle -> Position
 toPosition r = Position {x:r.x, y:r.y}
@@ -58,25 +55,24 @@ getTileRectAt = scaleRect pxPerTile
 getTileRectAt' :: Number -> Number -> Rectangle
 getTileRectAt' x y = getTileRectAt (Position {x: x, y: y})
 
-setupRendering :: forall e. Eff (canvas :: Canvas | e) RenderingContext
+setupRendering :: Effect RenderingContext
 setupRendering = do
   fg <- setupRenderingById "foreground"
   bg <- setupRenderingById "background"
-  return { foreground: fg, background: bg }
+  pure { foreground: fg, background: bg }
 
 -- set up a canvas with the correct dimensions and return its context
-setupRenderingById :: forall e.
-  String -> Eff (canvas :: Canvas | e) Context2D
-setupRenderingById elId =
-  getCanvasElementById elId
-    >>= justOrErr
-    >>= setCanvasHeight canvasSize
-    >>= setCanvasWidth canvasSize
-    >>= getContext2D
+setupRenderingById :: String -> Effect Context2D
+setupRenderingById elId = do
+  el <- getCanvasElementById elId >>= justOrErr
+  setCanvasHeight el canvasSize
+  setCanvasWidth el canvasSize
+  getContext2D el
 
   where
-  justOrErr (Just x) = return x
-  justOrErr Nothing = unsafeThrow $ "no canvas element found with id = " <> elId
+  justOrErr :: forall a. Maybe a -> Effect a
+  justOrErr (Just x) = pure x
+  justOrErr Nothing = throw $ "no canvas element found with id = " <> elId
 
 clearBackground :: forall e. CanvasM e Unit
 clearBackground = do
@@ -135,12 +131,14 @@ renderMap map = do
             renderCorners cs
             renderEdges es
         _ ->
-          return unit
+          pure unit
 
 showCorners :: Corners -> String
 showCorners cs =
   showRecord "Corners"
-    ["tl" .:: cs.tl, "tr" .:: cs.tr, "br" .:: cs.br, "bl" .:: cs.bl]
+    ["tl" `assoc` cs.tl, "tr" `assoc` cs.tr, "br" `assoc` cs.br, "bl" `assoc` cs.bl]
+  where
+  assoc k v = k <> ": " <> show v
 
 getCorners above aboveRight right belowRight below belowLeft left aboveLeft =
   { tl: getCorner left above aboveLeft
@@ -158,18 +156,17 @@ getCorner E E _ = CRO
 
 renderCorners :: forall e.  Corners -> CanvasM e Unit
 renderCorners cs = do
-  let renderCorner c a t =
-    case c of
+  let renderCorner c a t = case c of
         CRO ->
           { prep: do
               translate t
               rotate a
           , go:
-              arc { start: pi
-                  , end:   1.5 * pi
-                  , x:     cornerMid
-                  , y:     cornerMid
-                  , r:     cornerRadius
+              arc { start:  pi
+                  , end:    1.5 * pi
+                  , x:      cornerMid
+                  , y:      cornerMid
+                  , radius: cornerRadius
                   }
           }
         CRI ->
@@ -177,11 +174,11 @@ renderCorners cs = do
               translate t
               rotate a
           , go:
-              arc { start: 0.0
-                  , end:   pi/2.0
-                  , x:     -cornerMid
-                  , y:     -cornerMid
-                  , r:     cornerRadius
+              arc { start:  0.0
+                  , end:    pi/2.0
+                  , x:      -cornerMid
+                  , y:      -cornerMid
+                  , radius: cornerRadius
                   }
           }
         CSH ->
@@ -197,31 +194,31 @@ renderCorners cs = do
               lineTo 0.0 (cornerMid + 1.0)
           }
         NON ->
-          { prep: return unit
-          , go: return unit
+          { prep: pure unit
+          , go: pure unit
           }
 
   let s = (pxPerTile - cornerSize) / 2.0
   let cs' =
-      [ { c: cs.tl
-        , a: 0.0
-        , t: {translateX: -s, translateY: -s}
-        },
+        [ { c: cs.tl
+          , a: 0.0
+          , t: {translateX: -s, translateY: -s}
+          },
 
-        { c: cs.tr
-        , a: pi/2.0
-        , t: {translateX: s, translateY: -s}
-        },
+          { c: cs.tr
+          , a: pi/2.0
+          , t: {translateX: s, translateY: -s}
+          },
 
-        { c: cs.br
-        , a: pi
-        , t: {translateX: s, translateY: s}
-        },
+          { c: cs.br
+          , a: pi
+          , t: {translateX: s, translateY: s}
+          },
 
-        { c: cs.bl
-        , a: 1.5*pi
-        , t: {translateX: -s, translateY: s}
-        }
+          { c: cs.bl
+          , a: 1.5*pi
+          , t: {translateX: -s, translateY: s}
+          }
         ]
 
   for_ cs' $ \c -> do
@@ -317,7 +314,7 @@ playerRenderParameters player =
            , y: centre.y
            , start: (baseAngle + delta)
            , end: (baseAngle - delta)
-           , r: playerRadius
+           , radius: playerRadius
            }
     , start: { x: start ^. pX
              , y: start ^. pY
@@ -329,8 +326,8 @@ enlargeRect :: Number -> Rectangle -> Rectangle
 enlargeRect delta r =
   { x: r.x - delta
   , y: r.y - delta
-  , w: r.w + (2.0 * delta)
-  , h: r.h + (2.0 * delta)
+  , width: r.width + (2.0 * delta)
+  , height: r.height + (2.0 * delta)
   }
 
 renderItems :: forall e. Game -> CanvasM e Unit
@@ -348,39 +345,40 @@ renderItem rampaging item = do
         , y: centre.y
         , start: 0.0
         , end: 2.0 * pi
-        , r: dotRadiusFor (item ^. iType)
+        , radius: dotRadiusFor (item ^. iType)
         }
     fill
 
 renderPlayers :: forall e. Game -> CanvasM e Unit
 renderPlayers game = do
   let isRampaging =
-      maybe (const false)
-            (\r -> case r of
-                Rampaging pId _ -> (==) pId
-                _ -> const false)
-            game.rampage
+        maybe (const false)
+              (\r -> case r of
+                  Rampaging pId _ -> (==) pId
+                  _ -> const false)
+              game.rampage
   let isFleeing =
-      maybe (const false)
-            (\r -> case r of
-                Rampaging pId ctr ->
-                  \pId' -> pId /= pId' && elem ctr flashCounts
-                _ ->
-                  const false)
-            game.rampage
+        maybe (const false)
+              (\r -> case r of
+                  Rampaging pId ctr ->
+                    \pId' -> pId /= pId' && elem ctr flashCounts
+                  _ ->
+                    const false)
+              game.rampage
 
   eachPlayer' game (renderPlayer isRampaging isFleeing)
 
   where
   flashCounts = concatMap (uncurry range) flashes
 
-  initial = rampageLength ~ (rampageLength - step)
+  initial = rampageLength /\ (rampageLength - step)
   f x = x - (2 * step)
   step = 8
   flashes = iterateN 5 initial (f *** f)
 
+wholeCanvas :: Rectangle
 wholeCanvas =
-  {x: 0.0, y: 0.0, h: canvasSize, w: canvasSize}
+  {x: 0.0, y: 0.0, height: canvasSize, width: canvasSize}
 
 clearCanvas :: forall e. CanvasM e Unit
 clearCanvas =
@@ -413,7 +411,7 @@ renderCounter cd = do
 
 renderReminderArrow :: forall e. Game -> PlayerId -> CanvasM e Unit
 renderReminderArrow game pId = do
-  whenJust (game ^. (players .. at pId)) $ \pl ->
+  whenJust (game ^. (players <<< at pId)) $ \pl ->
     withContext $ do
       let pos = pl ^. pPosition
       let playerX = pos ^. pX
@@ -451,7 +449,7 @@ render :: forall e.
   -> Game
   -> PlayerId
   -> Boolean
-  -> Eff (canvas :: Canvas | e) Unit
+  -> Effect Unit
 render ctx game pId redrawMap = do
   when redrawMap $ do
     runCanvasM ctx.background $
@@ -465,7 +463,7 @@ render ctx game pId redrawMap = do
 
 clearBoth :: forall e.
   RenderingContext
-  -> Eff (canvas :: Canvas | e) Unit
+  -> Effect Unit
 clearBoth ctx = do
   runCanvasM ctx.background clearCanvas
   runCanvasM ctx.foreground clearCanvas

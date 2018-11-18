@@ -1,4 +1,0 @@
-* Data.Array.transpose?
-* Why does typing Debug.Tr<tab> expand to Debug.Trace.print when there is at
-  least Debug.Trace.trace? And why does Debug.Trace.t<tab> not work?
-* psci doesn't seem to autocomplete data contructors

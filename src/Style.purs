@@ -21,11 +21,11 @@ linkColor              = playerColor P3
 playerColor :: PlayerId -> String
 playerColor pId =
   let hue =
-      case pId of
-         P1 -> 0
-         P2 -> 90
-         P3 -> 180
-         P4 -> 270
+        case pId of
+           P1 -> 0
+           P2 -> 90
+           P3 -> 180
+           P4 -> 270
   in "hsl(" <> show hue <> ", 100%, 60%)"
 
 pxPerTile = 35.0

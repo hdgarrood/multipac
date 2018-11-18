@@ -1,24 +1,24 @@
 module CanvasM where
 
 import Prelude
-import Control.Monad.Eff (Eff())
-import Control.Monad.Trans (lift)
-import Control.Monad.Reader.Trans (ReaderT(), runReaderT)
+import Effect (Effect)
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Reader.Trans (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (ask)
-import qualified Graphics.Canvas as GC
+import Graphics.Canvas as GC
 
 liftReaderT :: forall r m a. (Monad m) => m a -> ReaderT r m a
 liftReaderT = lift
 
 type CanvasM e a
-  = ReaderT GC.Context2D (Eff (canvas :: GC.Canvas | e)) a
+  = ReaderT GC.Context2D Effect a
 
 liftC :: forall a e.
-  (GC.Context2D -> Eff (canvas :: GC.Canvas | e) a) -> CanvasM e Unit
+  (GC.Context2D -> Effect a) -> CanvasM e Unit
 liftC action = void $ ask >>= \ctx -> liftReaderT (action ctx)
 
 runCanvasM :: forall a e.
-  GC.Context2D -> CanvasM e a -> Eff (canvas :: GC.Canvas | e) a
+  GC.Context2D -> CanvasM e a -> Effect a
 runCanvasM = flip runReaderT
 
 beginPath :: forall e. CanvasM e Unit
@@ -31,11 +31,11 @@ fillRect rect =
 
 translate :: forall e. GC.TranslateTransform -> CanvasM e Unit
 translate tt =
-  liftC $ GC.translate tt
+  liftC $ \ctx -> GC.translate ctx tt
 
 rotate :: forall e. Number -> CanvasM e Unit
 rotate a =
-  liftC $ GC.rotate a
+  liftC $ \ctx -> GC.rotate ctx a
 
 arc :: forall e. GC.Arc -> CanvasM e Unit
 arc a =
@@ -47,11 +47,11 @@ moveTo x y =
 
 setFillStyle :: forall e. String -> CanvasM e Unit
 setFillStyle style =
-  liftC $ GC.setFillStyle style
+  liftC $ \ctx -> GC.setFillStyle ctx style
 
 setStrokeStyle :: forall e. String -> CanvasM e Unit
 setStrokeStyle style =
-  liftC $ GC.setStrokeStyle style
+  liftC $ \ctx -> GC.setStrokeStyle ctx style
 
 lineTo :: forall e. Number -> Number -> CanvasM e Unit
 lineTo x y =
@@ -87,12 +87,12 @@ setTextAlign align =
 
 setFont :: forall e. String -> CanvasM e Unit
 setFont font =
-  liftC $ \ctx -> GC.setFont font ctx
+  liftC $ \ctx -> GC.setFont ctx font
 
 setLineWidth :: forall e. Number -> CanvasM e Unit
 setLineWidth width =
-  liftC $ \ctx -> GC.setLineWidth width ctx
+  liftC $ \ctx -> GC.setLineWidth ctx width
 
 setLineCap :: forall e. GC.LineCap -> CanvasM e Unit
 setLineCap lc =
-  liftC $ GC.setLineCap lc
+  liftC $ \ctx -> GC.setLineCap ctx lc

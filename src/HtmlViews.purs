@@ -1,49 +1,52 @@
 module HtmlViews where
 
-import Prelude hiding (id, div)
+import Prelude hiding (div)
 import Data.Foldable (foldr, for_)
 import Data.Lens.Getter ((^.))
 import Control.Monad (when)
 import Data.Tuple
+import Data.Tuple.Nested ((/\))
 import Data.Maybe
-import Data.String (replace, joinWith)
+import Data.String as String
 import Data.Array (sortBy, reverse, catMaybes)
 import Data.List as List
 import Data.Function (on)
-import qualified Data.Map as M
+import Data.Map as M
 import Text.Smolder.HTML
-  (html, head, meta, script, style, body, div, h1, h2, canvas, title, link, p,
-   input, a)
+  (html, head, title, meta, script, style, body, div, h1, h2, canvas, title,
+  link, p, input, a)
 import Text.Smolder.HTML.Attributes
   (lang, charset, httpEquiv, content, src, defer, type', id, className, name,
   rel, href)
-import Text.Smolder.Markup (text, (!), Markup())
-import Text.Smolder.Renderer.String (render)
+import Text.Smolder.Markup (text, (!))
+import Text.Smolder.HTML (Html)
 
 import Utils
 import Types
 import Style
 
 replaceAll :: Array (Tuple String String) -> String -> String
-replaceAll = map (uncurry replace) >>> foldr (>>>) Prelude.id
+replaceAll =
+  map (\(var /\ value) -> String.replace (String.Pattern var) (String.Replacement value)) >>>
+  foldr (>>>) identity
 
 styles =
   -- TODO: this is a bit silly. purescript-css?
   replaceAll
-    [ "${linkColor}" ~ linkColor
-    , "${backgroundColor}" ~ backgroundColor
-    , "${backgroundColor}" ~ backgroundColor
-    , "${backgroundColorLighter}" ~ backgroundColorLighter
-    , "${fontColor}" ~ fontColor
-    , "${fontColor}" ~ fontColor
-    , "${fontColor}" ~ fontColor
-    , "${fontName}" ~ fontName
-    , "${tileColor}" ~ tileColor
-    , "${canvasSize}" ~ (show canvasSize)
-    , "${canvasSize}" ~ (show canvasSize)
-    , "${canvasSize}" ~ (show canvasSize)
-    , "${canvasSize}" ~ (show canvasSize)
-    , "${canvasSize}" ~ (show canvasSize)
+    [ "${linkColor}" /\ linkColor
+    , "${backgroundColor}" /\ backgroundColor
+    , "${backgroundColor}" /\ backgroundColor
+    , "${backgroundColorLighter}" /\ backgroundColorLighter
+    , "${fontColor}" /\ fontColor
+    , "${fontColor}" /\ fontColor
+    , "${fontColor}" /\ fontColor
+    , "${fontName}" /\ fontName
+    , "${tileColor}" /\ tileColor
+    , "${canvasSize}" /\ (show canvasSize)
+    , "${canvasSize}" /\ (show canvasSize)
+    , "${canvasSize}" /\ (show canvasSize)
+    , "${canvasSize}" /\ (show canvasSize)
+    , "${canvasSize}" /\ (show canvasSize)
     ] $ rawStyles <> playerColorStyles
 
 rawStyles = """
@@ -230,6 +233,7 @@ rawStyles = """
   }
 """
 
+playerColorStyles :: String
 playerColorStyles =
   concat $
     flip map allPlayerIds
@@ -241,31 +245,32 @@ playerColorStyles =
                , ";}\n"
                ])
   where
-  concat = joinWith ""
+  concat = String.joinWith ""
 
-
-indexDoc =
+indexHtml :: forall void. Html void
+indexHtml =
   html ! lang "en" $ do
     head $ do
+      title $ text "multipac"
       meta ! charset "utf-8"
       meta ! httpEquiv "X-UA-Compatible" ! content "IE=edge,chrome=1"
-      script ! src "/js/client.js" ! defer "" $ text ""
+      script ! src "/js/client.js" ! defer "" $ text " "
       link ! rel "stylesheet" ! type' "text/css" ! href fontUrl
-      style ! type' "text/css" $ text styles
+      link ! rel "stylesheet" ! type' "text/css" ! href "style.css"
 
     body $ do
-      div ! id "error-overlay" $ text ""
+      div ! id "error-overlay" $ text " "
       div ! id "game" $ do
         h1 $ text "multipac"
 
         div ! id "prompt" $ do
-          p ! id "prompt-message" $ text ""
+          p ! id "prompt-message" $ text " "
           input ! id "prompt-input" ! type' "text"
 
-        div ! id "waiting-message" $ text ""
+        div ! id "waiting-message" $ text " "
 
-        canvas ! id "foreground" $ text ""
-        canvas ! id "background" $ text ""
+        canvas ! id "foreground" $ text " "
+        canvas ! id "background" $ text " "
 
         div ! id "error" $ do
           h2 $ text "disconnected"
@@ -275,22 +280,16 @@ indexDoc =
             a ! href "" $ text "refresh the page"
             text " to reconnect."
 
-        div ! id "scores-container" $ text ""
-
-indexHtml = render indexDoc
+        div ! id "scores-container" $ text " "
 
 type PlayerReadyInfo
   = { ready :: Boolean
     , name  :: String
     }
 
-waitingMessage ::
-  ClientStateWaiting -> PlayerId -> M.Map PlayerId String -> String
-waitingMessage sw pId ps = render $ waitingMessageDoc sw pId ps
-
-waitingMessageDoc ::
-  ClientStateWaiting -> PlayerId -> M.Map PlayerId String -> Markup
-waitingMessageDoc sw pId playersMap = do
+waitingMessage :: forall void.
+  ClientStateWaiting -> PlayerId -> M.Map PlayerId String -> Html void
+waitingMessage sw pId playersMap = do
   whenJust sw.prevGame (scoresTable pId playersMap)
 
   let r = fromMaybe NotReady $ M.lookup pId sw.readyStates
@@ -318,7 +317,7 @@ waitingMessageDoc sw pId playersMap = do
   getPlayerInfo pId'' = do
     ready <- M.lookup pId'' sw.readyStates
     name <- M.lookup pId'' playersMap
-    return $ { ready: ready, name: name }
+    pure $ { ready: ready, name: name }
 
 type PlayerScoreInfo
   = { score :: Int
@@ -326,7 +325,7 @@ type PlayerScoreInfo
     , pId   :: PlayerId
     }
 
-scoresTable :: PlayerId -> M.Map PlayerId String -> Game -> Markup
+scoresTable :: forall void. PlayerId -> M.Map PlayerId String -> Game -> Html void
 scoresTable pId playersMap game =
   div ! className "scores clearfix" $ do
     h2 ! className "scores-header" $ text "scores"
@@ -345,29 +344,24 @@ scoresTable pId playersMap game =
   score i = i.score
 
   scoresCellDiv classes innerText =
-    div ! className (joinWith " " $ ["scores-cell"] <> classes) $
+    div ! className (String.joinWith " " $ ["scores-cell"] <> classes) $
       text innerText
 
 
 playerInfos game playersMap =
   List.catMaybes $ map (getPlayerInfo playersMap) allPlayers
   where
-  allPlayers = M.toList (game ^. players)
+  allPlayers = M.toUnfoldable (game ^. players)
 
 
 getPlayerInfo ::
   M.Map PlayerId String -> Tuple PlayerId Player -> Maybe PlayerScoreInfo
 getPlayerInfo playersMap (Tuple pId'' p) = do
   name <- M.lookup pId'' playersMap
-  return $ { score: p ^. pScore, name: name, pId: pId'' }
+  pure $ { score: p ^. pScore, name: name, pId: pId'' }
 
-
-simpleScores :: M.Map PlayerId String -> Game -> String
-simpleScores m game =
-  render $ simpleScoresMarkup m game
-
-simpleScoresMarkup :: M.Map PlayerId String -> Game -> Markup
-simpleScoresMarkup playersMap game = do
+simpleScores :: forall e. M.Map PlayerId String -> Game -> Html e
+simpleScores playersMap game = do
   div ! className "simple-scores" $ do
     for_ (playerInfos game playersMap) $ \info -> do
       let pId = displayPlayerId info.pId
@@ -376,5 +370,5 @@ simpleScoresMarkup playersMap game = do
 
   where
   scoresCellDiv classes innerText =
-    div ! className (joinWith " " $ ["scores-cell"] <> classes) $
+    div ! className (String.joinWith " " $ ["scores-cell"] <> classes) $
       text innerText

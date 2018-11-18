@@ -12,12 +12,13 @@ import Data.Map as M
 import Data.Foldable (for_, all, find)
 import Control.Monad
 import Control.Monad.State.Class (get, put, modify)
-import Control.Monad.Eff
-import Control.Monad.Eff.Console
-import Control.Monad.Eff.Ref
-import Control.Monad.Eff.Exception (throw, message)
-import DOM.Timer
-import Data.Lens (lens, LensP())
+import Effect
+import Effect.Console
+import Effect.Ref (Ref)
+import Effect.Ref as Ref
+import Effect.Exception (throw, message)
+import Effect.Timer
+import Data.Lens (lens, Lens'())
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter ((%~), (.~))
 import Data.Lens.At (at)
@@ -25,27 +26,27 @@ import Node.HTTP as Http
 import Node.Stream as Stream
 import Node.FS.Async as FS
 import Node.Encoding (Encoding(..))
+import Text.Smolder.Renderer.String (render)
 
-import GenericMap
 import NodeWebSocket as WS
 import NodeUrl
 import Types
 import Game
 import Utils
 import BaseServer
-import HtmlViews (indexHtml)
+import HtmlViews as HtmlViews
 
 initialState :: GameState
 initialState = WaitingForPlayers M.empty
 
 main = do
-  refSrv <- newRef (mkServer initialState)
+  refSrv <- Ref.new (mkServer initialState)
   port <- portOrDefault 8080
   httpServer <- createHttpServer
   wsServer <- startServer serverCallbacks refSrv
 
   WS.mount wsServer httpServer
-  Http.listen httpServer port $
+  Http.listen httpServer { hostname: "::", port, backlog: Nothing } $
     log $ "listening on " <> show port <> "..."
 
 
@@ -54,9 +55,11 @@ createHttpServer =
     let path = (parseUrl (Http.requestURL req)).pathname
     case path of
       "/" ->
-        sendHtml res indexHtml
+        sendHtml res (render HtmlViews.indexHtml)
       "/js/client.js" ->
         sendFile res "dist/client.js"
+      "/style.css" ->
+        sendCss res HtmlViews.styles
       _ ->
         send404  res
 
@@ -87,7 +90,7 @@ step = do
           put $ InProgress { game: game', input: M.empty }
 
     WaitingForPlayers m -> do
-      sendUpdate $ SOWaiting $ NewReadyStates $ mkGenericMap m
+      sendUpdate $ SOWaiting $ NewReadyStates m
       when (readyToStart m) do
         let game = makeGame (M.keys m)
         sendUpdate $ SOWaiting $ GameStarting $ WrappedGame game
@@ -95,7 +98,7 @@ step = do
       where
       readyToStart m =
         let ps = M.values m
-        in List.length ps >= minPlayers && all (== Ready) ps
+        in List.length ps >= minPlayers && all (_ == Ready) ps
 
 
 matchInProgress :: ServerIncomingMessage -> (Direction -> SM Unit) -> SM Unit
@@ -125,7 +128,7 @@ onNewPlayer pId = do
     WaitingForPlayers m -> do
       let m' = M.insert pId NotReady m
       put $ WaitingForPlayers m'
-    _ -> return unit
+    _ -> pure unit
 
 
 onClose :: PlayerId -> SM Unit
@@ -141,8 +144,11 @@ onClose pId = do
       let m' = M.delete pId m
       put $ WaitingForPlayers m'
 
-sendHtml res html = do
+sendHtml res html =
   sendContent res "text/html" html
+
+sendCss res css =
+  sendContent res "text/css" css
 
 sendFile res path = do
   let mimeType = fromMaybe "text/plain" (detectMime path)
@@ -151,7 +157,7 @@ sendFile res path = do
       E.Right fileData ->
         void (sendContent res mimeType fileData)
       E.Left err ->
-        throw ("While trying to read " ++ path ++ ": " ++ message err)
+        throw ("While trying to read " <> path <> ": " <> message err)
 
 sendContent res contentType contentData = do
   Http.setStatusCode res 200
@@ -182,6 +188,6 @@ detectMime str = do
 
 extension :: String -> Maybe String
 extension str =
-  let arr = String.split "." str
+  let arr = String.split (String.Pattern ".") str
       len = length arr
   in  arr !! (len - 1)
