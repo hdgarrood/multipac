@@ -13,8 +13,8 @@ import Data.List as List
 import Data.Function (on)
 import Data.Map as M
 import Text.Smolder.HTML
-  (html, head, meta, script, style, body, div, h1, h2, canvas, title, link, p,
-   input, a)
+  (html, head, title, meta, script, style, body, div, h1, h2, canvas, title,
+  link, p, input, a)
 import Text.Smolder.HTML.Attributes
   (lang, charset, httpEquiv, content, src, defer, type', id, className, name,
   rel, href)
@@ -251,25 +251,26 @@ indexHtml :: forall void. Html void
 indexHtml =
   html ! lang "en" $ do
     head $ do
+      title $ text "multipac"
       meta ! charset "utf-8"
       meta ! httpEquiv "X-UA-Compatible" ! content "IE=edge,chrome=1"
-      script ! src "/js/client.js" ! defer "" $ text ""
+      script ! src "/js/client.js" ! defer "" $ text " "
       link ! rel "stylesheet" ! type' "text/css" ! href fontUrl
-      style ! type' "text/css" $ text styles
+      link ! rel "stylesheet" ! type' "text/css" ! href "style.css"
 
     body $ do
-      div ! id "error-overlay" $ text ""
+      div ! id "error-overlay" $ text " "
       div ! id "game" $ do
         h1 $ text "multipac"
 
         div ! id "prompt" $ do
-          p ! id "prompt-message" $ text ""
+          p ! id "prompt-message" $ text " "
           input ! id "prompt-input" ! type' "text"
 
-        div ! id "waiting-message" $ text ""
+        div ! id "waiting-message" $ text " "
 
-        canvas ! id "foreground" $ text ""
-        canvas ! id "background" $ text ""
+        canvas ! id "foreground" $ text " "
+        canvas ! id "background" $ text " "
 
         div ! id "error" $ do
           h2 $ text "disconnected"
@@ -279,7 +280,7 @@ indexHtml =
             a ! href "" $ text "refresh the page"
             text " to reconnect."
 
-        div ! id "scores-container" $ text ""
+        div ! id "scores-container" $ text " "
 
 type PlayerReadyInfo
   = { ready :: Boolean

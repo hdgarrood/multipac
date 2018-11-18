@@ -34,7 +34,7 @@ import Types
 import Game
 import Utils
 import BaseServer
-import HtmlViews (indexHtml)
+import HtmlViews as HtmlViews
 
 initialState :: GameState
 initialState = WaitingForPlayers M.empty
@@ -55,9 +55,11 @@ createHttpServer =
     let path = (parseUrl (Http.requestURL req)).pathname
     case path of
       "/" ->
-        sendHtml res (render indexHtml)
+        sendHtml res (render HtmlViews.indexHtml)
       "/js/client.js" ->
         sendFile res "dist/client.js"
+      "/style.css" ->
+        sendCss res HtmlViews.styles
       _ ->
         send404  res
 
@@ -142,8 +144,11 @@ onClose pId = do
       let m' = M.delete pId m
       put $ WaitingForPlayers m'
 
-sendHtml res html = do
+sendHtml res html =
   sendContent res "text/html" html
+
+sendCss res css =
+  sendContent res "text/css" css
 
 sendFile res path = do
   let mimeType = fromMaybe "text/plain" (detectMime path)
