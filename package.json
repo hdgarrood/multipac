@@ -5,7 +5,7 @@
   },
   "scripts": {
     "build": "npm run build:client && npm run build:server",
-    "build:server": "pulp build -O --to dist/server.js --main Server",
-    "build:client": "pulp build -O --to dist/client.js --main Client"
+    "build:server": "pulp build --no-psa -O --to dist/server.js --main Server",
+    "build:client": "pulp build --no-psa -O --to dist/client.js --main Client"
   }
 }
