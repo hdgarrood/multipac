@@ -1,32 +1,30 @@
 module Rendering where
 
-import Prelude
-import Data.Array hiding ((..))
-import Data.Function
-import Data.Map as M
-import Data.Int as Int
-import Data.Profunctor.Strong ((***))
-import Data.Tuple
-import Data.Tuple.Nested ((/\))
-import Data.Maybe
-import Data.Foldable
-import Graphics.Canvas
-  (getContext2D, setCanvasHeight, setCanvasWidth, Rectangle, Arc,
-  Context2D, getCanvasElementById, TextAlign(..), LineCap(..))
-import Effect
-import Effect.Exception.Unsafe (unsafeThrow)
-import Control.Monad (when)
-import Data.Lens.Getter ((^.))
-import Data.Lens.At (at)
-import Data.Lens.Prism.Maybe (_Just)
-import Math (pi, floor, ceil)
-
-import LevelMap
-import Types
 import CanvasM
-import Utils
+import Data.Array hiding ((..))
+import Data.Foldable
+import Data.Function
+import Data.Maybe
+import Data.Tuple
+import Effect
 import Game
+import LevelMap
+import Prelude
 import Style
+import Types
+import Utils
+
+import Control.Monad (when)
+import Data.Int as Int
+import Data.Lens.At (at)
+import Data.Lens.Getter ((^.))
+import Data.Lens.Prism.Maybe (_Just)
+import Data.Map as M
+import Data.Profunctor.Strong ((***))
+import Data.Tuple.Nested ((/\))
+import Effect.Exception (throw)
+import Graphics.Canvas (Arc, Context2D, LineCap(..), TextAlign(..), Rectangle, getCanvasElementById, getContext2D, setCanvasHeight, setCanvasWidth)
+import Math (pi, floor, ceil)
 
 
 halfBlock     = floor (pxPerBlock / 2.0)
@@ -35,7 +33,7 @@ halfCanvas    = floor (canvasSize / 2.0)
 
 scaleRect :: Number -> Position -> Rectangle
 scaleRect scale (Position p) =
-  {x: p.x * scale, y: p.y * scale, h: scale, w: scale}
+  {x: p.x * scale, y: p.y * scale, height: scale, width: scale}
 
 toPosition :: Rectangle -> Position
 toPosition r = Position {x:r.x, y:r.y}
@@ -65,17 +63,16 @@ setupRendering = do
 
 -- set up a canvas with the correct dimensions and return its context
 setupRenderingById :: String -> Effect Context2D
-setupRenderingById elId =
-  getCanvasElementById elId
-    >>= justOrErr
-    >>= flip setCanvasHeight canvasSize
-    >>= flip setCanvasWidth canvasSize
-    >>= getContext2D
+setupRenderingById elId = do
+  el <- getCanvasElementById elId >>= justOrErr
+  setCanvasHeight el canvasSize
+  setCanvasWidth el canvasSize
+  getContext2D el
 
   where
-  justOrErr :: forall a f. Applicative f => Maybe a -> f a
+  justOrErr :: forall a. Maybe a -> Effect a
   justOrErr (Just x) = pure x
-  justOrErr Nothing = unsafeThrow $ "no canvas element found with id = " <> elId
+  justOrErr Nothing = throw $ "no canvas element found with id = " <> elId
 
 clearBackground :: forall e. CanvasM e Unit
 clearBackground = do
@@ -165,11 +162,11 @@ renderCorners cs = do
               translate t
               rotate a
           , go:
-              arc { start: pi
-                  , end:   1.5 * pi
-                  , x:     cornerMid
-                  , y:     cornerMid
-                  , r:     cornerRadius
+              arc { start:  pi
+                  , end:    1.5 * pi
+                  , x:      cornerMid
+                  , y:      cornerMid
+                  , radius: cornerRadius
                   }
           }
         CRI ->
@@ -177,11 +174,11 @@ renderCorners cs = do
               translate t
               rotate a
           , go:
-              arc { start: 0.0
-                  , end:   pi/2.0
-                  , x:     -cornerMid
-                  , y:     -cornerMid
-                  , r:     cornerRadius
+              arc { start:  0.0
+                  , end:    pi/2.0
+                  , x:      -cornerMid
+                  , y:      -cornerMid
+                  , radius: cornerRadius
                   }
           }
         CSH ->
@@ -317,7 +314,7 @@ playerRenderParameters player =
            , y: centre.y
            , start: (baseAngle + delta)
            , end: (baseAngle - delta)
-           , r: playerRadius
+           , radius: playerRadius
            }
     , start: { x: start ^. pX
              , y: start ^. pY
@@ -329,8 +326,8 @@ enlargeRect :: Number -> Rectangle -> Rectangle
 enlargeRect delta r =
   { x: r.x - delta
   , y: r.y - delta
-  , w: r.w + (2.0 * delta)
-  , h: r.h + (2.0 * delta)
+  , width: r.width + (2.0 * delta)
+  , height: r.height + (2.0 * delta)
   }
 
 renderItems :: forall e. Game -> CanvasM e Unit
@@ -348,7 +345,7 @@ renderItem rampaging item = do
         , y: centre.y
         , start: 0.0
         , end: 2.0 * pi
-        , r: dotRadiusFor (item ^. iType)
+        , radius: dotRadiusFor (item ^. iType)
         }
     fill
 
@@ -379,8 +376,9 @@ renderPlayers game = do
   step = 8
   flashes = iterateN 5 initial (f *** f)
 
+wholeCanvas :: Rectangle
 wholeCanvas =
-  {x: 0.0, y: 0.0, h: canvasSize, w: canvasSize}
+  {x: 0.0, y: 0.0, height: canvasSize, width: canvasSize}
 
 clearCanvas :: forall e. CanvasM e Unit
 clearCanvas =
