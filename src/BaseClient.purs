@@ -10,22 +10,34 @@ import Utils
 
 import Control.Monad.Reader.Class as R
 import Control.Monad.Writer.Class as W
+import Data.Argonaut.Decode.Generic.Rep (class DecodeRep)
+import Data.Argonaut.Encode.Generic.Rep (class EncodeRep)
 import Data.Array (insertAt)
 import Data.Either as E
 import Data.Foldable (for_)
 import Data.Generic.Rep (class Generic)
 import Data.Map as M
+import Data.Newtype (unwrap)
 import Data.Tuple (fst, snd)
 import Effect (Effect)
 import Effect.Exception.Unsafe (unsafeThrow)
 import Effect.Ref (Ref)
 import Effect.Ref as Ref
+import Foreign as F
 import Web.Event.EventTarget (EventListener, EventTarget, addEventListener, eventListener)
-import Web.UIEvent.KeyboardEvent (KeyboardEvent, fromEvent)
+import Web.Event.EventTarget (addEventListener, eventListener)
+import Web.HTML (window)
+import Web.HTML.Window as Window
+import Web.Socket.Event.EventTypes as WSE
+import Web.Socket.Event.MessageEvent as WSME
+import Web.Socket.WebSocket (WebSocket)
+import Web.Socket.WebSocket as WS
+import Web.UIEvent.KeyboardEvent (KeyboardEvent)
+import Web.UIEvent.KeyboardEvent as KBD
 import Web.UIEvent.KeyboardEvent.EventTypes (keydown)
 
 type Client st =
-  { conn        :: WS.Connection
+  { sock        :: WebSocket
   , state       :: st
   , playerId    :: PlayerId
   , players     :: M.Map PlayerId String
@@ -40,15 +52,15 @@ data ClientMReader =
 getReader :: forall st. Client st -> ClientMReader
 getReader c = ClientMReader { playerId: c.playerId, players: c.players }
 
-type ClientCallbacks st inc outg e =
-  { onMessage     :: inc -> ClientM st outg e Unit
-  , onKeyDown     :: KeyboardEvent -> ClientM st outg e Unit
-  , render        :: ClientM st outg e Unit
-  , onError       :: ClientM st outg e Unit
-  , onClose       :: ClientM st outg e Unit
+type ClientCallbacks st inc outg =
+  { onMessage     :: inc -> ClientM st outg Unit
+  , onKeyDown     :: KeyboardEvent -> ClientM st outg Unit
+  , render        :: ClientM st outg Unit
+  , onError       :: ClientM st outg Unit
+  , onClose       :: ClientM st outg Unit
   }
 
-type ClientM st outg e a =
+type ClientM st outg a =
   RWST ClientMReader (Array outg) st (Effect) a
 
 type ClientMResult st outg a =
@@ -58,7 +70,7 @@ type ClientMResult st outg a =
   }
 
 runClientM :: forall st outg e a.
-  ClientMReader -> st -> ClientM st outg e a
+  ClientMReader -> st -> ClientM st outg a
   -> Effect (ClientMResult st outg a)
 runClientM rdr state action = do
   RWSResult nextState result messages <- runRWST action rdr state
@@ -68,27 +80,31 @@ runClientM rdr state action = do
     , messages
     }
 
-mkClient :: forall st. st -> WS.Connection -> PlayerId -> Client st
-mkClient initialState conn pId =
-  { conn
+mkClient :: forall st. st -> WebSocket -> PlayerId -> Client st
+mkClient initialState sock pId =
+  { sock
   , state: initialState
   , playerId: pId
   , players: M.empty
   }
 
-runCallback :: forall st outg e. (Generic outg) =>
-  Ref (Client st) -> ClientM st outg e Unit -> Effect Unit
+runCallback :: forall st outg rep.
+  Generic outg rep =>
+  EncodeRep rep =>
+  Ref (Client st) -> ClientM st outg Unit -> Effect Unit
 runCallback refCln callback = do
   cln <- Ref.read refCln
   res <- runClientM (getReader cln) cln.state callback
   sendAllMessages cln res.messages
-  Ref.write refCln $ cln { state = res.nextState }
+  Ref.write (cln { state = res.nextState }) refCln
 
-sendAllMessages :: forall e st outg. (Generic outg) =>
+sendAllMessages :: forall st outg rep.
+  Generic outg rep =>
+  EncodeRep rep =>
   Client st -> Array outg -> Effect Unit
 sendAllMessages cln msgs =
   for_ msgs $ \msg ->
-    wsSend cln.conn (encode msg)
+    WS.sendString cln.sock (encode msg)
 
 sendUpdate :: forall m outg.
   Monad m =>
@@ -126,31 +142,41 @@ askPlayerName = do
     fromMaybe err $ M.lookup pId c.players
   err = unsafeThrow "player name not found. this is a bug :/"
 
-liftEff :: forall st outg e a. Effect a -> ClientM st outg e a
+liftEff :: forall st outg a. Effect a -> ClientM st outg a
 liftEff = lift
 
-startClient :: forall st inc outg e.
-  Generic inc =>
-  Generic outg =>
-  st -> ClientCallbacks st inc outg e -> String -> String
+startClient :: forall st inc outg rep1 rep2.
+  Generic inc rep1 =>
+  DecodeRep rep1 =>
+  Generic outg rep2 =>
+  EncodeRep rep2 =>
+  st -> ClientCallbacks st inc outg -> String -> String
   -> Effect Unit
 startClient initialState cs socketUrl playerName =
-  connectSocket socketUrl playerName \(WS.Connection conn) pId msgs internals -> do
+  connectSocket socketUrl playerName \sock pId msgs internals -> do
     log $ "connected. pId = " <> show pId <> ", msgs = " <> show msgs
-    let cln' = mkClient initialState (WS.Connection conn) pId
+    let cln' = mkClient initialState sock pId
     refCln <- Ref.new cln'
 
     for_ msgs (onMessageCallback refCln)
     for_ internals (handleInternalMessage refCln)
 
-    set conn.onmessage (onMessageCallback refCln <<< WS.runMessage <<< WS.runMessageEvent)
-    set conn.onerror   (const (runCallback refCln cs.onError))
-    set conn.onclose   (const (runCallback refCln cs.onClose))
+    let sockTarget = WS.toEventTarget sock
 
-    addEventListener
-      keydown
-      (eventListener (maybe (pure unit) (runCallback refCln <<< cs.onKeyDown) <<< fromEvent))
-      globalWindow
+    onMessageListener <- eventListener \evt ->
+      for_ (WSME.fromEvent evt >>= wsMessageData) (onMessageCallback refCln)
+    addEventListener WSE.onMessage onMessageListener false sockTarget
+
+    onErrorListener <- eventListener (const (runCallback refCln cs.onError))
+    addEventListener WSE.onError onErrorListener false sockTarget
+
+    onCloseListener <- eventListener (const (runCallback refCln cs.onClose))
+    addEventListener WSE.onClose onCloseListener false sockTarget
+
+    keydownListener <- eventListener \evt ->
+        for_ (KBD.fromEvent evt) (runCallback refCln <<< cs.onKeyDown)
+    windowTarget <- map Window.toEventTarget window
+    addEventListener keydown keydownListener false windowTarget
 
     void $ startAnimationLoop $ do
       c <- Ref.read refCln
@@ -176,12 +202,14 @@ handleInternalMessage refCln msg = do
   case msg of
     NewPlayer m -> do
       log $ "handling NewPlayer internal message: " <> show m
-      Ref.modify refCln $ \cln -> cln { players = m }
+      void $ Ref.modify (\cln -> cln { players = m }) refCln
+    YourPlayerIdIs _ ->
+      pure unit
 
 
 connectSocket :: forall e.
   String -> String
-  -> (WS.Connection -> PlayerId
+  -> (WebSocket -> PlayerId
                 -> Array String
                 -> Array InternalMessage
                 -> Effect Unit)
@@ -192,24 +220,31 @@ connectSocket url playerName cont = do
   -- HACK - for messages received before the client is fully operational.
   delayedMsgs <- Ref.new ([] :: Array String)
   delayedInternals <- Ref.new ([] :: Array InternalMessage)
-  WS.Connection conn <- WS.newWebSocket (WS.URL fullUrl) []
+  sock <- WS.create fullUrl []
 
-  set conn.onmessage \msgEv -> do
-    let msg = WS.runMessage (WS.runMessageEvent msgEv)
-    case decode msg of
-      E.Right (YourPlayerIdIs pId) -> do
-        delayed <- Ref.read delayedMsgs
-        internals <- Ref.read delayedInternals
-        cont (WS.Connection conn) pId delayed internals
-      E.Right i -> Ref.modify delayedInternals $ \arr -> arr <> [i]
-      E.Left _ -> Ref.modify delayedMsgs $ \arr -> arr <> [msg]
+  let
+    onMessage ev =
+      for_ (WSME.fromEvent ev >>= wsMessageData) \msg ->
+        case decode msg of
+          E.Right (YourPlayerIdIs pId) -> do
+            delayed <- Ref.read delayedMsgs
+            internals <- Ref.read delayedInternals
+            cont sock pId delayed internals
+          E.Right i -> void $ Ref.modify (\arr -> arr <> [i]) delayedInternals
+          E.Left _ -> void $ Ref.modify (\arr -> arr <> [msg]) delayedMsgs
 
+  onMessageListener <- eventListener onMessage
+  addEventListener WSE.onMessage onMessageListener false (WS.toEventTarget sock)
+
+wsMessageData :: WSME.MessageEvent -> Maybe String
+wsMessageData =
+  hush <<< F.readString <<< WSME.data_
+  where
+  hush :: forall a. F.F a -> Maybe a
+  hush = E.hush <<< unwrap <<< unwrap
 
 foreign import data AnimationLoop :: Type
 
 foreign import startAnimationLoop :: forall a. Effect a -> Effect AnimationLoop
 
 foreign import stopAnimationLoop :: AnimationLoop -> Effect Unit
-
-wsSend :: WS.Connection -> String -> _
-wsSend (WS.Connection r) msg = r.send (WS.Message msg)
