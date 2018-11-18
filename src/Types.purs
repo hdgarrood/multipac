@@ -589,7 +589,6 @@ data ClientState
 type ClientStateWaiting
   = { prevGame          :: Maybe Game
     , backgroundCleared :: Boolean
-    , cachedHtml        :: String
     , readyStates       :: Map PlayerId ReadyState
     }
 
@@ -597,7 +596,6 @@ type ClientStateInProgress
   = { game :: Game
     , prevGame :: Game
     , redrawMap :: Boolean
-    , cachedHtml :: String
     }
 
 type RenderingContext =
@@ -616,7 +614,3 @@ backgroundCleared = lens
 readyStates = lens
   (\s -> s.readyStates)
   (\s x -> s { readyStates = x })
-
-cachedHtml = lens
-  (\s -> s.cachedHtml)
-  (\s x -> s { cachedHtml = x })

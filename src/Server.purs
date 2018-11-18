@@ -26,6 +26,7 @@ import Node.HTTP as Http
 import Node.Stream as Stream
 import Node.FS.Async as FS
 import Node.Encoding (Encoding(..))
+import Text.Smolder.Renderer.String (render)
 
 import NodeWebSocket as WS
 import NodeUrl
@@ -54,7 +55,7 @@ createHttpServer =
     let path = (parseUrl (Http.requestURL req)).pathname
     case path of
       "/" ->
-        sendHtml res indexHtml
+        sendHtml res (render indexHtml)
       "/js/client.js" ->
         sendFile res "dist/client.js"
       _ ->

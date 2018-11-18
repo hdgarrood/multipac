@@ -20,7 +20,6 @@ import Text.Smolder.HTML.Attributes
   rel, href)
 import Text.Smolder.Markup (text, (!))
 import Text.Smolder.HTML (Html)
-import Text.Smolder.Renderer.String (render)
 
 import Utils
 import Types
@@ -248,8 +247,8 @@ playerColorStyles =
   where
   concat = String.joinWith ""
 
-indexDoc :: Html Unit
-indexDoc =
+indexHtml :: forall void. Html void
+indexHtml =
   html ! lang "en" $ do
     head $ do
       meta ! charset "utf-8"
@@ -282,21 +281,14 @@ indexDoc =
 
         div ! id "scores-container" $ text ""
 
-indexHtml :: String
-indexHtml = render indexDoc
-
 type PlayerReadyInfo
   = { ready :: Boolean
     , name  :: String
     }
 
-waitingMessage ::
-  ClientStateWaiting -> PlayerId -> M.Map PlayerId String -> String
-waitingMessage sw pId ps = render $ waitingMessageDoc sw pId ps
-
-waitingMessageDoc ::
-  ClientStateWaiting -> PlayerId -> M.Map PlayerId String -> Html Unit
-waitingMessageDoc sw pId playersMap = do
+waitingMessage :: forall void.
+  ClientStateWaiting -> PlayerId -> M.Map PlayerId String -> Html void
+waitingMessage sw pId playersMap = do
   whenJust sw.prevGame (scoresTable pId playersMap)
 
   let r = fromMaybe NotReady $ M.lookup pId sw.readyStates
@@ -332,7 +324,7 @@ type PlayerScoreInfo
     , pId   :: PlayerId
     }
 
-scoresTable :: PlayerId -> M.Map PlayerId String -> Game -> Html Unit
+scoresTable :: forall void. PlayerId -> M.Map PlayerId String -> Game -> Html void
 scoresTable pId playersMap game =
   div ! className "scores clearfix" $ do
     h2 ! className "scores-header" $ text "scores"
@@ -367,13 +359,8 @@ getPlayerInfo playersMap (Tuple pId'' p) = do
   name <- M.lookup pId'' playersMap
   pure $ { score: p ^. pScore, name: name, pId: pId'' }
 
-
-simpleScores :: M.Map PlayerId String -> Game -> String
-simpleScores m game =
-  render $ simpleScoresHtml m game
-
-simpleScoresHtml :: forall e. M.Map PlayerId String -> Game -> Html e
-simpleScoresHtml playersMap game = do
+simpleScores :: forall e. M.Map PlayerId String -> Game -> Html e
+simpleScores playersMap game = do
   div ! className "simple-scores" $ do
     for_ (playerInfos game playersMap) $ \info -> do
       let pId = displayPlayerId info.pId

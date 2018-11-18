@@ -25,7 +25,6 @@ import Effect.Ref (Ref)
 import Effect.Ref as Ref
 import Foreign as F
 import Web.Event.EventTarget (EventListener, EventTarget, addEventListener, eventListener)
-import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (window)
 import Web.HTML.Window as Window
 import Web.Socket.Event.EventTypes as WSE

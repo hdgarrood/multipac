@@ -36,6 +36,7 @@
     "purescript-argonaut-generic": "^3.0.0",
     "purescript-argonaut-core": "^4.0.1",
     "purescript-psci-support": "^4.0.0",
-    "purescript-web-socket": "^1.0.0"
+    "purescript-web-socket": "^1.0.0",
+    "purescript-web-storage": "^2.0.0"
   }
 }
