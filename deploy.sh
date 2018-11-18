@@ -13,10 +13,9 @@ if check_status; then
 
     BRANCH=`git rev-parse --abbrev-ref HEAD`
     git checkout deploy
-    git submodule update
     git merge master -m 'merging from master'
     npm -s run build
-    git add --force dist/ dist/node_modules static/ static/js/
+    git add --force dist/ static/ static/js/
     git commit -m 'deploying' || true
     git push heroku deploy:master
 
