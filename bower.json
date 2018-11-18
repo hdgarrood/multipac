@@ -16,7 +16,6 @@
     "purescript-canvas": "^4.0.0",
     "purescript-web-dom": "^1.0.0",
     "purescript-foldable-traversable": "^4.1.0",
-    "purescript-foreign-generic": "^7.0.0",
     "purescript-generics-rep": "^6.1.0",
     "purescript-js-timers": "^4.0.1",
     "purescript-newtype": "^3.0.0",
@@ -32,6 +31,10 @@
     "purescript-node-fs": "^5.0.0",
     "purescript-console": "^4.2.0",
     "purescript-web-html": "^1.2.0",
-    "purescript-web-uievents": "^1.0.0"
+    "purescript-web-uievents": "^1.0.0",
+    "purescript-argonaut-codecs": "^5.0.0",
+    "purescript-argonaut-generic": "^3.0.0",
+    "purescript-argonaut-core": "^4.0.1",
+    "purescript-psci-support": "^4.0.0"
   }
 }

@@ -22,6 +22,8 @@ import Data.Lens.Getter ((^.))
 import Data.Lens.Setter ((%~), (.~))
 import Data.List as List
 import Data.Generic.Rep (class Generic)
+import Data.Argonaut.Encode.Generic.Rep (class EncodeRep)
+import Data.Argonaut.Decode.Generic.Rep (class DecodeRep)
 import Data.Map as M
 import Data.String as S
 import Effect (Effect)
@@ -119,20 +121,24 @@ mkServer initialState =
   , timeCounter: 0
   }
 
-runCallback :: forall st outg args e. (Generic outg) =>
+runCallback :: forall st outg rep.
+  Generic outg rep =>
+  EncodeRep rep =>
   Ref (Server st) -> ServerM st outg Unit
   -> Effect Unit
 runCallback refSrv callback = do
   srv <- Ref.read refSrv
   let res = runServerM srv.connections srv.state callback
   sendAllMessages srv res.messages
-  Ref.write refSrv $ srv { state = res.nextState }
+  Ref.write (srv { state = res.nextState }) refSrv
 
 messagesFor :: forall outg. PlayerId -> SendMessages outg -> Array outg
 messagesFor pId (SendMessages sm) =
   sm.toAll <> fromMaybe [] (M.lookup pId sm.toOne)
 
-sendAllMessages :: forall st outg rep. (Generic outg rep) =>
+sendAllMessages :: forall st outg rep.
+  Generic outg rep =>
+  EncodeRep rep =>
   Server st -> SendMessages outg
   -> Effect Unit
 sendAllMessages srv sm = do
@@ -171,9 +177,11 @@ askPlayers =
 
 stepsPerSecond = 30
 
-startServer :: forall st inc outg e.
-  Generic inc =>
-  Generic outg =>
+startServer :: forall st inc rep1 rep2 outg e.
+  Generic inc rep1 =>
+  DecodeRep rep1 =>
+  Generic outg rep2 =>
+  EncodeRep rep2 =>
   ServerCallbacks st inc outg -> Ref (Server st)
   -> Effect WS.Server
 startServer cs refSrv = do
@@ -214,9 +222,9 @@ startServer cs refSrv = do
   void $ setInterval (1000 / stepsPerSecond) $
     runCallback refSrv $ cs.step
 
-  setInterval idleInterval $ do
-    kickIdlePlayers refSrv
-    updateServerTimeCounter refSrv
+  void $ setInterval idleInterval $ do
+    void $ kickIdlePlayers refSrv
+    void $ updateServerTimeCounter refSrv
 
   pure server
 
@@ -252,9 +260,11 @@ handleNewPlayer refSrv pId = do
   let msgs = SendMessages { toAll: [msgAll]
                           , toOne: M.singleton pId [msgOne]
                           }
-  log $ "new player connected, sending to all: " <> encode msgAll
-  log $ "                      sending to one: " <> encode msgOne
-  sendAllMessages srv msgs
+  -- log $ "new player connected, sending to all: " <> encode msgAll
+  -- log $ "                      sending to one: " <> encode msgOne
+  -- sendAllMessages srv msgs
+  -- FIXME
+  pure unit
 
 
 closeConnection :: forall st.
@@ -271,7 +281,7 @@ updatePlayerTimeCounter refSrv pId = do
     let conn' = conn # cTimeCounter .~ srv.timeCounter
     let conns' = filter (\c -> pId /= c ^. cPId) srv.connections
     let conns'' = conns' <> [conn']
-    Ref.modify refSrv $ connections .~ conns''
+    void $ Ref.modify (connections .~ conns'') refSrv
 
 
 kickIdlePlayers refSrv = do

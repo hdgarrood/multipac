@@ -14,7 +14,8 @@ import Control.Monad
 import Control.Monad.State.Class (get, put, modify)
 import Effect
 import Effect.Console
-import Effect.Ref
+import Effect.Ref (Ref)
+import Effect.Ref as Ref
 import Effect.Exception (throw, message)
 import Effect.Timer
 import Data.Lens (lens, Lens'())
@@ -38,13 +39,13 @@ initialState :: GameState
 initialState = WaitingForPlayers M.empty
 
 main = do
-  refSrv <- newRef (mkServer initialState)
+  refSrv <- Ref.new (mkServer initialState)
   port <- portOrDefault 8080
   httpServer <- createHttpServer
   wsServer <- startServer serverCallbacks refSrv
 
   WS.mount wsServer httpServer
-  Http.listen httpServer port $
+  Http.listen httpServer { hostname: "::", port, backlog: Nothing } $
     log $ "listening on " <> show port <> "..."
 
 
@@ -150,7 +151,7 @@ sendFile res path = do
       E.Right fileData ->
         void (sendContent res mimeType fileData)
       E.Left err ->
-        throw ("While trying to read " ++ path ++ ": " ++ message err)
+        throw ("While trying to read " <> path <> ": " <> message err)
 
 sendContent res contentType contentData = do
   Http.setStatusCode res 200
@@ -181,6 +182,6 @@ detectMime str = do
 
 extension :: String -> Maybe String
 extension str =
-  let arr = String.split "." str
+  let arr = String.split (String.Pattern ".") str
       len = length arr
   in  arr !! (len - 1)

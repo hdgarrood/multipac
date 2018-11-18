@@ -1,31 +1,36 @@
 module Types where
 
-import Prelude
-import Data.Maybe (Maybe(..), maybe)
-import Data.Foldable
-import Data.Traversable
-import Data.Function 
-import Data.Map (Map)
-import Data.Map as Map
-import Data.Either (Either)
-import Data.Either as E
-import Data.Tuple
-import Data.String hiding (singleton, uncons)
-import Data.Array (singleton)
-import Data.Generic.Rep (class Generic)
-import Data.Generic.Rep.Show (genericShow)
-import Graphics.Canvas
-import Control.Monad.Writer.Trans
-import Control.Monad.Writer.Class
 import Control.Monad.State
 import Control.Monad.State.Class
-import Effect
-import Effect.Ref (Ref)
-import Effect.Timer
+import Control.Monad.Writer.Class
+import Control.Monad.Writer.Trans
+import Data.Foldable
+import Data.Function
 import Data.Lens
+import Data.String hiding (singleton,uncons)
+import Data.Traversable
+import Data.Tuple
+import Effect
+import Effect.Timer
+import Graphics.Canvas
+import Prelude
+
+import Data.Argonaut.Encode.Class (class EncodeJson)
+import Data.Argonaut.Encode.Generic.Rep (genericEncodeJson)
+import Data.Argonaut.Decode.Class (class DecodeJson)
+import Data.Argonaut.Decode.Generic.Rep (genericDecodeJson)
+import Data.Array (singleton)
+import Data.Either (Either)
+import Data.Either as E
+import Data.Generic.Rep (class Generic)
+import Data.Generic.Rep.Show (genericShow)
 import Data.Lens.Getter ((^.))
 import Data.Lens.Setter (over)
 import Data.Lens.Types (Lens')
+import Data.Map (Map)
+import Data.Map as Map
+import Data.Maybe (Maybe(..), maybe)
+import Effect.Ref (Ref)
 import Math (floor, pi, pow)
 
 -- newtype wrapper is just for instances. We have to duplicate the type synonym
@@ -51,10 +56,26 @@ newtype WrappedGame = WrappedGame
 derive instance eqWrappedGame :: Eq WrappedGame
 derive instance genericWrappedGame :: Generic WrappedGame _
 
+instance encodeJsonWrappedGame :: EncodeJson WrappedGame where
+  encodeJson = genericEncodeJson
+
+instance decodeJsonWrappedGame :: DecodeJson WrappedGame where
+  decodeJson = genericDecodeJson
+
 unwrapGame :: WrappedGame -> Game
 unwrapGame (WrappedGame g) = g
 
 data PlayerId = P1 | P2 | P3 | P4
+
+derive instance eqPlayerId :: Eq PlayerId
+derive instance ordPlayerId :: Ord PlayerId
+derive instance genericPlayerId :: Generic PlayerId _
+
+instance encodeJsonPlayerId :: EncodeJson PlayerId where
+  encodeJson = genericEncodeJson
+
+instance decodeJsonPlayerId :: DecodeJson PlayerId where
+  decodeJson = genericDecodeJson
 
 -- | For use in UIs, instead of the Show instance.
 displayPlayerId :: PlayerId -> String
@@ -64,10 +85,6 @@ displayPlayerId x =
     P2 -> "P2"
     P3 -> "P3"
     P4 -> "P4"
-
-derive instance eqPlayerId :: Eq PlayerId
-derive instance ordPlayerId :: Ord PlayerId
-derive instance genericPlayerId :: Generic PlayerId _
 
 allPlayerIds :: Array PlayerId
 allPlayerIds = [P1, P2, P3, P4]
@@ -111,10 +128,22 @@ unwrapLevelMap (WrappedLevelMap m) = m
 derive instance eqLevelMap :: Eq WrappedLevelMap
 derive instance genericLevelMap :: Generic WrappedLevelMap _
 
+instance encodeJsonWrappedLevelMap :: EncodeJson WrappedLevelMap where
+  encodeJson = genericEncodeJson
+
+instance decodeJsonWrappedLevelMap :: DecodeJson WrappedLevelMap where
+  decodeJson = genericDecodeJson
+
 data Block = Wall | Empty
 
 derive instance eqBlock :: Eq Block
 derive instance genericBlock :: Generic Block _
+
+instance encodeJsonBlock :: EncodeJson Block where
+  encodeJson = genericEncodeJson
+
+instance decodeJsonBlock :: DecodeJson Block where
+  decodeJson = genericDecodeJson
 
 instance showBlock :: Show Block where
   show = genericShow
@@ -142,6 +171,12 @@ derive instance genericTile :: Generic Tile _
 instance showTile :: Show Tile where
   show = genericShow
 
+instance encodeJsonTile :: EncodeJson Tile where
+  encodeJson = genericEncodeJson
+
+instance decodeJsonTile :: DecodeJson Tile where
+  decodeJson = genericDecodeJson
+
 isWall :: Block -> Boolean
 isWall Wall = true
 isWall _ = false
@@ -161,6 +196,12 @@ derive instance genericPosition :: Generic Position _
 
 instance showPosition :: Show Position where
   show = genericShow
+
+instance encodeJsonPosition :: EncodeJson Position where
+  encodeJson = genericEncodeJson
+
+instance decodeJsonPosition :: DecodeJson Position where
+  decodeJson = genericDecodeJson
 
 addPos :: Position -> Position -> Position
 addPos (Position p) (Position q) = Position {x: p.x + q.x, y: p.y + q.y}
@@ -189,6 +230,12 @@ newtype Player
 
 derive instance eqPlayer :: Eq Player
 derive instance genericPlayer :: Generic Player _
+
+instance encodeJsonPlayer :: EncodeJson Player where
+  encodeJson = genericEncodeJson
+
+instance decodeJsonPlayer :: DecodeJson Player where
+  decodeJson = genericDecodeJson
 
 nomIndexMax = 10
 
@@ -262,6 +309,12 @@ newtype Item
 derive instance eqItem :: Eq Item
 derive instance genericItem :: Generic Item _
 
+instance encodeJsonItem :: EncodeJson Item where
+  encodeJson = genericEncodeJson
+
+instance decodeJsonItem :: DecodeJson Item where
+  decodeJson = genericDecodeJson
+
 instance showItem :: Show Item where
   show = genericShow
 
@@ -293,7 +346,14 @@ eachItem' game action =
 data Direction = Up | Down | Left | Right
 
 derive instance eqDirection :: Eq Direction
+derive instance ordDirection :: Eq Direction
 derive instance genericDirection :: Generic Direction _
+
+instance encodeJsonDirection :: EncodeJson Direction where
+  encodeJson = genericEncodeJson
+
+instance decodeJsonDirection :: DecodeJson Direction where
+  decodeJson = genericDecodeJson
 
 instance showDirection :: Show Direction where
   show = genericShow
@@ -301,7 +361,14 @@ instance showDirection :: Show Direction where
 data ItemType = LittleDot | BigDot
 
 derive instance eqItemType :: Eq ItemType
+derive instance ordItemType :: Eq ItemType
 derive instance genericItemType :: Generic ItemType _
+
+instance encodeJsonItemType :: EncodeJson ItemType where
+  encodeJson = genericEncodeJson
+
+instance decodeJsonItemType :: DecodeJson ItemType where
+  decodeJson = genericDecodeJson
 
 instance showItemType :: Show ItemType where
   show = genericShow
@@ -344,6 +411,12 @@ derive instance genericPlayerUpdate :: Generic PlayerUpdate _
 instance showPlayerUpdate :: Show PlayerUpdate where
   show = genericShow
 
+instance encodeJsonPlayerUpdate :: EncodeJson PlayerUpdate where
+  encodeJson = genericEncodeJson
+
+instance decodeJsonPlayerUpdate :: DecodeJson PlayerUpdate where
+  decodeJson = genericDecodeJson
+
 data ItemUpdate
   = Eaten
 
@@ -353,14 +426,27 @@ derive instance genericItemUpdate :: Generic ItemUpdate _
 instance showItemUpdate :: Show ItemUpdate where
   show = genericShow
 
+instance encodeJsonItemUpdate :: EncodeJson ItemUpdate where
+  encodeJson = genericEncodeJson
+
+instance decodeJsonItemUpdate :: DecodeJson ItemUpdate where
+  decodeJson = genericDecodeJson
+
 data GameEndReason
   = Completed
   | TooManyPlayersDisconnected
 
+derive instance eqGameEndReason :: Eq GameEndReason
 derive instance genericGameEndReason :: Generic GameEndReason _
 
 instance showGameEndReason :: Show GameEndReason where
   show = genericShow
+
+instance encodeJsonGameEndReason :: EncodeJson GameEndReason where
+  encodeJson = genericEncodeJson
+
+instance decodeJsonGameEndReason :: DecodeJson GameEndReason where
+  decodeJson = genericDecodeJson
 
 data Rampage
   = Rampaging PlayerId Int
@@ -368,6 +454,12 @@ data Rampage
 
 derive instance eqRampage :: Eq Rampage
 derive instance genericRampage :: Generic Rampage _
+
+instance encodeJsonRampage :: EncodeJson Rampage where
+  encodeJson = genericEncodeJson
+
+instance decodeJsonRampage :: DecodeJson Rampage where
+  decodeJson = genericDecodeJson
 
 data GameUpdate
   = GUPU PlayerId PlayerUpdate
@@ -377,6 +469,12 @@ data GameUpdate
   | ChangedRampage (Maybe Rampage)
 
 derive instance genericGameUpdate :: Generic GameUpdate _
+
+instance encodeJsonGameUpdate :: EncodeJson GameUpdate where
+  encodeJson = genericEncodeJson
+
+instance decodeJsonGameUpdate :: DecodeJson GameUpdate where
+  decodeJson = genericDecodeJson
 
 data ReadyState
   = Ready
@@ -393,6 +491,12 @@ derive instance genericReadyState :: Generic ReadyState _
 instance showReadyState :: Show ReadyState where
   show = genericShow
 
+instance encodeJsonReadyState :: EncodeJson ReadyState where
+  encodeJson = genericEncodeJson
+
+instance decodeJsonReadyState :: DecodeJson ReadyState where
+  decodeJson = genericDecodeJson
+
 -- Sent by the server during the waiting stage, ie, after initial connection
 -- but before the game starts
 data WaitingUpdate
@@ -400,6 +504,12 @@ data WaitingUpdate
   | NewReadyStates (Map PlayerId ReadyState)
 
 derive instance genericWaitingUpdate :: Generic WaitingUpdate _
+
+instance encodeJsonWaitingUpdate :: EncodeJson WaitingUpdate where
+  encodeJson = genericEncodeJson
+
+instance decodeJsonWaitingUpdate :: DecodeJson WaitingUpdate where
+  decodeJson = genericDecodeJson
 
 type GameUpdateM a = WriterT (Array GameUpdate) (State WrappedGame) a
 
