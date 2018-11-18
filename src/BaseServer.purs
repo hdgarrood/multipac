@@ -260,11 +260,9 @@ handleNewPlayer refSrv pId = do
   let msgs = SendMessages { toAll: [msgAll]
                           , toOne: M.singleton pId [msgOne]
                           }
-  -- log $ "new player connected, sending to all: " <> encode msgAll
-  -- log $ "                      sending to one: " <> encode msgOne
-  -- sendAllMessages srv msgs
-  -- FIXME
-  pure unit
+  log $ "new player connected, sending to all: " <> encode msgAll
+  log $ "                      sending to one: " <> encode msgOne
+  sendAllMessages srv msgs
 
 
 closeConnection :: forall st.
