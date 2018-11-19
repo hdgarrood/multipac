@@ -1,8 +1,8 @@
 # multipac
 
-multipac is a multiplayer version of pacman. Since it's featured on the
-<http://purescript.org> website, I recently decided it would be nice to tidy it
-up and document it a bit, so that it can be used as a learning resource too.
+multipac is a multiplayer version of pacman. It is implemented as a
+client-server application; both the client and the server are written in
+PureScript. You might find it useful as a learning resource.
 
 ## Play
 
