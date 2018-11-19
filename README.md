@@ -15,7 +15,7 @@ An instance of the game is live at <https://mpac.herokuapp.com/>.
 * The server and the client are both written in PureScript. The server is built
   on [`purescript-node-http`][], and the server and clients exchange data types
   using the [`Generic` instance deriving][] mechanism together with
-  [`purescript-foreign-generic`][] in order to exchange data as JSON with
+  [`purescript-argonaut-generic`][] in order to exchange data as JSON with
   minimal boilerplate.
 * The project is built using [Pulp][] together with [npm scripts][]. The
   `package.json` file contains scripts to build the server and the client parts
@@ -24,7 +24,7 @@ An instance of the game is live at <https://mpac.herokuapp.com/>.
   (from [`purescript-profunctor-lenses`][]) in order to make deeply nested
   updates easy.
 * The clients communicate with the server using [HTML5 WebSockets][]. The
-  clients use the [`purescript-websocket-simple`][] library, while the server
+  clients use the [`purescript-web-socket`][] library, while the server
   uses a JavaScript WebSocket server implementation from npm, namely,
   `websocket`.
 * The game-stepping function uses monad transformers from
@@ -58,19 +58,12 @@ that could benefit from a little bit of refactoring. Please feel free to ask if
 anything seems weird &mdash; I would like this project to function as a good
 learning resource as well as a fun experiment.
 
-## Required compiler version
-
-If you want to compile multipac, it currently requires the `master` version of
-the PureScript compiler, because of a bug in `Generic` instance deriving. At
-the time of writing, the most recent version, 0.8.0-rc1, is affected by this
-bug. Any later releases will most probably contain the fix.
-
 [HTML5 WebSockets]: http://www.html5rocks.com/en/tutorials/websockets/basics/
 [`purescript-profunctor-lenses`]: http://pursuit.purescript.org/packages/purescript-profunctor-lenses
 [`purescript-transformers`]: http://pursuit.purescript.org/packages/purescript-transformers
-[`purescript-websocket-simple`]: http://pursuit.purescript.org/packages/purescript-websocket-simple
+[`purescript-web-socket`]: http://pursuit.purescript.org/packages/purescript-web-socket
 [`purescript-node-http`]: http://pursuit.purescript.org/packages/purescript-node-http
-[`purescript-foreign-generic`]: http://pursuit.purescript.org/packages/purescript-foreign-generic
-[`Generic` instance deriving]: http://www.purescript.org/learn/generic/
-[Pulp]: https://github.com/bodil/pulp
+[`purescript-argonaut-generic`]: http://pursuit.purescript.org/packages/purescript-argonaut-generic
+[`Generic` instance deriving]: https://pursuit.purescript.org/packages/purescript-generics-rep
+[Pulp]: https://github.com/purescript-contrib/pulp
 [npm scripts]: https://docs.npmjs.com/misc/scripts
