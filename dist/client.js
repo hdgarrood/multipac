@@ -10270,7 +10270,7 @@ var PS = {};
                       if (r instanceof Types.NotReady) {
                           return "Press SPACE when you're ready";
                       };
-                      throw new Error("Failed pattern match at HtmlViews line 296, column 14 - line 300, column 3: " + [ r.constructor.name ]);
+                      throw new Error("Failed pattern match at HtmlViews line 308, column 14 - line 312, column 3: " + [ r.constructor.name ]);
                   })())))(function () {
                       return Text_Smolder_Markup["with"](Text_Smolder_Markup.attributableMarkupF)(Text_Smolder_HTML.div)(Text_Smolder_HTML_Attributes.className("clearfix"))(Data_Foldable.for_(Control_Monad_Free.freeApplicative)(Data_Foldable.foldableArray)(Types.allPlayerIds)(function (pId$prime) {
                           var mInfo = getPlayerInfo1(pId$prime);
@@ -10300,7 +10300,7 @@ var PS = {};
                                               if (info.ready instanceof Types.NotReady) {
                                                   return "not ready";
                                               };
-                                              throw new Error("Failed pattern match at HtmlViews line 313, column 22 - line 316, column 3: " + [ info.ready.constructor.name ]);
+                                              throw new Error("Failed pattern match at HtmlViews line 325, column 22 - line 328, column 3: " + [ info.ready.constructor.name ]);
                                           })()));
                                       });
                                   });
