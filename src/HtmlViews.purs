@@ -47,6 +47,7 @@ styles =
     , "${canvasSize}" /\ (show canvasSize)
     , "${canvasSize}" /\ (show canvasSize)
     , "${canvasSize}" /\ (show canvasSize)
+    , "${canvasSize}" /\ (show canvasSize)
     ] $ rawStyles <> playerColorStyles
 
 rawStyles = """
@@ -131,6 +132,7 @@ rawStyles = """
     text-align: center;
     width: ${canvasSize}px;
     font-size: 145%;
+    position: absolute;
   }
 
   #waiting-message p {
@@ -231,6 +233,11 @@ rawStyles = """
     width: 25%;
     float: left;
   }
+
+  .how-to-play {
+    position: relative;
+    top: calc(${canvasSize}px + 10px);
+  }
 """
 
 playerColorStyles :: String
@@ -281,6 +288,11 @@ indexHtml =
             text " to reconnect."
 
         div ! id "scores-container" $ text " "
+
+        div ! className "how-to-play" $ do
+          h2 $ text "how to play"
+          p $ text "Use the arrow keys to move. Obtain points by consuming small dots, big dots, or other players. The player with the most points once all of the dots have been consumed wins."
+          p $ text "Small dots are worth one point, and big dots are worth five. After you consume a big dot, you have a short window in which you are able to eat other players and steal half of their points. At the same time, the other players’ movement speeds will be reduced (making it easier to catch them). During this window, you will have a golden outline, and the other players will flash to indicate that they are vulnerable."
 
 type PlayerReadyInfo
   = { ready :: Boolean
