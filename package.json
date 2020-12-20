@@ -5,7 +5,7 @@
   },
   "scripts": {
     "build": "npm run build:client && npm run build:server",
-    "build:server": "pulp build --no-psa -O --to dist/server.js --main Server",
-    "build:client": "pulp build --no-psa -O --to dist/client.js --main Client"
+    "build:server": "spago --no-psa bundle-app --to dist/server.js --main Server",
+    "build:client": "spago --no-psa bundle-app --to dist/client.js --main Client"
   }
 }
