@@ -1,6 +1,7 @@
 module Utils where
 
 import Data.Array hiding ((..))
+import Data.Bifunctor (lmap)
 import Data.Either
 import Data.Function
 import Data.Maybe
@@ -24,6 +25,7 @@ import Data.Unfoldable (class Unfoldable, unfoldr)
 import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
 import Data.Argonaut.Encode.Generic.Rep (class EncodeRep, genericEncodeJson)
 import Data.Argonaut.Decode.Generic.Rep (class DecodeRep, genericDecodeJson)
+import Data.Argonaut.Decode.Error (printJsonDecodeError)
 import Data.Argonaut.Core (stringify)
 import Data.Argonaut.Parser (jsonParser)
 import Foreign.Object as StrMap
@@ -96,4 +98,4 @@ encode :: forall a rep. Generic a rep => EncodeRep rep => a -> String
 encode = stringify <<< genericEncodeJson
 
 decode :: forall a rep. Generic a rep => DecodeRep rep => String -> Either String a
-decode = genericDecodeJson <=< jsonParser
+decode = (lmap printJsonDecodeError <<< genericDecodeJson) <=< jsonParser

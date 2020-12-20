@@ -8,3 +8,5 @@ dist/
 server.log
 .pulp-cache/
 generated-docs/
+.purs-repl
+.spago/

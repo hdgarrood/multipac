@@ -346,7 +346,7 @@ eachItem' game action =
 data Direction = Up | Down | Left | Right
 
 derive instance eqDirection :: Eq Direction
-derive instance ordDirection :: Eq Direction
+derive instance ordDirection :: Ord Direction
 derive instance genericDirection :: Generic Direction _
 
 instance encodeJsonDirection :: EncodeJson Direction where
@@ -361,7 +361,7 @@ instance showDirection :: Show Direction where
 data ItemType = LittleDot | BigDot
 
 derive instance eqItemType :: Eq ItemType
-derive instance ordItemType :: Eq ItemType
+derive instance ordItemType :: Ord ItemType
 derive instance genericItemType :: Generic ItemType _
 
 instance encodeJsonItemType :: EncodeJson ItemType where
